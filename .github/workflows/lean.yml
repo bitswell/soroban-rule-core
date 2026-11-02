@@ -27,8 +27,9 @@ jobs:
             | sh -s -- -y --default-toolchain none
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
 
-      # The proofs must not rely on anything the kernel does not check.
-      # RuleCore/Axioms.lean separately pins each theorem's axioms.
+      # The proofs, and the generated translation in RuleCore/Extracted, must
+      # not rely on anything the kernel does not check. RuleCore/Axioms.lean
+      # separately pins each theorem's axioms.
       - name: Reject unchecked declarations
         run: |
           if find . -name '*.lean' -not -path './.lake/*' -print0 \
@@ -50,6 +51,12 @@ jobs:
             fi
           done < <(find RuleCore -name '*.lean' -not -path 'RuleCore/Axioms.lean' | sort)
           exit "$missing"
+
+      # Aeneas's Lean library depends on Mathlib: fetch Mathlib's prebuilt
+      # oleans instead of building it. Lake fetches Aeneas's own oleans from
+      # its release archive at the pinned commit (preferReleaseBuild).
+      - name: Fetch the Mathlib cache
+        run: lake exe cache get
 
       - name: lake build
         run: lake build

@@ -1,30 +1,42 @@
 # formal
 
-The Lean model of rule evaluation and its theorems. The Lake package is
-`rule-core` (MIT OR Apache-2.0); its one library is `RuleCore`, rooted at
-`RuleCore.lean`.
+The Lean model of rule evaluation, the Lean translation of `crates/rule-eval`,
+and the theorems relating them. The Lake package is `rule-core`
+(MIT OR Apache-2.0); its one library is `RuleCore`, rooted at `RuleCore.lean`.
 
 | Directory | Contents |
 | --- | --- |
 | `RuleCore/Model/` | The generic model: rules, rule sets, `narrower`, and the three attenuation steps, over any context type. |
 | `RuleCore/Vocab/` | The chain vocabulary (contexts, values, conditions, rules) and its denotation into the generic model. |
-| `RuleCore/Theorems/` | The theorems below, and kernel-checked examples of concrete verdicts. |
+| `RuleCore/Extracted/` | `RuleEval.lean`, the translation of `crates/rule-eval` that Charon and Aeneas generate. Never edited by hand. |
+| `RuleCore/Equiv/` | Denotations from the translated types to the chain vocabulary, and theorems that the translated functions compute the model's results. |
+| `RuleCore/Theorems/` | The theorems below, including the model's theorems carried over to the translation (`Extracted.lean`), and kernel-checked examples of concrete verdicts. |
 | `RuleCore/Axioms.lean` | The axioms each theorem depends on, pinned under `#guard_msgs`. |
 
 ## Building
 
 ```sh
 cd formal
+lake exe cache get   # Mathlib's prebuilt oleans
 lake build
 ```
 
 `lean-toolchain` pins `leanprover/lean4:v4.35.0`, the Lean release of Aeneas
 commit `ab34bd28458a08c150b7cbf1873e59af74588138`'s Lean backend. elan installs
-it on the first `lake` call. The package has no Lake dependencies.
+it on the first `lake` call.
+
+The package has one Lake dependency, Aeneas's Lean library
+(`backends/lean` of Aeneas at that same commit), which the translation is
+written against: its `Result` monad, its `loop` combinator and its models of the
+Rust library items the evaluator calls. It brings Mathlib and Mathlib's own
+dependencies; `lake-manifest.json` pins all of them. `lake exe cache get`
+fetches Mathlib's prebuilt oleans, and Lake fetches Aeneas's from its release
+archive.
 
 CI (`.github/workflows/lean.yml`) rejects `sorry`, `admit`, `partial`,
 `unsafe`, `native_decide`, `implemented_by`, `extern` and `axiom` anywhere in
-the Lean sources, checks that `RuleCore.lean` imports every module, and runs
+the Lean sources, the generated translation included, checks that
+`RuleCore.lean` imports every module, fetches the Mathlib cache, and runs
 `lake build`.
 
 ## The generic model
@@ -107,6 +119,68 @@ and every condition is false on a creation. `allows`, `allowsAll` and
 at position `i.toNat`: `removeFunctions i fs` denotes
 `restrictScope i.toNat (notCalling fs)`.
 
+## The extracted evaluator
+
+`tools/extract.sh` regenerates `RuleCore/Extracted/RuleEval.lean`: Charon
+translates `crates/rule-eval` to LLBC (`--preset=aeneas --error-on-warnings`)
+and Aeneas translates the LLBC to Lean (`-backend lean -warnings-as-errors`).
+Both tools come from the repository's flake, which pins Aeneas
+`ab34bd28458a08c150b7cbf1873e59af74588138`, the Charon commit it fixes
+(`7b462d9159db2ed3015162352183906a30bfafc6`) and the Rust nightly Charon reads
+MIR with (`nightly-2026-09-17`). The script needs Nix with flakes; without
+Nix it runs in the `nixos/nix` image (see the script's header). CI
+(`.github/workflows/extraction.yml`) runs `tools/extract.sh --check`, which
+regenerates the file and fails if it differs from the committed one.
+
+Aeneas puts the items of each module of the crate in a namespace named after
+the module: `rule_eval.rule.Rule`, `rule_eval.rule_set.allows`,
+`rule_eval.attenuate.drop_rule`. Each `while` loop becomes a `loop` over a body
+that returns `cont` to go round again or `done` to exit. `loop` is a
+`partial_fixpoint`, so it may diverge, and every function returns a `Result`
+that may fail. A theorem that a translated function returns `ok v` therefore
+says it terminates, does not fail, and returns `v`.
+
+## Equivalence
+
+`RuleCore/Equiv/Denote.lean` maps the translated types to the chain
+vocabulary. The denotations are part of the specification. Each is structural:
+a byte string (`Vec<u8>`, a structure over `List Std.U8`) is the `Bytes` of the
+same bytes; an `i128` is its bit vector, a `u64` and a `u32` the `UInt64` and
+`UInt32` with the same bit vector; `Val`, `Context` and `Cond` map each
+constructor to the constructor of the same name; `Rule` maps each field to the
+field of the same name; a slice or vector of rules is the list of its rules'
+denotations (`denoteRules`); `AttenuationError::NoSuchRule` is
+`AttenuationError.noSuchRule`, and a Rust `Result` of an attenuation step is
+the `Except` with the denoted payload (`denoteOutcome`). Every denotation is
+injective (`denoteVal_injective`, `denoteContext_injective`,
+`denoteCond_injective`, `denoteRule_injective`, `denoteRules_injective`,
+`denoteOutcome_injective`).
+
+On every input, the translated functions return `ok` of the model's result on
+the denotations:
+
+* `allows_eq`: `allows rules c = ok ((denoteRules rules).allows (denoteContext c))`.
+* `allows_all_eq`: `allows_all rules cs = ok ((denoteRules rules).allowsAll (cs.map denoteContext))`.
+* `drop_rule_eq`, `remove_functions_eq`: the step returns `ok res` with
+  `denoteOutcome res` the model's `dropRule` or `removeFunctions` of the
+  denotations, `noSuchRule` included.
+* `add_cond_eq`: the same for `addCond`, under the stated rule `CondRoom`.
+
+### The rule `add_cond` needs
+
+Aeneas's model of `Vec::push` fails once the vector holds `Usize.max`
+elements. Every push in the evaluator but one appends to a vector holding at
+most one element per position of a slice already walked, so it cannot reach
+that bound. The exception is `add_cond`, which appends to the condition
+vector of the rule at `index`. `add_cond_eq` therefore takes
+`CondRoom rules index`: the rule at `index`, when there is one, holds fewer
+than `Usize.max` conditions. `add_cond_full` shows the rule is exact: on a rule
+already holding `Usize.max` conditions, the translated `add_cond` fails with
+`maximumSizeExceeded`. In Rust a `Vec<Cond>` never reaches that length: a
+`Vec` holds at most `isize::MAX` bytes. The theorems about the translation do
+not depend on `CondRoom`: an `add_cond` that returned `Ok` had room
+(`add_cond_room`).
+
 ## Theorems
 
 Generic model (`RuleCore`):
@@ -157,8 +231,50 @@ Chain vocabulary (`RuleCore.Chain`):
 | `RuleSet.dropRule_eq_error_iff`, `RuleSet.addCond_eq_error_iff`, `RuleSet.removeFunctions_eq_error_iff`, `RuleSet.modifyRule_eq_error_iff` | A chain operation is refused with `noSuchRule` exactly when its index is not below the number of rules. |
 | `RuleSet.rules_denote` | The rules of a chain rule set's denotation are the denotations of its rules. |
 
+Equivalence (`RuleCore.Equiv`), on every input of the translated functions:
+
+| Theorem | Statement |
+| --- | --- |
+| `allows_eq` | `allows rules c` returns `ok` of the chain `RuleSet.allows` on the denotations: it terminates, does not fail, and agrees with the model. |
+| `allows_all_eq` | `allows_all rules cs` returns `ok` of the chain `RuleSet.allowsAll` on the denotations. |
+| `rule_allows_eq`, `conds_hold_eq`, `cond_holds_eq`, `val_eq_eq` | `rule_allows`, `conds_hold`, `cond_holds` and `val_eq` return `ok` of the model's `Rule.allows`, all of the conditions, `Cond.holds` and value equality on the denotations. |
+| `bytes_eq_eq`, `bytes_in_eq` | `bytes_eq a b` returns `ok` of whether `a` and `b` hold the same bytes; `bytes_in x list` returns `ok` of whether some element of `list` does. |
+| `drop_rule_eq`, `remove_functions_eq` | The step returns `ok res`, and `denoteOutcome res` is the chain `RuleSet.dropRule` or `RuleSet.removeFunctions` on the denotations, `noSuchRule` included. |
+| `add_cond_eq` | Under `CondRoom rules index`, `add_cond` returns `ok res`, and `denoteOutcome res` is the chain `RuleSet.addCond` on the denotations. |
+| `add_cond_full` | On a rule holding `Usize.max` conditions, `add_cond` fails with `maximumSizeExceeded`. |
+| `drop_rule_ok`, `drop_rule_err`, `remove_functions_ok`, `remove_functions_err`, `add_cond_ok`, `add_cond_err` | The rules each step returns when the index is in range, and `Err NoSuchRule` when it is not. |
+| `bytes_copy_eq`, `bytes_copy_deref`, `bytes_list_copy_deref`, `val_copy_eq`, `cond_copy_eq`, `conds_copy_deref`, `rule_copy_eq` | Each copy returns `ok` of its input. |
+| `bytes_list_without_eq`, `rule_without_functions_eq` | Removing functions keeps, in order, the byte strings not in the removed list; the rule it builds denotes the chain `Rule.removeFunctions`. |
+| `denoteVal_injective`, `denoteContext_injective`, `denoteCond_injective`, `denoteRule_injective`, `denoteRules_injective`, `denoteOutcome_injective`, `denoteBytes_injective`, `denoteU32_injective`, `denoteU64_injective`, `denoteError_injective` | Each denotation is injective. |
+| `loop_any`, `loop_all`, `loop_build`, `loop_build_fail` | What a scanning or building loop returns, from what one round of its body returns. |
+| `push_eq`, `push_full`, `incr_eq`, `index_usize_eq`, `slice_get_eq` | `Vec::push` succeeds below `Usize.max` elements and fails at it; the loop counter's increment and in-range indexing succeed; `get` is the list lookup. |
+
+The model's theorems carried over to the translation
+(`RuleCore.Extracted`), stated on the translated functions alone. `Narrower
+rs' rs` says every context the translated `allows` accepts under `rs'`, it
+accepts under `rs`; `Step rs rs'` says one of the translated `drop_rule`,
+`add_cond` and `remove_functions` on `rs` returned `Ok` of the rules of `rs'`;
+`Derives root rs` is zero or more steps.
+
+| Theorem | Statement |
+| --- | --- |
+| `drop_rule_narrower`, `add_cond_narrower`, `remove_functions_narrower`, `Step.narrower` | Each translated attenuation step that returns `Ok` yields a narrower rule set. |
+| `Narrower.refl`, `Narrower.trans` | `Narrower` is reflexive and transitive. |
+| `Derives.narrower` | Any chain of translated steps stays inside its root. |
+| `allows_all_of_narrower`, `Derives.allows_all` | A narrower rule set accepts a batch only if its ancestor does. |
+| `narrower_of_denote` | The model's `narrower` on the denotations gives `Narrower`. |
+| `add_cond_room` | An `add_cond` that returned `Ok` had room for the condition. |
+| `allows_create`, `allows_all_create` | No rule set allows a contract creation; a batch containing one is denied. |
+| `val_eq_iff` | `val_eq a b` returns `ok true` exactly when `a = b`. |
+| `val_eq_kind`, `val_eq_other_bytes` | `val_eq` holds only for values of the same constructor; an `Other` value never equals a `Bytes` value, whatever the bytes. |
+| `cond_holds_argEq_iff`, `cond_holds_argEq_kind`, `cond_holds_argEq_false_of_kind_ne` | `ArgEq index v` holds exactly when argument `index` exists and is `v`, so only for an argument of `v`'s constructor. |
+| `bytes_eq_iff` | Two byte strings compare equal exactly when they hold the same bytes. |
+| `rule_allows_call` | A rule allows a call only if the call's contract is the rule's contract and its function is in the rule's function list. |
+| `rule_allows_extension_false`, `rule_allows_prefix_false` | A call to a proper extension or a proper prefix of the rule's contract id is denied. |
+
 The empty batch is allowed by every rule set (`RuleCore.RuleSet.allowsAll_nil`;
-chain `allowsAll` is the generic one on the denotation). A
+chain `allowsAll` is the generic one on the denotation, and the translated
+`allows_all` is the chain one, by `allows_all_eq`). A
 Soroban authorization tree always has a root context, so a batch collected from
 one is never empty; a caller that builds batches some other way must reject the
 empty batch itself.
@@ -178,4 +294,7 @@ package, generated ones included, against the permitted axioms `propext`,
 
 The chain theorems depend on `Classical.choice` through Lean core's proof that
 `BEq` on `List UInt8` is lawful, which the decision procedure for list
-membership (`function ∈ r.functions`) uses.
+membership (`function ∈ r.functions`) uses. The translated definitions depend
+on `Classical.choice` through Aeneas's library (`#print axioms
+rule_eval.rule_set.allows` lists it), so the theorems about them do too. No
+theorem depends on an axiom Aeneas's library declares.

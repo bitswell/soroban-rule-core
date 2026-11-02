@@ -45,7 +45,11 @@
 //!   from rules go through `get`; the counter step `i += 1` runs under
 //!   `i < s.len()`, so it cannot overflow;
 //! - indices are `u32` widened with `as usize`, lossless on every target with
-//!   at least 32-bit pointers (asserted at compile time below).
+//!   at least 32-bit pointers (asserted at compile time below);
+//! - no parameter or local variable is named after a module of the crate
+//!   (`attenuate`, `bytes`, `context`, `rule`, `rule_set`, `val`): the
+//!   translation puts each module's items in a Lean namespace of that name,
+//!   which a binding of the same name would shadow.
 //!
 //! The only panic left is allocation failure in `Vec::push`, which the
 //! attenuation steps call to build their result; [`allows`] and

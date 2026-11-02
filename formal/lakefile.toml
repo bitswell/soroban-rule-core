@@ -5,6 +5,17 @@ defaultTargets = ["RuleCore"]
 [leanOptions]
 autoImplicit = false
 
+# Aeneas's Lean library: its `Result` monad, loop combinator and models of the
+# Rust library items that `RuleCore/Extracted/RuleEval.lean` is written
+# against. The rev is the Aeneas commit `flake.nix` pins, so the generated code
+# and the library come from the same Aeneas. It depends on Mathlib, whose
+# prebuilt oleans `lake exe cache get` fetches.
+[[require]]
+name = "aeneas"
+git = "https://github.com/AeneasVerif/aeneas.git"
+rev = "ab34bd28458a08c150b7cbf1873e59af74588138"
+subDir = "backends/lean"
+
 # `RuleCore` imports every module of the package; `RuleCore.Axioms` imports
 # `RuleCore` and checks the axioms of every theorem in it.
 [[lean_lib]]

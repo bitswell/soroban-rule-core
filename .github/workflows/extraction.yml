@@ -1,0 +1,33 @@
+name: Extraction
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  extraction:
+    name: Extraction matches crates/rule-eval
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # tools/extract.sh takes Charon and Aeneas from this repository's flake;
+      # hacl.cachix.org (Aeneas's binary cache, named in flake.nix) serves the
+      # prebuilt tools.
+      - name: Install Nix
+        uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
+        with:
+          extra_nix_config: |
+            extra-substituters = https://hacl.cachix.org
+            extra-trusted-public-keys = hacl.cachix.org-1:FzsZ2xsByOwKwIWNPII7yMOelJNDZ12mDAj3d1eGX0c=
+
+      # Re-runs Charon and Aeneas (-warnings-as-errors) on crates/rule-eval
+      # and fails if formal/RuleCore/Extracted/RuleEval.lean differs from the
+      # result.
+      - name: Re-run Charon and Aeneas and compare
+        run: tools/extract.sh --check
