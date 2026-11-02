@@ -1,0 +1,12 @@
+name = "rule-core"
+license = "MIT OR Apache-2.0"
+defaultTargets = ["RuleCore"]
+
+[leanOptions]
+autoImplicit = false
+
+# `RuleCore` imports every module of the package; `RuleCore.Axioms` imports
+# `RuleCore` and checks the axioms of every theorem in it.
+[[lean_lib]]
+name = "RuleCore"
+roots = ["RuleCore", "RuleCore.Axioms"]

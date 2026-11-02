@@ -4,6 +4,7 @@ Verified rule evaluator for Soroban authorization: a restricted-Rust evaluator, 
 ## Layout
 
 - `crates/rule-eval/`: the rule-set evaluator and its attenuation steps; `no_std`, no dependencies.
+- `formal/`: the Lean model of rule sets, the chain vocabulary the evaluator implements, and their theorems; see [`formal/README.md`](formal/README.md).
 - `flake.nix`: pins Aeneas, Charon, the Rust toolchain they use, and Lean.
 
 ## License
