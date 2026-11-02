@@ -1,0 +1,74 @@
+name: Rust
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pinned:
+    name: Test, lint and build (pinned nightly)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # rust-toolchain.toml names the nightly Charon reads MIR with, plus
+      # clippy, rustfmt and the wasm32v1-none standard library.
+      - name: Install the pinned toolchain
+        run: |
+          rustup toolchain install
+          rustc --version
+          cargo --version
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+
+      - name: cargo fmt
+        run: cargo fmt --all --check
+
+      - name: cargo test
+        run: cargo test --workspace --locked
+
+      - name: cargo clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Build native (release)
+        run: cargo build -p rule-eval --release --locked
+
+      - name: Build wasm32v1-none (release)
+        run: cargo build -p rule-eval --release --target wasm32v1-none --locked
+
+      - name: Build wasm32v1-none (contract profile)
+        run: cargo build -p rule-eval --profile contract --target wasm32v1-none --locked
+
+  stable:
+    name: Test and build (stable)
+    runs-on: ubuntu-latest
+    env:
+      STABLE: "1.99.0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install stable
+        run: |
+          rustup toolchain install "$STABLE" --profile minimal --target wasm32v1-none
+          rustc "+$STABLE" --version
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          key: stable
+
+      - name: cargo test
+        run: cargo "+$STABLE" test --workspace --locked
+
+      - name: Build native (release)
+        run: cargo "+$STABLE" build -p rule-eval --release --locked
+
+      - name: Build wasm32v1-none (release)
+        run: cargo "+$STABLE" build -p rule-eval --release --target wasm32v1-none --locked
+
+      - name: Build wasm32v1-none (contract profile)
+        run: cargo "+$STABLE" build -p rule-eval --profile contract --target wasm32v1-none --locked

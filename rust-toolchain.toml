@@ -1,0 +1,9 @@
+# The nightly Charon's rust-toolchain file names at the Charon commit Aeneas
+# pins (flake.nix), so the evaluator is tested and linted with the compiler
+# whose MIR the extraction reads. The crate also builds on stable; CI checks
+# that for native and wasm32v1-none.
+[toolchain]
+channel = "nightly-2026-09-17"
+components = ["clippy", "rustfmt"]
+targets = ["wasm32v1-none"]
+profile = "minimal"
