@@ -60,3 +60,12 @@ jobs:
 
       - name: lake build
         run: lake build
+
+      # claims.yml checks claims.yaml against the axioms record; this checks
+      # each theorem it cites against the package just built.
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.6"
+
+      - name: Every claimed theorem is a theorem of the package
+        run: uv run --script ../tools/check-claims --theorems lean --skip-tests

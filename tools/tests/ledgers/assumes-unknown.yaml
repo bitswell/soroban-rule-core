@@ -1,0 +1,8 @@
+# expect: assumes `kernel`, which is not a claim
+claims:
+  - id: c
+    claim: x
+    status: proven
+    assumes: [kernel]
+    evidence:
+      - theorem: Fixture.narrower_trans

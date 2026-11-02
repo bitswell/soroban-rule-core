@@ -1,0 +1,7 @@
+# expect: job `check` has no step named `Test`
+claims:
+  - id: c
+    claim: x
+    status: tested
+    evidence:
+      - ci: {workflow: .github/workflows/gate.yml, job: check, step: Test}

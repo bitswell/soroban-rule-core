@@ -1,0 +1,7 @@
+# expect: step `Build` does not run `lake test`
+claims:
+  - id: c
+    claim: x
+    status: tested
+    evidence:
+      - ci: {workflow: .github/workflows/gate.yml, job: check, step: Build, runs: lake test}

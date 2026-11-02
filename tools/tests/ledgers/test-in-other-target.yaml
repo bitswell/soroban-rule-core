@@ -1,0 +1,7 @@
+# expect: test `rule-eval/attenuate::no_rule_allows_a_creation` does not exist
+claims:
+  - id: c
+    claim: x
+    status: tested
+    evidence:
+      - test: rule-eval/attenuate::no_rule_allows_a_creation

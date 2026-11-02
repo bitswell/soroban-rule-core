@@ -1,0 +1,16 @@
+name: Gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build
+        run: lake build
+      - name: Maybe
+        if: github.event_name == 'push'
+        run: lake build

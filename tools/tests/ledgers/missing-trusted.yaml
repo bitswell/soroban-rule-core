@@ -1,0 +1,7 @@
+# expect: TRUSTED.md has no heading `The kernel`
+claims:
+  - id: c
+    claim: x
+    status: assumed
+    evidence:
+      - trusted: The kernel

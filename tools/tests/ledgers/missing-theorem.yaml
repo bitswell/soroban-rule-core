@@ -1,0 +1,7 @@
+# expect: theorem `Fixture.no_such_theorem` is not an exported theorem
+claims:
+  - id: c
+    claim: x
+    status: proven
+    evidence:
+      - theorem: Fixture.no_such_theorem

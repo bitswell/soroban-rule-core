@@ -1,0 +1,7 @@
+# expect: a proven claim must cite theorem evidence
+claims:
+  - id: c
+    claim: x
+    status: proven
+    evidence:
+      - file: TRUSTED.md

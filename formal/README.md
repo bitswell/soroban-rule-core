@@ -36,8 +36,9 @@ archive.
 CI (`.github/workflows/lean.yml`) rejects `sorry`, `admit`, `partial`,
 `unsafe`, `native_decide`, `implemented_by`, `extern` and `axiom` anywhere in
 the Lean sources, the generated translation included, checks that
-`RuleCore.lean` imports every module, fetches the Mathlib cache, and runs
-`lake build`.
+`RuleCore.lean` imports every module, fetches the Mathlib cache, runs
+`lake build`, and then checks that every theorem `claims.yaml` cites is a
+theorem of the built package (`tools/check-claims --theorems lean`).
 
 ## The generic model
 
