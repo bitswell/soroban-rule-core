@@ -1,0 +1,39 @@
+name: Claims
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# tools/check-claims checks claims.yaml: every claim cites the evidence its
+# status needs, and every cited theorem, test, CI step, file and TRUSTED.md
+# heading exists. Theorems are checked here against the axioms record in
+# formal/RuleCore/Axioms.lean, which lean.yml's build pins; lean.yml also
+# checks them against the built package.
+jobs:
+  claims:
+    name: Claim ledger
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.6"
+
+      - name: Self-tests of the checker
+        run: uv run --script tools/tests/check_claims_test.py
+
+      # The checker lists the workspace's tests with the toolchain that
+      # rust-toolchain.toml pins.
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+
+      - name: Check claims.yaml
+        run: uv run --script tools/check-claims

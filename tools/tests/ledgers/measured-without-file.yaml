@@ -1,0 +1,6 @@
+# expect: a measured claim must cite file evidence
+claims:
+  - id: c
+    claim: x
+    status: measured
+    evidence: []

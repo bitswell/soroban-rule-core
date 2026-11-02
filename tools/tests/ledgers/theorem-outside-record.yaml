@@ -1,0 +1,7 @@
+# expect: theorem `Fixture.only_in_a_comment` is not an exported theorem
+claims:
+  - id: c
+    claim: x
+    status: proven
+    evidence:
+      - theorem: Fixture.only_in_a_comment

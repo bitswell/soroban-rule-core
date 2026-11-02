@@ -1,0 +1,6 @@
+# expect: an unproven claim must cite file or trusted evidence
+claims:
+  - id: c
+    claim: x
+    status: unproven
+    evidence: []

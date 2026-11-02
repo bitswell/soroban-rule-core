@@ -1,0 +1,8 @@
+# expect: a proven claim cannot cite test evidence
+claims:
+  - id: c
+    claim: x
+    status: proven
+    evidence:
+      - theorem: Fixture.narrower_trans
+      - test: rule-eval/evaluate::no_rule_allows_a_creation

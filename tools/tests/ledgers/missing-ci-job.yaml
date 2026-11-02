@@ -1,0 +1,7 @@
+# expect: has no job `lint`
+claims:
+  - id: c
+    claim: x
+    status: tested
+    evidence:
+      - ci: {workflow: .github/workflows/gate.yml, job: lint, step: Build}

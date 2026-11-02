@@ -1,0 +1,8 @@
+# expect: file `results/run.txt` does not contain '1 failure'
+claims:
+  - id: c
+    claim: x
+    status: measured
+    evidence:
+      - file: results/run.txt
+        contains: 1 failure

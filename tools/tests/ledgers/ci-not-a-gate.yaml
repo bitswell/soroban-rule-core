@@ -1,0 +1,7 @@
+# expect: manual.yml does not run on every pull request and push
+claims:
+  - id: c
+    claim: x
+    status: tested
+    evidence:
+      - ci: {workflow: .github/workflows/manual.yml, job: check, step: Build}

@@ -1,0 +1,7 @@
+# expect: file `results/missing.txt` does not exist
+claims:
+  - id: c
+    claim: x
+    status: measured
+    evidence:
+      - file: results/missing.txt

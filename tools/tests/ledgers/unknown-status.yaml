@@ -1,0 +1,7 @@
+# expect: `status` must be one of
+claims:
+  - id: c
+    claim: x
+    status: likely
+    evidence:
+      - theorem: Fixture.narrower_trans

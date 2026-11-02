@@ -1,0 +1,8 @@
+# expect: unknown key `proof`
+claims:
+  - id: c
+    claim: x
+    status: proven
+    proof: by inspection
+    evidence:
+      - theorem: Fixture.narrower_trans

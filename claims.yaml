@@ -1,0 +1,694 @@
+# The claims this repository makes, each with its status and its evidence.
+#
+# Status:
+#   proven    a Lean theorem, checked by the kernel; evidence: theorem
+#   tested    a test or a CI check run on every change; evidence: test or ci
+#   measured  an observed result recorded in a file; evidence: file
+#   assumed   trusted, not checked here; evidence: trusted (a TRUSTED.md heading)
+#   unproven  stated, with no proof or test; evidence: where it is stated
+#
+# Evidence:
+#   theorem: NAME              an exported theorem of the Lean package formal/
+#   test: PKG/TARGET::PATH     a Rust test: workspace package, test target, test
+#   ci: {workflow, job, step, runs}
+#                              a step of a workflow that runs on every pull
+#                              request and every push to main
+#   file: PATH [contains: TEXT]
+#   trusted: HEADING           a heading of TRUSTED.md
+#
+# `assumes` lists the assumed claims a claim rests on.
+#
+# tools/check-claims checks that every cited piece of evidence exists and that
+# each claim cites the evidence its status needs; .github/workflows/claims.yml
+# runs it.
+
+claims:
+  # The generic model (formal/RuleCore/Model, theorems in RuleCore).
+
+  - id: model.semantics
+    claim: >-
+      A rule allows a context exactly when its scope matches and every one of
+      its conditions holds; a rule set allows a context exactly when some rule
+      does; a batch is allowed exactly when every context in it is.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Rule.allows_iff
+      - theorem: RuleCore.RuleSet.allows_iff
+      - theorem: RuleCore.RuleSet.allowsAll_iff
+
+  - id: model.narrower-preorder
+    claim: Narrower is reflexive and transitive.
+    status: proven
+    evidence:
+      - theorem: RuleCore.RuleSet.narrower_refl
+      - theorem: RuleCore.RuleSet.narrower_trans
+
+  - id: model.steps-narrow
+    claim: >-
+      Each attenuation step (drop a rule, add a condition to a rule, restrict a
+      rule's scope) yields a rule set narrower than the one it started from.
+    status: proven
+    evidence:
+      - theorem: RuleCore.RuleSet.dropRule_narrower
+      - theorem: RuleCore.RuleSet.addCond_narrower
+      - theorem: RuleCore.RuleSet.restrictScope_narrower
+      - theorem: RuleCore.RuleSet.attenuate_narrower
+      - theorem: RuleCore.RuleSet.modifyRule_narrower
+      - theorem: RuleCore.Rule.allows_of_allows_addCond
+      - theorem: RuleCore.Rule.allows_of_allows_restrictScope
+
+  - id: model.chains-stay-inside-root
+    claim: >-
+      Every rule set reached from a root by any chain of attenuation steps is
+      narrower than the root.
+    status: proven
+    evidence:
+      - theorem: RuleCore.RuleSet.Derives.narrower
+      - theorem: RuleCore.RuleSet.attenuateAll_derives
+      - theorem: RuleCore.RuleSet.attenuateAll_narrower
+
+  - id: model.batch-of-narrower
+    claim: A narrower rule set accepts a batch only if its ancestor does.
+    status: proven
+    evidence:
+      - theorem: RuleCore.RuleSet.allowsAll_of_narrower
+
+  - id: model.step-refusal
+    claim: >-
+      An attenuation step is refused with noSuchRule exactly when its rule
+      position is not below the number of rules.
+    status: proven
+    evidence:
+      - theorem: RuleCore.RuleSet.dropRule_eq_error_iff
+      - theorem: RuleCore.RuleSet.addCond_eq_error_iff
+      - theorem: RuleCore.RuleSet.restrictScope_eq_error_iff
+      - theorem: RuleCore.RuleSet.modifyRule_eq_error_iff
+
+  - id: model.empty-batch
+    claim: Every rule set, the empty one included, allows the empty batch.
+    status: proven
+    evidence:
+      - theorem: RuleCore.RuleSet.allowsAll_nil
+
+  # The chain vocabulary (formal/RuleCore/Vocab, theorems in RuleCore.Chain).
+
+  - id: chain.conds-read-their-call
+    claim: >-
+      A chain rule allows a call exactly when the call's contract is the
+      rule's contract, its function is in the rule's function list, and every
+      condition of the rule holds on that call's own arguments.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Chain.Rule.allows_call_iff
+      - theorem: RuleCore.Chain.Rule.allows_iff
+      - theorem: RuleCore.Chain.RuleSet.allows_iff
+      - theorem: RuleCore.Chain.RuleSet.allowsAll_iff
+
+  - id: chain.conditions
+    claim: >-
+      argEq index v holds exactly when argument index exists and equals v;
+      argI128AtMost index n holds exactly when argument index exists, is an
+      i128 and is at most n as a signed integer; a missing argument makes
+      either condition false.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Chain.Cond.argEq_holds_iff
+      - theorem: RuleCore.Chain.Cond.argI128AtMost_holds_iff
+      - theorem: RuleCore.Chain.Cond.holds_false_of_length_le
+
+  - id: chain.steps-narrow
+    claim: >-
+      Each chain attenuation step (dropRule, addCond, removeFunctions) yields
+      a narrower rule set, and each denotes the generic step of the same kind.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Chain.RuleSet.dropRule_narrower
+      - theorem: RuleCore.Chain.RuleSet.addCond_narrower
+      - theorem: RuleCore.Chain.RuleSet.removeFunctions_narrower
+      - theorem: RuleCore.Chain.RuleSet.attenuate_narrower
+      - theorem: RuleCore.Chain.RuleSet.denote_dropRule
+      - theorem: RuleCore.Chain.RuleSet.denote_addCond
+      - theorem: RuleCore.Chain.RuleSet.denote_removeFunctions
+      - theorem: RuleCore.Chain.RuleSet.denote_attenuate
+      - theorem: RuleCore.Chain.RuleSet.denote_modifyRule
+      - theorem: RuleCore.Chain.Rule.denote_addCond
+      - theorem: RuleCore.Chain.Rule.denote_removeFunctions
+      - theorem: RuleCore.Chain.Rule.mem_removeFunctions
+      - theorem: RuleCore.Chain.RuleSet.rules_denote
+
+  - id: chain.narrower-preorder
+    claim: Chain narrower is reflexive and transitive.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Chain.RuleSet.narrower_refl
+      - theorem: RuleCore.Chain.RuleSet.narrower_trans
+
+  - id: chain.chains-stay-inside-root
+    claim: >-
+      Every chain rule set reached from a root by any chain of attenuation
+      steps is narrower than the root.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Chain.RuleSet.Derives.narrower
+      - theorem: RuleCore.Chain.RuleSet.attenuateAll_derives
+      - theorem: RuleCore.Chain.RuleSet.attenuateAll_narrower
+
+  - id: chain.batch-of-narrower
+    claim: A narrower chain rule set accepts a batch only if its ancestor does.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Chain.RuleSet.allowsAll_of_narrower
+
+  - id: chain.step-refusal
+    claim: >-
+      A chain attenuation step is refused with noSuchRule exactly when its
+      UInt32 index is not below the number of rules.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Chain.RuleSet.dropRule_eq_error_iff
+      - theorem: RuleCore.Chain.RuleSet.addCond_eq_error_iff
+      - theorem: RuleCore.Chain.RuleSet.removeFunctions_eq_error_iff
+      - theorem: RuleCore.Chain.RuleSet.modifyRule_eq_error_iff
+
+  - id: chain.no-creation
+    claim: >-
+      No chain rule allows a contract creation, so no chain rule set does, and
+      a batch containing a creation is denied.
+    status: proven
+    assumes: [rule.no-creation-vocabulary]
+    evidence:
+      - theorem: RuleCore.Chain.Rule.allows_create
+      - theorem: RuleCore.Chain.RuleSet.allows_create
+      - theorem: RuleCore.Chain.RuleSet.allowsAll_false_of_create_mem
+
+  - id: chain.argeq-same-constructor
+    claim: >-
+      argEq holds only for an argument of the same constructor as its value;
+      values of different constructors are never equal, and an other value
+      never equals a bytes value whatever its bytes.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Chain.Cond.argEq_kind
+      - theorem: RuleCore.Chain.Cond.argEq_false_of_kind_ne
+      - theorem: RuleCore.Chain.Cond.argEq_bytes_false_of_other
+      - theorem: RuleCore.Chain.Val.ne_of_kind_ne
+
+  - id: chain.bytes-exact
+    claim: >-
+      Byte strings compare exactly (equal length and equal bytes): a rule
+      allows a call only to its own contract id, and never to a proper prefix
+      or a proper extension of it.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Bytes.eq_iff
+      - theorem: RuleCore.Bytes.append_ne_self
+      - theorem: RuleCore.Chain.Rule.contract_eq_of_allows
+      - theorem: RuleCore.Chain.Rule.allows_prefix_false
+      - theorem: RuleCore.Chain.Rule.allows_extension_false
+
+  - id: chain.empty-function-list
+    claim: A rule with an empty function list allows nothing.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Chain.Rule.allows_false_of_functions_nil
+
+  - id: chain.examples
+    claim: >-
+      Ten concrete verdicts of the chain vocabulary are checked by the kernel
+      on every build: a capped transfer at, over and below its cap, with an
+      amount of another constructor and with no amount; a prefix of the
+      contract id; a batch holding a creation; an argument index of
+      2^32 - 1; a rule with its only function removed; an out-of-range rule
+      index.
+    status: tested
+    evidence:
+      - ci: {workflow: .github/workflows/lean.yml, job: lean, step: lake build, runs: lake build}
+      - file: formal/RuleCore/Theorems/Examples.lean
+
+  # The translation of crates/rule-eval (formal/RuleCore/Extracted) and its
+  # equivalence to the chain vocabulary (formal/RuleCore/Equiv).
+
+  - id: equiv.evaluation
+    claim: >-
+      On every input, the translated allows and allows_all return ok of the
+      chain model's allows and allowsAll on the denotations; since ok excludes
+      divergence and failure, they terminate and never panic. The same holds
+      for rule_allows, conds_hold, cond_holds, val_eq, bytes_eq and bytes_in.
+    status: proven
+    assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel, trusted.denotations]
+    evidence:
+      - theorem: RuleCore.Equiv.allows_eq
+      - theorem: RuleCore.Equiv.allows_all_eq
+      - theorem: RuleCore.Equiv.rule_allows_eq
+      - theorem: RuleCore.Equiv.conds_hold_eq
+      - theorem: RuleCore.Equiv.cond_holds_eq
+      - theorem: RuleCore.Equiv.val_eq_eq
+      - theorem: RuleCore.Equiv.bytes_eq_eq
+      - theorem: RuleCore.Equiv.bytes_in_eq
+
+  - id: equiv.attenuation
+    claim: >-
+      On every input, the translated drop_rule and remove_functions return ok
+      of a result that denotes the chain model's step on the denotations,
+      noSuchRule included; add_cond does the same whenever the rule at its
+      index has room for one more condition (CondRoom), and fails when it does
+      not, so CondRoom is exact.
+    status: proven
+    assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel, trusted.denotations, rule.cond-room]
+    evidence:
+      - theorem: RuleCore.Equiv.drop_rule_eq
+      - theorem: RuleCore.Equiv.remove_functions_eq
+      - theorem: RuleCore.Equiv.add_cond_eq
+      - theorem: RuleCore.Equiv.add_cond_full
+      - theorem: RuleCore.Equiv.drop_rule_ok
+      - theorem: RuleCore.Equiv.drop_rule_err
+      - theorem: RuleCore.Equiv.remove_functions_ok
+      - theorem: RuleCore.Equiv.remove_functions_err
+      - theorem: RuleCore.Equiv.add_cond_ok
+      - theorem: RuleCore.Equiv.add_cond_err
+      - theorem: RuleCore.Equiv.bytes_list_without_eq
+      - theorem: RuleCore.Equiv.rule_without_functions_eq
+
+  - id: equiv.copies
+    claim: Every translated copy (bytes, byte lists, values, conditions, rules) returns ok of its input.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Equiv.bytes_copy_eq
+      - theorem: RuleCore.Equiv.bytes_copy_deref
+      - theorem: RuleCore.Equiv.bytes_list_copy_deref
+      - theorem: RuleCore.Equiv.val_copy_eq
+      - theorem: RuleCore.Equiv.cond_copy_eq
+      - theorem: RuleCore.Equiv.conds_copy_deref
+      - theorem: RuleCore.Equiv.rule_copy_eq
+
+  - id: equiv.denotations-injective
+    claim: Every denotation from the translated types to the chain vocabulary is injective.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Equiv.denoteBytes_injective
+      - theorem: RuleCore.Equiv.denoteU32_injective
+      - theorem: RuleCore.Equiv.denoteU64_injective
+      - theorem: RuleCore.Equiv.denoteVal_injective
+      - theorem: RuleCore.Equiv.denoteContext_injective
+      - theorem: RuleCore.Equiv.denoteCond_injective
+      - theorem: RuleCore.Equiv.denoteRule_injective
+      - theorem: RuleCore.Equiv.denoteRules_injective
+      - theorem: RuleCore.Equiv.denoteError_injective
+      - theorem: RuleCore.Equiv.denoteOutcome_injective
+
+  - id: equiv.loops
+    claim: >-
+      What each of the three loop shapes returns follows from one round of its
+      body; Vec::push succeeds below Usize.max elements and fails at it; the
+      loop counter's increment and in-range indexing succeed; get is the list
+      lookup.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Equiv.loop_any
+      - theorem: RuleCore.Equiv.loop_all
+      - theorem: RuleCore.Equiv.loop_build
+      - theorem: RuleCore.Equiv.loop_build_fail
+      - theorem: RuleCore.Equiv.push_eq
+      - theorem: RuleCore.Equiv.push_full
+      - theorem: RuleCore.Equiv.incr_eq
+      - theorem: RuleCore.Equiv.index_usize_eq
+      - theorem: RuleCore.Equiv.slice_get_eq
+
+  # The model's theorems carried over to the translation, stated on the
+  # translated functions alone (formal/RuleCore/Theorems/Extracted.lean).
+
+  - id: extracted.steps-narrow
+    claim: >-
+      Each translated attenuation step that returns Ok yields a narrower rule
+      set; an add_cond that returned Ok had room for its condition.
+    status: proven
+    assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel]
+    evidence:
+      - theorem: RuleCore.Extracted.drop_rule_narrower
+      - theorem: RuleCore.Extracted.add_cond_narrower
+      - theorem: RuleCore.Extracted.remove_functions_narrower
+      - theorem: RuleCore.Extracted.Step.narrower
+      - theorem: RuleCore.Extracted.add_cond_room
+
+  - id: extracted.chains-stay-inside-root
+    claim: >-
+      Narrower on the translation is reflexive and transitive, and any chain
+      of translated steps stays inside its root.
+    status: proven
+    assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel]
+    evidence:
+      - theorem: RuleCore.Extracted.Narrower.refl
+      - theorem: RuleCore.Extracted.Narrower.trans
+      - theorem: RuleCore.Extracted.Derives.narrower
+
+  - id: extracted.batch-of-narrower
+    claim: >-
+      A narrower rule set's translated allows_all accepts a batch only if its
+      ancestor's does, for one step or a chain of steps.
+    status: proven
+    assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel]
+    evidence:
+      - theorem: RuleCore.Extracted.allows_all_of_narrower
+      - theorem: RuleCore.Extracted.Derives.allows_all
+
+  - id: extracted.narrower-of-denote
+    claim: The model's narrower on the denotations gives narrower on the translation.
+    status: proven
+    assumes: [trusted.denotations]
+    evidence:
+      - theorem: RuleCore.Extracted.narrower_of_denote
+
+  - id: extracted.no-creation
+    claim: >-
+      The translated allows denies every contract creation, and allows_all
+      denies every batch containing one.
+    status: proven
+    assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel]
+    evidence:
+      - theorem: RuleCore.Extracted.allows_create
+      - theorem: RuleCore.Extracted.allows_all_create
+
+  - id: extracted.argeq-same-constructor
+    claim: >-
+      The translated val_eq returns true exactly on equal values, so only on
+      values of one constructor, and an Other value never equals a Bytes
+      value; ArgEq index v holds exactly when argument index exists and is v.
+    status: proven
+    assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel]
+    evidence:
+      - theorem: RuleCore.Extracted.val_eq_iff
+      - theorem: RuleCore.Extracted.val_eq_kind
+      - theorem: RuleCore.Extracted.val_eq_other_bytes
+      - theorem: RuleCore.Extracted.cond_holds_argEq_iff
+      - theorem: RuleCore.Extracted.cond_holds_argEq_kind
+      - theorem: RuleCore.Extracted.cond_holds_argEq_false_of_kind_ne
+
+  - id: extracted.bytes-exact
+    claim: >-
+      The translated bytes_eq returns true exactly on equal byte strings; a
+      translated rule allows a call only to its own contract and listed
+      functions, and never to a proper prefix or extension of its contract id.
+    status: proven
+    assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel]
+    evidence:
+      - theorem: RuleCore.Extracted.bytes_eq_iff
+      - theorem: RuleCore.Extracted.rule_allows_call
+      - theorem: RuleCore.Extracted.rule_allows_prefix_false
+      - theorem: RuleCore.Extracted.rule_allows_extension_false
+
+  # Stated rules: what the theorems take as given about their callers.
+
+  - id: rule.cond-room
+    claim: >-
+      CondRoom: the rule add_cond extends holds fewer than Usize.max
+      conditions. A Rust Vec<Cond> never reaches that length.
+    status: assumed
+    evidence:
+      - trusted: CondRoom
+
+  - id: rule.empty-batch
+    claim: >-
+      Callers never hand the evaluator an empty batch as an authorization: a
+      batch collected from a Soroban authorization tree always holds its root
+      context, and a caller that builds batches another way rejects the empty
+      batch itself.
+    status: assumed
+    evidence:
+      - trusted: The empty batch
+
+  - id: rule.no-creation-vocabulary
+    claim: >-
+      Rule sets are chain-vocabulary rule sets, whose every scope is false on
+      a creation; the generic model, whose scopes are arbitrary predicates,
+      makes no no-creation claim.
+    status: assumed
+    evidence:
+      - trusted: No creation is a vocabulary property
+
+  # Trusted: what the proofs rest on and nothing here checks.
+
+  - id: trusted.rustc
+    claim: >-
+      rustc compiles crates/rule-eval to code that behaves as the MIR Charon
+      reads from the pinned nightly, for the native and wasm32v1-none targets
+      and on the stable release CI also builds with.
+    status: assumed
+    evidence:
+      - trusted: rustc
+
+  - id: trusted.charon
+    claim: Charon translates the crate's MIR to LLBC faithfully.
+    status: assumed
+    evidence:
+      - trusted: Charon
+
+  - id: trusted.aeneas
+    claim: Aeneas translates the LLBC to Lean faithfully.
+    status: assumed
+    evidence:
+      - trusted: Aeneas
+
+  - id: trusted.aeneas-result-loop
+    claim: >-
+      Aeneas's Result monad and loop combinator model Rust's panics and loops:
+      fail is a panic, div is divergence.
+    status: assumed
+    evidence:
+      - trusted: Result and loop
+
+  - id: trusted.aeneas-library-items
+    claim: >-
+      Aeneas's Lean models of the Rust library items the evaluator calls match
+      those items' behaviour.
+    status: assumed
+    evidence:
+      - trusted: Rust library items the evaluator calls
+
+  - id: trusted.lean-kernel
+    claim: Lean's kernel checks proofs correctly.
+    status: assumed
+    evidence:
+      - trusted: Lean's kernel
+
+  - id: trusted.denotations
+    claim: >-
+      The denotation functions from the translated types to the chain
+      vocabulary say what the Rust types mean; they are part of the
+      specification.
+    status: assumed
+    evidence:
+      - trusted: The denotation functions
+
+  # Tests of crates/rule-eval.
+
+  - id: tested.evaluation
+    claim: >-
+      Over small universes (9 values covering every constructor, 335
+      contexts, every rule set of up to two rules), allows agrees with an
+      ordinary-Rust reading of the semantics, allows_all is the conjunction of
+      allows, and no rule set allows a creation; unit tests cover every
+      constructor, both conditions, missing and out-of-range indices and exact
+      byte comparison.
+    status: tested
+    evidence:
+      - test: rule-eval/evaluate::allows_agrees_with_the_reference_reading
+      - test: rule-eval/evaluate::allows_all_is_the_conjunction_of_allows
+      - test: rule-eval/evaluate::allows_all_on_empty_batches_and_empty_rule_sets
+      - test: rule-eval/evaluate::no_rule_allows_a_creation
+      - test: rule-eval/evaluate::a_cap_reads_only_the_call_its_rule_matches
+      - test: rule-eval/evaluate::a_rule_matches_its_contract_and_functions_exactly
+      - test: rule-eval/evaluate::a_rule_needs_every_condition
+      - test: rule-eval/evaluate::a_rule_set_allows_when_some_rule_does
+      - test: rule-eval/evaluate::a_rule_without_functions_allows_nothing
+      - test: rule-eval/evaluate::arg_eq_needs_the_argument_and_the_same_value
+      - test: rule-eval/evaluate::arg_eq_on_every_constructor
+      - test: rule-eval/evaluate::arg_i128_at_most_needs_an_i128_within_the_bound
+      - test: rule-eval/evaluate::bytes_compare_exactly
+      - test: rule-eval/evaluate::bytes_in_needs_an_exact_member
+      - test: rule-eval/evaluate::every_constructor_equals_itself_and_compares_its_payload
+      - test: rule-eval/evaluate::out_of_range_condition_indices_are_false
+      - test: rule-eval/evaluate::values_equal_only_with_the_same_constructor
+
+  - id: tested.attenuation
+    claim: >-
+      Every attenuation step builds the expected rule set and only narrows,
+      on every rule set of up to two rules; every chain of two steps stays
+      inside its root; out-of-range indices are refused.
+    status: tested
+    evidence:
+      - test: rule-eval/attenuate::every_step_builds_its_result_and_only_narrows
+      - test: rule-eval/attenuate::every_two_step_chain_stays_inside_its_root
+      - test: rule-eval/attenuate::out_of_range_indices_are_refused
+      - test: rule-eval/attenuate::drop_rule_removes_exactly_that_rule
+      - test: rule-eval/attenuate::add_cond_appends_to_that_rule_only
+      - test: rule-eval/attenuate::adding_a_cap_denies_what_it_excludes
+      - test: rule-eval/attenuate::remove_functions_removes_from_that_rule_only
+      - test: rule-eval/attenuate::remove_functions_matches_names_exactly_and_removes_duplicates
+
+  # Conformance vectors (conformance/).
+
+  - id: conformance.from-model
+    claim: >-
+      The committed vectors in conformance/vectors are exactly what the Lean
+      model computes: regenerating them into an empty directory gives no
+      difference.
+    status: tested
+    evidence:
+      - ci: {workflow: .github/workflows/conformance.yml, job: regenerate, step: Regenerate the vectors and compare, runs: diff -r conformance/vectors}
+      - file: conformance/vectors
+
+  - id: conformance.rule-eval-agrees
+    claim: >-
+      rule-eval returns every verdict and attenuation result of every vector;
+      the vectors cover every value constructor, condition, step kind and
+      outcome; a vector with a changed expectation is reported.
+    status: tested
+    evidence:
+      - test: rule-eval-conformance/vectors::rule_eval_agrees_with_every_vector
+      - test: rule-eval-conformance/vectors::vectors_cover_every_kind
+      - test: rule-eval-conformance/vectors::a_wrong_expectation_is_reported
+      - test: rule-eval-conformance/vectors::hex_is_lowercase_and_even
+      - ci: {workflow: .github/workflows/rust.yml, job: pinned, step: cargo test, runs: cargo test --workspace}
+      - ci: {workflow: .github/workflows/rust.yml, job: stable, step: cargo test, runs: test --workspace}
+
+  - id: conformance.encoding
+    claim: >-
+      The generator's JSON encoding of the model's values and the runner's
+      decoding into rule-eval's types are faithful.
+    status: unproven
+    evidence:
+      - trusted: The conformance encoding
+
+  # The restricted subset and the build.
+
+  - id: build.no-std-no-unsafe
+    claim: rule-eval is no_std, forbids unsafe code and has no dependencies.
+    status: tested
+    evidence:
+      - file: crates/rule-eval/src/lib.rs
+        contains: "#![no_std]"
+      - file: crates/rule-eval/src/lib.rs
+        contains: "#![forbid(unsafe_code)]"
+      - file: crates/rule-eval/Cargo.toml
+        contains: "[dependencies]\n"
+      - ci: {workflow: .github/workflows/rust.yml, job: pinned, step: Build wasm32v1-none (release), runs: --target wasm32v1-none}
+
+  - id: build.overflow-checks
+    claim: Arithmetic overflow traps in the release and contract profiles.
+    status: tested
+    evidence:
+      - file: Cargo.toml
+        contains: "[profile.release]\noverflow-checks = true"
+      - file: Cargo.toml
+        contains: "[profile.contract]\ninherits = \"release\"\nopt-level = \"z\"\noverflow-checks = true"
+      - ci: {workflow: .github/workflows/rust.yml, job: pinned, step: Build native (release), runs: --release}
+      - ci: {workflow: .github/workflows/rust.yml, job: pinned, step: Build wasm32v1-none (contract profile), runs: --profile contract}
+
+  - id: build.targets
+    claim: >-
+      rule-eval builds for native and for wasm32v1-none, in release and in the
+      contract profile, on the pinned nightly and on stable.
+    status: tested
+    evidence:
+      - ci: {workflow: .github/workflows/rust.yml, job: pinned, step: Build native (release), runs: cargo build -p rule-eval --release}
+      - ci: {workflow: .github/workflows/rust.yml, job: pinned, step: Build wasm32v1-none (release), runs: --release --target wasm32v1-none}
+      - ci: {workflow: .github/workflows/rust.yml, job: pinned, step: Build wasm32v1-none (contract profile), runs: --profile contract --target wasm32v1-none}
+      - ci: {workflow: .github/workflows/rust.yml, job: stable, step: Build native (release), runs: build -p rule-eval --release}
+      - ci: {workflow: .github/workflows/rust.yml, job: stable, step: Build wasm32v1-none (release), runs: --release --target wasm32v1-none}
+      - ci: {workflow: .github/workflows/rust.yml, job: stable, step: Build wasm32v1-none (contract profile), runs: --profile contract --target wasm32v1-none}
+
+  - id: build.lint
+    claim: The workspace passes clippy with every warning denied, and rustfmt.
+    status: tested
+    evidence:
+      - ci: {workflow: .github/workflows/rust.yml, job: pinned, step: cargo clippy, runs: --all-targets --locked -- -D warnings}
+      - ci: {workflow: .github/workflows/rust.yml, job: pinned, step: cargo fmt, runs: cargo fmt --all --check}
+
+  - id: build.pins-agree
+    claim: >-
+      One Aeneas commit fixes the toolchain: the Charon input equals Aeneas's
+      charon-pin, rust-toolchain.toml's channel equals Charon's, and the Lean
+      release equals Aeneas's Lean backend's and formal/lean-toolchain;
+      evaluating the flake fails otherwise, and the extraction evaluates it.
+    status: tested
+    evidence:
+      - file: flake.nix
+        contains: "assert pinsAgree;"
+      - file: formal/lakefile.toml
+        contains: rev = "ab34bd28458a08c150b7cbf1873e59af74588138"
+      - ci: {workflow: .github/workflows/extraction.yml, job: extraction, step: Re-run Charon and Aeneas and compare, runs: tools/extract.sh --check}
+      - ci: {workflow: .github/workflows/conformance.yml, job: regenerate, step: The generator uses the Lean release of formal/, runs: cmp formal/lean-toolchain conformance/generator/lean-toolchain}
+
+  # CI gates on the Lean package and the extraction.
+
+  - id: gate.lean-build
+    claim: >-
+      lake build builds every module of the package, every theorem included:
+      RuleCore.lean imports every module, and the build fails otherwise.
+    status: tested
+    evidence:
+      - ci: {workflow: .github/workflows/lean.yml, job: lean, step: Every module is imported by RuleCore.lean}
+      - ci: {workflow: .github/workflows/lean.yml, job: lean, step: lake build, runs: lake build}
+
+  - id: gate.forbidden-keywords
+    claim: >-
+      No Lean source of the package, the translation included, nor of the
+      vector generator contains sorry, admit, partial, unsafe, native_decide,
+      implemented_by, extern or axiom as a word.
+    status: tested
+    evidence:
+      - ci: {workflow: .github/workflows/lean.yml, job: lean, step: Reject unchecked declarations, runs: "grep -nwE 'sorry|admit|partial|unsafe|native_decide|implemented_by|extern|axiom'"}
+      - ci: {workflow: .github/workflows/conformance.yml, job: regenerate, step: Reject unchecked declarations, runs: "grep -nwE 'sorry|admit|partial|unsafe|native_decide|implemented_by|extern|axiom'"}
+
+  - id: gate.axioms
+    claim: >-
+      Every theorem of the package depends on at most propext, Quot.sound and
+      Classical.choice, and Axioms.lean records the axioms of every exported
+      theorem under #guard_msgs, so a new theorem or a change in any theorem's
+      axioms fails the build until the record is updated.
+    status: tested
+    evidence:
+      - file: formal/RuleCore/Axioms.lean
+        contains: "def permitted : List Name := [``propext, ``Quot.sound, ``Classical.choice]"
+      - file: formal/RuleCore/Axioms.lean
+        contains: "#guard_msgs in\n#print_package_axioms"
+      - file: formal/lakefile.toml
+        contains: roots = ["RuleCore", "RuleCore.Axioms"]
+      - ci: {workflow: .github/workflows/lean.yml, job: lean, step: lake build, runs: lake build}
+
+  - id: gate.extraction
+    claim: >-
+      formal/RuleCore/Extracted/RuleEval.lean is what Charon
+      (--error-on-warnings) and Aeneas (-warnings-as-errors) generate from
+      crates/rule-eval at the pinned versions; CI regenerates it and fails on
+      any difference.
+    status: tested
+    evidence:
+      - file: tools/extract.sh
+        contains: "--preset=aeneas --error-on-warnings"
+      - file: tools/extract.sh
+        contains: "aeneas -backend lean -warnings-as-errors -abort-on-error"
+      - ci: {workflow: .github/workflows/extraction.yml, job: extraction, step: Re-run Charon and Aeneas and compare, runs: tools/extract.sh --check}
+
+  - id: gate.claims
+    claim: >-
+      Every claim in this ledger cites the evidence its status needs, and all
+      of it exists; every cited theorem is a theorem of the built package.
+    status: tested
+    evidence:
+      - ci: {workflow: .github/workflows/claims.yml, job: claims, step: Self-tests of the checker, runs: tools/tests/check_claims_test.py}
+      - ci: {workflow: .github/workflows/claims.yml, job: claims, step: Check claims.yaml, runs: tools/check-claims}
+      - ci: {workflow: .github/workflows/lean.yml, job: lean, step: Every claimed theorem is a theorem of the package, runs: tools/check-claims --theorems lean}
+
+  # Stated and not proven.
+
+  - id: unproven.narrower-converse
+    claim: >-
+      Narrower on the translation gives the model's narrower on the
+      denotations. Only the other direction is proven (narrower_of_denote):
+      model byte strings and argument lists longer than Usize.max have no Rust
+      counterpart.
+    status: unproven
+    evidence:
+      - file: README.md
+        contains: "narrower on the translation implies the model's narrower"

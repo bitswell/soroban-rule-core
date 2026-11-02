@@ -1,0 +1,153 @@
+# Trusted
+
+The theorems in `formal/` are checked by Lean's kernel. What they say about
+`crates/rule-eval` holds only as far as everything below holds. Nothing in
+this repository checks these items. `claims.yaml` lists each of them as an
+`assumed` claim, and every proven claim that rests on one names it under
+`assumes`.
+
+## rustc
+
+The theorems are about the MIR that Charon reads from rustc
+`nightly-2026-09-17` (`rust-toolchain.toml`). Deployed code is what rustc's
+back end produces from that MIR, for native targets and for `wasm32v1-none`.
+CI also builds the crate with stable 1.99.0. Two things are trusted here:
+the back end preserves the MIR's behaviour, and the stable compiler gives the
+crate the same meaning as the nightly. Nothing here checks the compiled
+binary or the WebAssembly against the Lean translation.
+
+`overflow-checks = true` in the `release` and `contract` profiles makes
+overflowing arithmetic trap, as Aeneas's model of it fails. The evaluator's
+only arithmetic is the loop counter's `i += 1`, under `i < s.len()`.
+
+## Charon
+
+Charon `7b462d9159db2ed3015162352183906a30bfafc6` (`charon cargo
+--preset=aeneas --error-on-warnings`) is trusted to translate the crate's MIR
+to LLBC faithfully. `flake.lock` pins this commit, and the flake checks that
+it equals Aeneas's `charon-pin`.
+
+## Aeneas
+
+Aeneas `ab34bd28458a08c150b7cbf1873e59af74588138` (`aeneas -backend lean
+-warnings-as-errors`) is trusted to translate the LLBC to Lean faithfully. Its
+output is `formal/RuleCore/Extracted/RuleEval.lean`, which CI regenerates and
+compares on every change. Aeneas names each module's namespace after the
+module, so in the crate no parameter or local variable carries a module's
+name.
+
+## Aeneas's Lean library
+
+The translation is written against `backends/lean` of the same Aeneas commit
+(`formal/lakefile.toml`). The proofs use the library's definitions and are
+checked by the kernel, so what is trusted is that those definitions model
+Rust. No theorem of the package depends on an axiom the library declares.
+`RuleCore/Axioms.lean` checks every theorem against `propext`, `Quot.sound`
+and `Classical.choice`.
+
+### Result and loop
+
+- `Result`: a translated function returns `ok v`, `fail e` (a panic) or `div`
+  (divergence). The equivalence theorems state `ok`, so they rule out both
+  panics and divergence. What is trusted is that every panic the Rust code
+  can reach is a `fail` in the model.
+- `loop`: each `while` loop becomes `loop` over a body that returns `cont` or
+  `done`. `loop` is defined by `partial_fixpoint`, so it may diverge. Its
+  meaning is trusted to be the Rust loop's. `partial_fixpoint` is a
+  kernel-checked construction, distinct from the `partial` keyword that CI
+  rejects.
+
+### Rust library items the evaluator calls
+
+The translation calls each item below, and the library's Lean definition of
+each is trusted to match the Rust item.
+
+| Rust | Lean (Aeneas library) | Model |
+| --- | --- | --- |
+| `u8`, `u32`, `u64`, `i128`, `usize` | `Std.U8`, `Std.U32`, `Std.U64`, `Std.I128`, `Std.Usize` | Bounded integers. `usize` has `System.Platform.numBits` bits, which Lean fixes only as 32 or 64. The proofs hold for both widths, so they cover `wasm32v1-none` and 64-bit native targets. |
+| `Result<T, E>` (`Ok`, `Err`) | `core.result.Result` | The two-constructor inductive. |
+| `&[T]` | `Slice` | A list of at most `Usize.max` elements. |
+| `Vec<T>` | `alloc.vec.Vec` | A list of at most `Usize.max` elements. |
+| `Vec::new` | `alloc.vec.Vec.new` | The empty vector. |
+| `Vec::push` | `alloc.vec.Vec.push` | Appends. Fails with `maximumSizeExceeded` when the vector already holds `Usize.max` elements. Allocation failure, which aborts in Rust, is outside the model. |
+| `Deref` of `Vec<T>` to `&[T]` | `alloc.vec.Vec.deref` | The same list. |
+| `<[T]>::len` | `Slice.len` | The list's length. |
+| `s[i]` on a slice (`Index<usize>`) | `Slice.index_usize` | Element `i`, or `fail` when `i` is out of range. |
+| `<[T]>::get(i)` | `core.slice.Slice.get` with `core.slice.index.SliceIndexUsizeSlice` | `some` element `i`, or `none` when `i` is out of range. |
+| `u32 as usize` | `UScalar.cast` | The same value. Lossless because `usize` has at least 32 bits. |
+| `i += 1` on `usize` | `+` on `Usize` | Checked addition: `fail` on overflow. |
+| `<`, `>=`, `==`, `!=` on `usize` | the order and equality of `Usize` | On the values. |
+| `!=` on `u8` | equality of `U8` | On the values. |
+| `==` on `u64` | equality of `U64` | On the values. |
+| `==` and `<=` on `i128` | equality and order of `I128` | On the values, as signed integers. |
+| `usize::BITS` | `core.num.Usize.BITS` | `System.Platform.numBits`, as a `U32`. |
+| `>=` on `u32` | the order of `U32` | On the values. |
+| `const _: () = assert!(usize::BITS >= 32)` | `massert` | `ok ()` when the condition holds, `fail` otherwise. |
+
+`==` on `bool` translates to Lean's own `Bool` equality, which needs no
+library model.
+
+## Lean's kernel
+
+Lean `v4.35.0` (`formal/lean-toolchain`, which the flake checks against
+Aeneas's Lean backend) is trusted to check proofs correctly. The theorems also
+trust the three axioms they may use: `propext`, `Quot.sound` and
+`Classical.choice`.
+
+## The denotation functions
+
+`formal/RuleCore/Equiv/Denote.lean` maps each translated type to the chain
+vocabulary of `formal/RuleCore/Vocab/Chain.lean`, and these maps are part of
+the specification. The equivalence theorems prove that the translated code
+computes the chain model's results on the denotations. That those results are
+what the Rust values mean rests on the denotations. Each denotation is
+structural:
+
+- a byte string is the same bytes;
+- an integer is its bit vector;
+- each enum constructor maps to the constructor of the same name;
+- each struct field maps to the field of the same name;
+- a slice or vector maps to the list of its elements' denotations.
+
+Each one is proven injective, so two Rust values that differ never have the
+same meaning.
+
+## Stated rules
+
+The theorems take these as given about their inputs or callers.
+
+### CondRoom
+
+`add_cond_eq`, the equivalence for `add_cond`, assumes `CondRoom rules index`:
+the rule at `index`, if there is one, holds fewer than `Usize.max` conditions.
+That is the bound in Aeneas's model of `Vec::push`. `add_cond_full` proves the
+bound exact: on a rule already holding `Usize.max` conditions, the translated
+`add_cond` fails. In Rust a `Vec<Cond>` holds at most `isize::MAX` bytes, so it
+never reaches that length. The theorems stated on the translation alone do not
+assume `CondRoom`, because an `add_cond` that returned `Ok` had room
+(`add_cond_room`).
+
+### The empty batch
+
+Every rule set, the empty one included, allows the empty batch
+(`RuleCore.RuleSet.allowsAll_nil`), because that is how `List.all` and
+`allows_all`'s loop behave. A Soroban authorization tree always has a root
+context, so a batch collected from one is never empty. A caller that builds
+batches some other way must reject the empty batch itself.
+
+### No creation is a vocabulary property
+
+No chain rule set allows a contract creation, because every chain scope is
+false on a creation (`RuleCore.Chain.RuleSet.allows_create`). The generic
+model makes no such claim: a generic scope is an arbitrary predicate. The
+no-creation guarantee therefore covers rule sets built in the chain vocabulary,
+which is the vocabulary `rule-eval` implements.
+
+## The conformance encoding
+
+The vectors in `conformance/vectors` are computed by the Lean model and
+written as JSON by the generator's own encoder
+(`conformance/generator/Conformance/Json.lean`). The Rust runner decodes them
+into `rule-eval`'s types (`conformance/runner/src/lib.rs`). Neither the
+encoding nor the decoding is verified. A mismatch in either one shows up as a
+failing vector, unless both get the same field wrong in the same way.

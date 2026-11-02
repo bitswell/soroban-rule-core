@@ -1,0 +1,37 @@
+# Every status, every kind of evidence, all present.
+claims:
+  - id: trans
+    claim: Narrower is transitive.
+    status: proven
+    evidence:
+      - theorem: Fixture.narrower_trans
+  - id: eq
+    claim: The translation computes the model's verdict.
+    status: proven
+    assumes: [compiler]
+    evidence:
+      - theorem: Fixture.allows_eq
+      - file: TRUSTED.md
+        contains: The compiler
+  - id: creation
+    claim: No rule allows a creation.
+    status: tested
+    evidence:
+      - test: rule-eval/evaluate::no_rule_allows_a_creation
+      - ci: {workflow: .github/workflows/gate.yml, job: check, step: Build, runs: lake build}
+  - id: vectors
+    claim: rule-eval agrees with every vector.
+    status: measured
+    evidence:
+      - file: results/run.txt
+        contains: 0 failures
+  - id: compiler
+    claim: The compiler is correct.
+    status: assumed
+    evidence:
+      - trusted: The compiler
+  - id: empty-batch
+    claim: Callers reject the empty batch.
+    status: unproven
+    evidence:
+      - trusted: The empty batch

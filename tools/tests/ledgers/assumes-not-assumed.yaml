@@ -1,0 +1,13 @@
+# expect: assumes `d`, which is proven, not assumed
+claims:
+  - id: c
+    claim: x
+    status: proven
+    assumes: [d]
+    evidence:
+      - theorem: Fixture.narrower_trans
+  - id: d
+    claim: y
+    status: proven
+    evidence:
+      - theorem: Fixture.allows_eq

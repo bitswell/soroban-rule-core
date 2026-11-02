@@ -1,0 +1,9 @@
+# expect: must name exactly one of
+# expect: a proven claim must cite theorem evidence
+claims:
+  - id: c
+    claim: x
+    status: proven
+    evidence:
+      - theorem: Fixture.narrower_trans
+        test: rule-eval/evaluate::no_rule_allows_a_creation

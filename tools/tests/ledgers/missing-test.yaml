@@ -1,0 +1,7 @@
+# expect: test `rule-eval/evaluate::no_such_test` does not exist
+claims:
+  - id: c
+    claim: x
+    status: tested
+    evidence:
+      - test: rule-eval/evaluate::no_such_test

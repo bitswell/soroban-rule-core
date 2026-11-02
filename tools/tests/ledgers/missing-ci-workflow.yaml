@@ -1,0 +1,7 @@
+# expect: cannot read workflow .github/workflows/none.yml
+claims:
+  - id: c
+    claim: x
+    status: tested
+    evidence:
+      - ci: {workflow: .github/workflows/none.yml, job: check, step: Build}

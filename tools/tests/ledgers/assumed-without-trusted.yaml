@@ -1,0 +1,7 @@
+# expect: an assumed claim must cite trusted evidence
+claims:
+  - id: c
+    claim: x
+    status: assumed
+    evidence:
+      - file: TRUSTED.md

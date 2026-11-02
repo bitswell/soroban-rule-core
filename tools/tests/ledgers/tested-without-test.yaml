@@ -1,0 +1,7 @@
+# expect: a tested claim must cite ci or test evidence
+claims:
+  - id: c
+    claim: x
+    status: tested
+    evidence:
+      - file: results/run.txt
