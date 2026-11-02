@@ -1,0 +1,139 @@
+{
+  "format": 1,
+  "name": "random-034",
+  "description": "Randomized case 34 of seed 20261102.",
+  "rules": [
+    {"contract": "6331", "functions": [""], "conds": []},
+    {
+      "contract": "6332",
+      "functions": ["67", "666f", "666f6f"],
+      "conds": [{"arg_i128_at_most": {"index": 0, "bound": "-1"}}]
+    },
+    {"contract": "6331", "functions": ["67"], "conds": []},
+    {"contract": "633130", "functions": ["67", "666f6f", "66"], "conds": []}
+  ],
+  "batch": [
+    {"create": {"wasm_hash": "62"}},
+    {
+      "call": {
+        "contract": "6331",
+        "function": "66",
+        "args": [{"symbol": "00ff"}, {"i128": "-1"}, {"bytes": ""}, {"i128": "-1"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "6332",
+        "function": "66",
+        "args": [{"i128": "-170141183460469231731687303715884105728"}]
+      }
+    }
+  ],
+  "expected": {"allows": [false, false, false], "allows_all": false},
+  "attenuations": [
+    {
+      "steps": [{"remove_functions": {"index": 0, "functions": ["67"]}}],
+      "expected": {
+        "ok": {
+          "rules": [
+            {"contract": "6331", "functions": [""], "conds": []},
+            {
+              "contract": "6332",
+              "functions": ["67", "666f", "666f6f"],
+              "conds": [{"arg_i128_at_most": {"index": 0, "bound": "-1"}}]
+            },
+            {"contract": "6331", "functions": ["67"], "conds": []},
+            {"contract": "633130", "functions": ["67", "666f6f", "66"], "conds": []}
+          ],
+          "allows": [false, false, false],
+          "allows_all": false
+        }
+      }
+    },
+    {
+      "steps": [
+        {
+          "add_cond": {
+            "index": 3,
+            "cond": {
+              "arg_i128_at_most": {"index": 1, "bound": "-170141183460469231731687303715884105727"}
+            }
+          }
+        }
+      ],
+      "expected": {
+        "ok": {
+          "rules": [
+            {"contract": "6331", "functions": [""], "conds": []},
+            {
+              "contract": "6332",
+              "functions": ["67", "666f", "666f6f"],
+              "conds": [{"arg_i128_at_most": {"index": 0, "bound": "-1"}}]
+            },
+            {"contract": "6331", "functions": ["67"], "conds": []},
+            {
+              "contract": "633130",
+              "functions": ["67", "666f6f", "66"],
+              "conds": [
+                {
+                  "arg_i128_at_most": {
+                    "index": 1,
+                    "bound": "-170141183460469231731687303715884105727"
+                  }
+                }
+              ]
+            }
+          ],
+          "allows": [false, false, false],
+          "allows_all": false
+        }
+      }
+    },
+    {
+      "steps": [
+        {"add_cond": {"index": 1, "cond": {"arg_eq": {"index": 0, "value": {"bool": false}}}}},
+        {
+          "add_cond": {
+            "index": 0,
+            "cond": {
+              "arg_i128_at_most": {
+                "index": 2147483648,
+                "bound": "-170141183460469231731687303715884105728"
+              }
+            }
+          }
+        }
+      ],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "6331",
+              "functions": [""],
+              "conds": [
+                {
+                  "arg_i128_at_most": {
+                    "index": 2147483648,
+                    "bound": "-170141183460469231731687303715884105728"
+                  }
+                }
+              ]
+            },
+            {
+              "contract": "6332",
+              "functions": ["67", "666f", "666f6f"],
+              "conds": [
+                {"arg_i128_at_most": {"index": 0, "bound": "-1"}},
+                {"arg_eq": {"index": 0, "value": {"bool": false}}}
+              ]
+            },
+            {"contract": "6331", "functions": ["67"], "conds": []},
+            {"contract": "633130", "functions": ["67", "666f6f", "66"], "conds": []}
+          ],
+          "allows": [false, false, false],
+          "allows_all": false
+        }
+      }
+    }
+  ]
+}

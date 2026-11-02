@@ -1,0 +1,78 @@
+{
+  "format": 1,
+  "name": "random-094",
+  "description": "Randomized case 94 of seed 20261102.",
+  "rules": [
+    {
+      "contract": "6332",
+      "functions": ["67", "666f"],
+      "conds": [{"arg_eq": {"index": 3, "value": {"u64": "18446744073709551615"}}}]
+    }
+  ],
+  "batch": [
+    {
+      "call": {
+        "contract": "6332",
+        "function": "666f",
+        "args": [{"i128": "-1"}, {"bool": false}, {"bool": true}, {"u64": "18446744073709551615"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "6332",
+        "function": "666f",
+        "args": [{"u64": "100"}, {"i128": "0"}, {"u64": "1"}, {"bytes": "616263"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "6332",
+        "function": "67",
+        "args": [{"other": "61"}, {"bool": false}, {"u64": "1"}, {"u64": "18446744073709551615"}]
+      }
+    },
+    {"call": {"contract": "6332", "function": "67", "args": []}}
+  ],
+  "expected": {"allows": [true, false, true, false], "allows_all": false},
+  "attenuations": [
+    {
+      "steps": [
+        {"remove_functions": {"index": 0, "functions": []}},
+        {"remove_functions": {"index": 0, "functions": ["666f"]}}
+      ],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "6332",
+              "functions": ["67"],
+              "conds": [{"arg_eq": {"index": 3, "value": {"u64": "18446744073709551615"}}}]
+            }
+          ],
+          "allows": [false, false, true, false],
+          "allows_all": false
+        }
+      }
+    },
+    {
+      "steps": [{"remove_functions": {"index": 0, "functions": ["666f", "666f6f"]}}],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "6332",
+              "functions": ["67"],
+              "conds": [{"arg_eq": {"index": 3, "value": {"u64": "18446744073709551615"}}}]
+            }
+          ],
+          "allows": [false, false, true, false],
+          "allows_all": false
+        }
+      }
+    },
+    {
+      "steps": [{"remove_functions": {"index": 1, "functions": ["666f"]}}],
+      "expected": {"error": "no_such_rule"}
+    }
+  ]
+}

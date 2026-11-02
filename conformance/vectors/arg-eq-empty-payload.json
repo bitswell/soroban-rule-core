@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "name": "arg-eq-empty-payload",
+  "description": "argEq on empty bytes holds only for empty bytes, not an empty address, symbol or other value.",
+  "rules": [
+    {
+      "contract": "746f6b656e",
+      "functions": ["7472616e73666572"],
+      "conds": [{"arg_eq": {"index": 0, "value": {"bytes": ""}}}]
+    }
+  ],
+  "batch": [
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": [{"bytes": ""}]}},
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": [{"address": ""}]}},
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": [{"symbol": ""}]}},
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": [{"other": ""}]}},
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": [{"bytes": "00"}]}}
+  ],
+  "expected": {"allows": [true, false, false, false, false], "allows_all": false},
+  "attenuations": []
+}

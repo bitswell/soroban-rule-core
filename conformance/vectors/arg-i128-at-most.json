@@ -1,0 +1,40 @@
+{
+  "format": 1,
+  "name": "arg-i128-at-most",
+  "description": "argI128AtMost 100: below, at and above the bound, negative values, the extremes, a u64, and a missing argument.",
+  "rules": [
+    {
+      "contract": "746f6b656e",
+      "functions": ["7472616e73666572"],
+      "conds": [{"arg_i128_at_most": {"index": 0, "bound": "100"}}]
+    }
+  ],
+  "batch": [
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": [{"i128": "99"}]}},
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": [{"i128": "100"}]}},
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": [{"i128": "101"}]}},
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": [{"i128": "-5"}]}},
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7472616e73666572",
+        "args": [{"i128": "-170141183460469231731687303715884105728"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7472616e73666572",
+        "args": [{"i128": "170141183460469231731687303715884105727"}]
+      }
+    },
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": [{"u64": "5"}]}},
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": [{"other": "35"}]}},
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": []}}
+  ],
+  "expected": {
+    "allows": [true, true, false, true, true, false, false, false, false],
+    "allows_all": false
+  },
+  "attenuations": []
+}

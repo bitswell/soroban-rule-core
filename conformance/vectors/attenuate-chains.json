@@ -1,0 +1,167 @@
+{
+  "format": 1,
+  "name": "attenuate-chains",
+  "description": "Lists of steps applied in order: the empty list, steps whose indices shift after a drop, and a list refused part-way through.",
+  "rules": [
+    {
+      "contract": "746f6b656e",
+      "functions": ["7472616e73666572", "617070726f7665", "6275726e", "7472616e73666572"],
+      "conds": [{"arg_i128_at_most": {"index": 2, "bound": "100"}}]
+    },
+    {"contract": "706f6f6c", "functions": ["6465706f736974"], "conds": []},
+    {
+      "contract": "646578",
+      "functions": ["73776170"],
+      "conds": [{"arg_eq": {"index": 0, "value": {"address": "616c696365"}}}]
+    }
+  ],
+  "batch": [
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7472616e73666572",
+        "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "50"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "617070726f7665",
+        "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "50"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "6275726e",
+        "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "50"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "706f6f6c",
+        "function": "6465706f736974",
+        "args": [{"address": "626f62"}]
+      }
+    },
+    {"call": {"contract": "646578", "function": "73776170", "args": [{"address": "616c696365"}]}},
+    {"call": {"contract": "646578", "function": "73776170", "args": [{"address": "626f62"}]}}
+  ],
+  "expected": {"allows": [true, true, true, true, true, false], "allows_all": false},
+  "attenuations": [
+    {
+      "steps": [],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "746f6b656e",
+              "functions": ["7472616e73666572", "617070726f7665", "6275726e", "7472616e73666572"],
+              "conds": [{"arg_i128_at_most": {"index": 2, "bound": "100"}}]
+            },
+            {"contract": "706f6f6c", "functions": ["6465706f736974"], "conds": []},
+            {
+              "contract": "646578",
+              "functions": ["73776170"],
+              "conds": [{"arg_eq": {"index": 0, "value": {"address": "616c696365"}}}]
+            }
+          ],
+          "allows": [true, true, true, true, true, false],
+          "allows_all": false
+        }
+      }
+    },
+    {
+      "steps": [
+        {
+          "add_cond": {
+            "index": 0,
+            "cond": {"arg_eq": {"index": 0, "value": {"address": "616c696365"}}}
+          }
+        },
+        {"remove_functions": {"index": 0, "functions": ["6275726e"]}},
+        {"drop_rule": {"index": 1}}
+      ],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "746f6b656e",
+              "functions": ["7472616e73666572", "617070726f7665", "7472616e73666572"],
+              "conds": [
+                {"arg_i128_at_most": {"index": 2, "bound": "100"}},
+                {"arg_eq": {"index": 0, "value": {"address": "616c696365"}}}
+              ]
+            },
+            {
+              "contract": "646578",
+              "functions": ["73776170"],
+              "conds": [{"arg_eq": {"index": 0, "value": {"address": "616c696365"}}}]
+            }
+          ],
+          "allows": [true, true, false, false, true, false],
+          "allows_all": false
+        }
+      }
+    },
+    {
+      "steps": [{"drop_rule": {"index": 0}}, {"drop_rule": {"index": 0}}],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "646578",
+              "functions": ["73776170"],
+              "conds": [{"arg_eq": {"index": 0, "value": {"address": "616c696365"}}}]
+            }
+          ],
+          "allows": [false, false, false, false, true, false],
+          "allows_all": false
+        }
+      }
+    },
+    {
+      "steps": [
+        {"drop_rule": {"index": 0}},
+        {"drop_rule": {"index": 0}},
+        {"drop_rule": {"index": 0}}
+      ],
+      "expected": {
+        "ok": {
+          "rules": [],
+          "allows": [false, false, false, false, false, false],
+          "allows_all": false
+        }
+      }
+    },
+    {
+      "steps": [
+        {"drop_rule": {"index": 0}},
+        {"drop_rule": {"index": 0}},
+        {"drop_rule": {"index": 0}},
+        {"drop_rule": {"index": 0}}
+      ],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [
+        {"drop_rule": {"index": 2}},
+        {
+          "add_cond": {
+            "index": 2,
+            "cond": {"arg_eq": {"index": 0, "value": {"address": "616c696365"}}}
+          }
+        }
+      ],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [
+        {"remove_functions": {"index": 0, "functions": ["7472616e73666572"]}},
+        {"drop_rule": {"index": 4294967295}},
+        {"drop_rule": {"index": 0}}
+      ],
+      "expected": {"error": "no_such_rule"}
+    }
+  ]
+}

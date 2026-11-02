@@ -1,0 +1,53 @@
+{
+  "format": 1,
+  "name": "conditions-belong-to-their-rule",
+  "description": "A cap on argument 2 of transfer does not read argument 2 of approve, and approve's condition does not constrain transfer.",
+  "rules": [
+    {
+      "contract": "746f6b656e",
+      "functions": ["7472616e73666572"],
+      "conds": [{"arg_i128_at_most": {"index": 2, "bound": "100"}}]
+    },
+    {
+      "contract": "746f6b656e",
+      "functions": ["617070726f7665"],
+      "conds": [{"arg_eq": {"index": 0, "value": {"address": "616c696365"}}}]
+    }
+  ],
+  "batch": [
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7472616e73666572",
+        "args": [{"address": "626f62"}, {"address": "626f62"}, {"i128": "100"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7472616e73666572",
+        "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "101"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "617070726f7665",
+        "args": [
+          {"address": "616c696365"},
+          {"address": "626f62"},
+          {"i128": "170141183460469231731687303715884105727"}
+        ]
+      }
+    },
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "617070726f7665",
+        "args": [{"address": "626f62"}, {"address": "626f62"}, {"i128": "0"}]
+      }
+    }
+  ],
+  "expected": {"allows": [true, false, true, false], "allows_all": false},
+  "attenuations": []
+}

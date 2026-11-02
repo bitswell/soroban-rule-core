@@ -1,0 +1,12 @@
+{
+  "format": 1,
+  "name": "empty-rule-set",
+  "description": "The empty rule set refuses every call.",
+  "rules": [],
+  "batch": [
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": []}},
+    {"call": {"contract": "", "function": "", "args": []}}
+  ],
+  "expected": {"allows": [false, false], "allows_all": false},
+  "attenuations": []
+}

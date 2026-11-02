@@ -1,0 +1,70 @@
+{
+  "format": 1,
+  "name": "random-036",
+  "description": "Randomized case 36 of seed 20261102.",
+  "rules": [
+    {
+      "contract": "633130",
+      "functions": ["67", "", "666f"],
+      "conds": [{"arg_i128_at_most": {"index": 3, "bound": "100"}}]
+    },
+    {"contract": "63", "functions": ["666f6f"], "conds": []},
+    {"contract": "63", "functions": ["", "66", ""], "conds": []}
+  ],
+  "batch": [
+    {
+      "call": {
+        "contract": "633130",
+        "function": "666f",
+        "args": [{"bool": false}, {"bytes": "00ff"}, {"other": "62"}, {"i128": "100"}]
+      }
+    },
+    {"call": {"contract": "", "function": "666f", "args": [{"u64": "0"}]}}
+  ],
+  "expected": {"allows": [true, false], "allows_all": false},
+  "attenuations": [
+    {
+      "steps": [
+        {
+          "add_cond": {
+            "index": 3,
+            "cond": {"arg_eq": {"index": 0, "value": {"u64": "18446744073709551615"}}}
+          }
+        },
+        {"drop_rule": {"index": 1}}
+      ],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [
+        {"add_cond": {"index": 1, "cond": {"arg_eq": {"index": 1, "value": {"symbol": "62"}}}}}
+      ],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "633130",
+              "functions": ["67", "", "666f"],
+              "conds": [{"arg_i128_at_most": {"index": 3, "bound": "100"}}]
+            },
+            {
+              "contract": "63",
+              "functions": ["666f6f"],
+              "conds": [{"arg_eq": {"index": 1, "value": {"symbol": "62"}}}]
+            },
+            {"contract": "63", "functions": ["", "66", ""], "conds": []}
+          ],
+          "allows": [true, false],
+          "allows_all": false
+        }
+      }
+    },
+    {
+      "steps": [
+        {"drop_rule": {"index": 3}},
+        {"add_cond": {"index": 1, "cond": {"arg_i128_at_most": {"index": 1, "bound": "7"}}}}
+      ],
+      "expected": {"error": "no_such_rule"}
+    }
+  ]
+}

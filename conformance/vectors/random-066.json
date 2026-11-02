@@ -1,0 +1,98 @@
+{
+  "format": 1,
+  "name": "random-066",
+  "description": "Randomized case 66 of seed 20261102.",
+  "rules": [
+    {"contract": "63", "functions": [], "conds": []},
+    {
+      "contract": "6332",
+      "functions": [""],
+      "conds": [{"arg_i128_at_most": {"index": 0, "bound": "7"}}]
+    }
+  ],
+  "batch": [
+    {"call": {"contract": "63", "function": "666f6f", "args": []}},
+    {
+      "call": {
+        "contract": "6332",
+        "function": "",
+        "args": [{"i128": "-170141183460469231731687303715884105727"}]
+      }
+    }
+  ],
+  "expected": {"allows": [false, true], "allows_all": false},
+  "attenuations": [
+    {
+      "steps": [
+        {
+          "add_cond": {
+            "index": 0,
+            "cond": {
+              "arg_i128_at_most": {"index": 1, "bound": "-170141183460469231731687303715884105727"}
+            }
+          }
+        },
+        {"add_cond": {"index": 0, "cond": {"arg_eq": {"index": 1, "value": {"u64": "7"}}}}}
+      ],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "63",
+              "functions": [],
+              "conds": [
+                {
+                  "arg_i128_at_most": {
+                    "index": 1,
+                    "bound": "-170141183460469231731687303715884105727"
+                  }
+                },
+                {"arg_eq": {"index": 1, "value": {"u64": "7"}}}
+              ]
+            },
+            {
+              "contract": "6332",
+              "functions": [""],
+              "conds": [{"arg_i128_at_most": {"index": 0, "bound": "7"}}]
+            }
+          ],
+          "allows": [false, true],
+          "allows_all": false
+        }
+      }
+    },
+    {
+      "steps": [{"drop_rule": {"index": 0}}],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "6332",
+              "functions": [""],
+              "conds": [{"arg_i128_at_most": {"index": 0, "bound": "7"}}]
+            }
+          ],
+          "allows": [false, true],
+          "allows_all": false
+        }
+      }
+    },
+    {
+      "steps": [{"remove_functions": {"index": 0, "functions": [""]}}],
+      "expected": {
+        "ok": {
+          "rules": [
+            {"contract": "63", "functions": [], "conds": []},
+            {
+              "contract": "6332",
+              "functions": [""],
+              "conds": [{"arg_i128_at_most": {"index": 0, "bound": "7"}}]
+            }
+          ],
+          "allows": [false, true],
+          "allows_all": false
+        }
+      }
+    }
+  ]
+}

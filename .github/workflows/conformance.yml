@@ -1,0 +1,54 @@
+name: Conformance
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# The Rust runner (conformance/runner) is a workspace member, so rust.yml's
+# `cargo test --workspace` checks rule-eval against the committed vectors. This
+# workflow checks that the committed vectors are what the Lean model computes.
+jobs:
+  regenerate:
+    name: Vectors match the Lean model
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # elan reads conformance/generator/lean-toolchain and installs that Lean
+      # release on the first `lake` call.
+      - name: Install elan
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/v4.2.4/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: The generator uses the Lean release of formal/
+        run: cmp formal/lean-toolchain conformance/generator/lean-toolchain
+
+      - name: Reject unchecked declarations
+        run: |
+          if find conformance/generator -name '*.lean' -not -path '*/.lake/*' -print0 \
+              | xargs -0 grep -nwE 'sorry|admit|partial|unsafe|native_decide|implemented_by|extern|axiom'; then
+            echo "::error::forbidden keyword in the generator's Lean sources"
+            exit 1
+          fi
+
+      - name: Build the generator
+        working-directory: conformance/generator
+        run: lake build
+
+      # A fresh directory, so a committed vector the generator no longer writes
+      # also shows up as a difference.
+      - name: Regenerate the vectors and compare
+        run: |
+          out="$RUNNER_TEMP/vectors"
+          (cd conformance/generator && lake exe gen-vectors "$out")
+          if ! diff -r conformance/vectors "$out"; then
+            echo "::error::conformance/vectors differs from the Lean model's output; run \`lake exe gen-vectors ../vectors\` in conformance/generator"
+            exit 1
+          fi

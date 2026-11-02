@@ -1,0 +1,53 @@
+{
+  "format": 1,
+  "name": "multi-rule-one-matches",
+  "description": "Three rules on different contracts and functions; each call is matched by at most one of them.",
+  "rules": [
+    {
+      "contract": "746f6b656e",
+      "functions": ["7472616e73666572"],
+      "conds": [{"arg_i128_at_most": {"index": 2, "bound": "100"}}]
+    },
+    {
+      "contract": "706f6f6c",
+      "functions": ["6465706f736974"],
+      "conds": [{"arg_eq": {"index": 0, "value": {"address": "616c696365"}}}]
+    },
+    {"contract": "646578", "functions": ["73776170", "71756f7465"], "conds": []}
+  ],
+  "batch": [
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7472616e73666572",
+        "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "50"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "706f6f6c",
+        "function": "6465706f736974",
+        "args": [{"address": "616c696365"}]
+      }
+    },
+    {"call": {"contract": "646578", "function": "71756f7465", "args": []}},
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "6465706f736974",
+        "args": [{"address": "616c696365"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "706f6f6c",
+        "function": "7472616e73666572",
+        "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "50"}]
+      }
+    },
+    {"call": {"contract": "646578", "function": "7472616e73666572", "args": []}},
+    {"call": {"contract": "6f74686572", "function": "73776170", "args": []}}
+  ],
+  "expected": {"allows": [true, true, true, false, false, false, false], "allows_all": false},
+  "attenuations": []
+}

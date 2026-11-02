@@ -1,0 +1,158 @@
+{
+  "format": 1,
+  "name": "random-098",
+  "description": "Randomized case 98 of seed 20261102.",
+  "rules": [
+    {
+      "contract": "63",
+      "functions": [],
+      "conds": [
+        {"arg_i128_at_most": {"index": 0, "bound": "-1"}},
+        {"arg_eq": {"index": 2, "value": {"bytes": "61"}}}
+      ]
+    },
+    {
+      "contract": "",
+      "functions": ["66"],
+      "conds": [
+        {"arg_i128_at_most": {"index": 2, "bound": "-170141183460469231731687303715884105727"}},
+        {"arg_eq": {"index": 2, "value": {"symbol": "00ff"}}}
+      ]
+    }
+  ],
+  "batch": [
+    {
+      "call": {
+        "contract": "",
+        "function": "67",
+        "args": [
+          {"bool": false},
+          {"i128": "170141183460469231731687303715884105727"},
+          {"symbol": "00ff"}
+        ]
+      }
+    },
+    {"create": {"wasm_hash": ""}},
+    {
+      "call": {
+        "contract": "",
+        "function": "66",
+        "args": [
+          {"bytes": ""},
+          {"address": ""},
+          {"i128": "-170141183460469231731687303715884105727"}
+        ]
+      }
+    },
+    {
+      "call": {
+        "contract": "63",
+        "function": "666f",
+        "args": [
+          {"i128": "-170141183460469231731687303715884105728"},
+          {"symbol": "6162"},
+          {"bytes": "61"}
+        ]
+      }
+    }
+  ],
+  "expected": {"allows": [false, false, false, false], "allows_all": false},
+  "attenuations": [
+    {
+      "steps": [{"remove_functions": {"index": 0, "functions": []}}],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "63",
+              "functions": [],
+              "conds": [
+                {"arg_i128_at_most": {"index": 0, "bound": "-1"}},
+                {"arg_eq": {"index": 2, "value": {"bytes": "61"}}}
+              ]
+            },
+            {
+              "contract": "",
+              "functions": ["66"],
+              "conds": [
+                {
+                  "arg_i128_at_most": {
+                    "index": 2,
+                    "bound": "-170141183460469231731687303715884105727"
+                  }
+                },
+                {"arg_eq": {"index": 2, "value": {"symbol": "00ff"}}}
+              ]
+            }
+          ],
+          "allows": [false, false, false, false],
+          "allows_all": false
+        }
+      }
+    },
+    {
+      "steps": [{"remove_functions": {"index": 1, "functions": ["67", "67"]}}],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "63",
+              "functions": [],
+              "conds": [
+                {"arg_i128_at_most": {"index": 0, "bound": "-1"}},
+                {"arg_eq": {"index": 2, "value": {"bytes": "61"}}}
+              ]
+            },
+            {
+              "contract": "",
+              "functions": ["66"],
+              "conds": [
+                {
+                  "arg_i128_at_most": {
+                    "index": 2,
+                    "bound": "-170141183460469231731687303715884105727"
+                  }
+                },
+                {"arg_eq": {"index": 2, "value": {"symbol": "00ff"}}}
+              ]
+            }
+          ],
+          "allows": [false, false, false, false],
+          "allows_all": false
+        }
+      }
+    },
+    {
+      "steps": [{"remove_functions": {"index": 1, "functions": ["", "66"]}}],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "63",
+              "functions": [],
+              "conds": [
+                {"arg_i128_at_most": {"index": 0, "bound": "-1"}},
+                {"arg_eq": {"index": 2, "value": {"bytes": "61"}}}
+              ]
+            },
+            {
+              "contract": "",
+              "functions": [],
+              "conds": [
+                {
+                  "arg_i128_at_most": {
+                    "index": 2,
+                    "bound": "-170141183460469231731687303715884105727"
+                  }
+                },
+                {"arg_eq": {"index": 2, "value": {"symbol": "00ff"}}}
+              ]
+            }
+          ],
+          "allows": [false, false, false, false],
+          "allows_all": false
+        }
+      }
+    }
+  ]
+}

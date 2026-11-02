@@ -1,0 +1,23 @@
+{
+  "format": 1,
+  "name": "random-069",
+  "description": "Randomized case 69 of seed 20261102.",
+  "rules": [],
+  "batch": [{"call": {"contract": "", "function": "", "args": []}}],
+  "expected": {"allows": [false], "allows_all": false},
+  "attenuations": [
+    {"steps": [{"drop_rule": {"index": 2147483648}}], "expected": {"error": "no_such_rule"}},
+    {"steps": [{"drop_rule": {"index": 0}}], "expected": {"error": "no_such_rule"}},
+    {
+      "steps": [
+        {
+          "add_cond": {
+            "index": 0,
+            "cond": {"arg_eq": {"index": 2, "value": {"u64": "18446744073709551615"}}}
+          }
+        }
+      ],
+      "expected": {"error": "no_such_rule"}
+    }
+  ]
+}

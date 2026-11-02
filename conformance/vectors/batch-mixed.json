@@ -1,0 +1,33 @@
+{
+  "format": 1,
+  "name": "batch-mixed",
+  "description": "A batch of allowed and refused calls is refused as a whole.",
+  "rules": [
+    {
+      "contract": "746f6b656e",
+      "functions": ["7472616e73666572"],
+      "conds": [{"arg_i128_at_most": {"index": 2, "bound": "100"}}]
+    },
+    {"contract": "646578", "functions": ["73776170"], "conds": []}
+  ],
+  "batch": [
+    {"call": {"contract": "646578", "function": "73776170", "args": []}},
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7472616e73666572",
+        "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "10"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7472616e73666572",
+        "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "1000"}]
+      }
+    },
+    {"call": {"contract": "646578", "function": "73776170", "args": [{"bool": true}]}}
+  ],
+  "expected": {"allows": [true, true, false, true], "allows_all": false},
+  "attenuations": []
+}

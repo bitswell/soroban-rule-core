@@ -1,0 +1,93 @@
+{
+  "format": 1,
+  "name": "random-080",
+  "description": "Randomized case 80 of seed 20261102.",
+  "rules": [
+    {
+      "contract": "6332",
+      "functions": ["666f", "67"],
+      "conds": [
+        {
+          "arg_eq": {
+            "index": 2147483648,
+            "value": {"i128": "170141183460469231731687303715884105727"}
+          }
+        },
+        {"arg_eq": {"index": 1, "value": {"other": "61"}}}
+      ]
+    }
+  ],
+  "batch": [
+    {"create": {"wasm_hash": "616263"}},
+    {"call": {"contract": "6332", "function": "666f", "args": []}}
+  ],
+  "expected": {"allows": [false, false], "allows_all": false},
+  "attenuations": [
+    {
+      "steps": [
+        {
+          "add_cond": {
+            "index": 0,
+            "cond": {"arg_eq": {"index": 2147483648, "value": {"address": "00ff"}}}
+          }
+        },
+        {"add_cond": {"index": 0, "cond": {"arg_eq": {"index": 1, "value": {"other": "616263"}}}}}
+      ],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "6332",
+              "functions": ["666f", "67"],
+              "conds": [
+                {
+                  "arg_eq": {
+                    "index": 2147483648,
+                    "value": {"i128": "170141183460469231731687303715884105727"}
+                  }
+                },
+                {"arg_eq": {"index": 1, "value": {"other": "61"}}},
+                {"arg_eq": {"index": 2147483648, "value": {"address": "00ff"}}},
+                {"arg_eq": {"index": 1, "value": {"other": "616263"}}}
+              ]
+            }
+          ],
+          "allows": [false, false],
+          "allows_all": false
+        }
+      }
+    },
+    {
+      "steps": [
+        {"add_cond": {"index": 1, "cond": {"arg_eq": {"index": 0, "value": {"u64": "7"}}}}},
+        {"remove_functions": {"index": 0, "functions": []}}
+      ],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [{"add_cond": {"index": 0, "cond": {"arg_eq": {"index": 0, "value": {"u64": "0"}}}}}],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "6332",
+              "functions": ["666f", "67"],
+              "conds": [
+                {
+                  "arg_eq": {
+                    "index": 2147483648,
+                    "value": {"i128": "170141183460469231731687303715884105727"}
+                  }
+                },
+                {"arg_eq": {"index": 1, "value": {"other": "61"}}},
+                {"arg_eq": {"index": 0, "value": {"u64": "0"}}}
+              ]
+            }
+          ],
+          "allows": [false, false],
+          "allows_all": false
+        }
+      }
+    }
+  ]
+}

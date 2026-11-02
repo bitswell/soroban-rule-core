@@ -1,0 +1,88 @@
+{
+  "format": 1,
+  "name": "random-050",
+  "description": "Randomized case 50 of seed 20261102.",
+  "rules": [
+    {
+      "contract": "",
+      "functions": ["666f"],
+      "conds": [{"arg_eq": {"index": 2, "value": {"symbol": "00ff"}}}]
+    }
+  ],
+  "batch": [
+    {
+      "call": {
+        "contract": "",
+        "function": "666f",
+        "args": [{"address": "00ff"}, {"other": "61"}, {"symbol": "00ff"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "",
+        "function": "666f",
+        "args": [{"symbol": "62"}, {"symbol": ""}, {"symbol": "00ff"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "",
+        "function": "666f",
+        "args": [
+          {"i128": "170141183460469231731687303715884105727"},
+          {"symbol": "00ff"},
+          {"symbol": "00ff"}
+        ]
+      }
+    },
+    {
+      "call": {
+        "contract": "",
+        "function": "666f",
+        "args": [{"bool": false}, {"other": "6162"}, {"symbol": "00ff"}]
+      }
+    },
+    {"create": {"wasm_hash": "616263"}}
+  ],
+  "expected": {"allows": [true, true, true, true, false], "allows_all": false},
+  "attenuations": [
+    {
+      "steps": [{"remove_functions": {"index": 0, "functions": []}}],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "",
+              "functions": ["666f"],
+              "conds": [{"arg_eq": {"index": 2, "value": {"symbol": "00ff"}}}]
+            }
+          ],
+          "allows": [true, true, true, true, false],
+          "allows_all": false
+        }
+      }
+    },
+    {
+      "steps": [
+        {"add_cond": {"index": 0, "cond": {"arg_i128_at_most": {"index": 1, "bound": "7"}}}}
+      ],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "",
+              "functions": ["666f"],
+              "conds": [
+                {"arg_eq": {"index": 2, "value": {"symbol": "00ff"}}},
+                {"arg_i128_at_most": {"index": 1, "bound": "7"}}
+              ]
+            }
+          ],
+          "allows": [false, false, false, false, false],
+          "allows_all": false
+        }
+      }
+    },
+    {"steps": [{"drop_rule": {"index": 2147483648}}], "expected": {"error": "no_such_rule"}}
+  ]
+}

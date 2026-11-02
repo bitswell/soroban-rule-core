@@ -1,0 +1,19 @@
+name = "rule-core-conformance"
+license = "MIT OR Apache-2.0"
+defaultTargets = ["gen-vectors"]
+
+[leanOptions]
+autoImplicit = false
+
+# The Lean model the vectors are computed with.
+[[require]]
+name = "rule-core"
+path = "../../formal"
+
+[[lean_lib]]
+name = "Conformance"
+
+# `lake exe gen-vectors <dir>` writes the conformance vectors into `<dir>`.
+[[lean_exe]]
+name = "gen-vectors"
+root = "Main"

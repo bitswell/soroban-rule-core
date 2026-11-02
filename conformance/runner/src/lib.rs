@@ -1,0 +1,418 @@
+//! Checks `rule-eval` against the conformance vectors.
+//!
+//! A vector (see `conformance/README.md`) holds a rule set, a batch of
+//! contexts, attenuation step lists, and the results the Lean model computes
+//! for them. [`check`] decodes a vector into `rule-eval`'s types, evaluates it
+//! with `rule-eval`, and reports the first result that differs.
+
+use std::fs;
+use std::path::{Path, PathBuf};
+
+use rule_eval::{
+    AttenuationError, Cond, Context, Rule, Val, add_cond, allows, allows_all, drop_rule,
+    remove_functions, val_eq,
+};
+use serde::Deserialize;
+
+/// The vector format version this runner reads.
+pub const FORMAT: u32 = 1;
+
+/// One vector file.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Vector {
+    pub format: u32,
+    pub name: String,
+    pub description: String,
+    pub rules: Vec<JsonRule>,
+    pub batch: Vec<JsonContext>,
+    pub expected: Verdicts,
+    pub attenuations: Vec<AttenuationCase>,
+}
+
+/// A rule set's verdict on each context of the batch, and on the whole batch.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Verdicts {
+    pub allows: Vec<bool>,
+    pub allows_all: bool,
+}
+
+/// Steps applied in order to the vector's rule set, and their result.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AttenuationCase {
+    pub steps: Vec<JsonStep>,
+    pub expected: Outcome,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub enum Outcome {
+    /// Every step was taken: the resulting rule set and its verdicts on the
+    /// vector's batch.
+    Ok {
+        rules: Vec<JsonRule>,
+        allows: Vec<bool>,
+        allows_all: bool,
+    },
+    /// A step was refused.
+    Error(JsonError),
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum JsonError {
+    NoSuchRule,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct JsonRule {
+    pub contract: String,
+    pub functions: Vec<String>,
+    pub conds: Vec<JsonCond>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub enum JsonContext {
+    Call {
+        contract: String,
+        function: String,
+        args: Vec<JsonVal>,
+    },
+    Create {
+        wasm_hash: String,
+    },
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub enum JsonCond {
+    ArgEq {
+        index: u32,
+        value: JsonVal,
+    },
+    #[serde(rename = "arg_i128_at_most")]
+    ArgI128AtMost {
+        index: u32,
+        bound: String,
+    },
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub enum JsonVal {
+    I128(String),
+    U64(String),
+    Bool(bool),
+    Bytes(String),
+    Address(String),
+    Symbol(String),
+    Other(String),
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub enum JsonStep {
+    DropRule { index: u32 },
+    AddCond { index: u32, cond: JsonCond },
+    RemoveFunctions { index: u32, functions: Vec<String> },
+}
+
+/// An attenuation step in `rule-eval`'s types.
+pub enum Step {
+    DropRule(u32),
+    AddCond(u32, Cond),
+    RemoveFunctions(u32, Vec<Vec<u8>>),
+}
+
+// ---------------------------------------------------------------------------
+// Loading.
+
+/// Every `*.json` file in `dir`, parsed, in file-name order. A vector's
+/// `name` must be its file name without `.json`.
+///
+/// # Errors
+///
+/// A message naming the file that cannot be read or parsed.
+pub fn load_dir(dir: &Path) -> Result<Vec<(PathBuf, Vector)>, String> {
+    let entries = fs::read_dir(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    let mut paths = Vec::new();
+    for entry in entries {
+        let path = entry.map_err(|e| format!("{}: {e}", dir.display()))?.path();
+        if path.extension().is_some_and(|x| x == "json") {
+            paths.push(path);
+        }
+    }
+    paths.sort();
+    let mut out = Vec::new();
+    for path in paths {
+        let text = fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+        let vector: Vector =
+            serde_json::from_str(&text).map_err(|e| format!("{}: {e}", path.display()))?;
+        if path.file_stem().and_then(|s| s.to_str()) != Some(vector.name.as_str()) {
+            return Err(format!(
+                "{}: name {:?} differs from the file name",
+                path.display(),
+                vector.name
+            ));
+        }
+        out.push((path, vector));
+    }
+    Ok(out)
+}
+
+// ---------------------------------------------------------------------------
+// Decoding.
+
+/// Lowercase hexadecimal, two digits per byte.
+///
+/// # Errors
+///
+/// If `s` has odd length or a character other than `0-9a-f`.
+pub fn decode_hex(s: &str) -> Result<Vec<u8>, String> {
+    fn digit(c: u8) -> Option<u8> {
+        match c {
+            b'0'..=b'9' => Some(c - b'0'),
+            b'a'..=b'f' => Some(c - b'a' + 10),
+            _ => None,
+        }
+    }
+    let raw = s.as_bytes();
+    if !raw.len().is_multiple_of(2) {
+        return Err(format!("odd-length hex {s:?}"));
+    }
+    raw.chunks(2)
+        .map(|pair| match (digit(pair[0]), digit(pair[1])) {
+            (Some(hi), Some(lo)) => Ok(hi * 16 + lo),
+            _ => Err(format!("not lowercase hex: {s:?}")),
+        })
+        .collect()
+}
+
+/// A decimal integer: an optional `-` and at least one digit, nothing else.
+fn decode_decimal<T: std::str::FromStr>(s: &str) -> Result<T, String> {
+    let digits = s.strip_prefix('-').unwrap_or(s);
+    if digits.is_empty() || !digits.bytes().all(|c| c.is_ascii_digit()) {
+        return Err(format!("not a decimal integer: {s:?}"));
+    }
+    s.parse().map_err(|_| format!("out of range: {s:?}"))
+}
+
+/// # Errors
+///
+/// If a payload is not lowercase hex or an integer is malformed or out of
+/// range.
+pub fn decode_val(v: &JsonVal) -> Result<Val, String> {
+    Ok(match v {
+        JsonVal::I128(x) => Val::I128(decode_decimal(x)?),
+        JsonVal::U64(x) => Val::U64(decode_decimal(x)?),
+        JsonVal::Bool(x) => Val::Bool(*x),
+        JsonVal::Bytes(x) => Val::Bytes(decode_hex(x)?),
+        JsonVal::Address(x) => Val::Address(decode_hex(x)?),
+        JsonVal::Symbol(x) => Val::Symbol(decode_hex(x)?),
+        JsonVal::Other(x) => Val::Other(decode_hex(x)?),
+    })
+}
+
+/// # Errors
+///
+/// As [`decode_val`].
+pub fn decode_context(c: &JsonContext) -> Result<Context, String> {
+    Ok(match c {
+        JsonContext::Call {
+            contract,
+            function,
+            args,
+        } => Context::Call {
+            contract: decode_hex(contract)?,
+            function: decode_hex(function)?,
+            args: args.iter().map(decode_val).collect::<Result<_, _>>()?,
+        },
+        JsonContext::Create { wasm_hash } => Context::Create {
+            wasm_hash: decode_hex(wasm_hash)?,
+        },
+    })
+}
+
+/// # Errors
+///
+/// As [`decode_val`].
+pub fn decode_cond(c: &JsonCond) -> Result<Cond, String> {
+    Ok(match c {
+        JsonCond::ArgEq { index, value } => Cond::ArgEq(*index, decode_val(value)?),
+        JsonCond::ArgI128AtMost { index, bound } => {
+            Cond::ArgI128AtMost(*index, decode_decimal(bound)?)
+        }
+    })
+}
+
+/// # Errors
+///
+/// As [`decode_val`].
+pub fn decode_rules(rules: &[JsonRule]) -> Result<Vec<Rule>, String> {
+    rules
+        .iter()
+        .map(|r| {
+            Ok(Rule {
+                contract: decode_hex(&r.contract)?,
+                functions: decode_hex_list(&r.functions)?,
+                conds: r.conds.iter().map(decode_cond).collect::<Result<_, _>>()?,
+            })
+        })
+        .collect()
+}
+
+fn decode_hex_list(list: &[String]) -> Result<Vec<Vec<u8>>, String> {
+    list.iter().map(|s| decode_hex(s)).collect()
+}
+
+/// # Errors
+///
+/// As [`decode_val`].
+pub fn decode_step(s: &JsonStep) -> Result<Step, String> {
+    Ok(match s {
+        JsonStep::DropRule { index } => Step::DropRule(*index),
+        JsonStep::AddCond { index, cond } => Step::AddCond(*index, decode_cond(cond)?),
+        JsonStep::RemoveFunctions { index, functions } => {
+            Step::RemoveFunctions(*index, decode_hex_list(functions)?)
+        }
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Checking.
+
+/// Apply `steps` to `rules` in order with `rule-eval`, stopping at the first
+/// refused step.
+///
+/// # Errors
+///
+/// The error of the first refused step.
+pub fn attenuate_all(rules: Vec<Rule>, steps: &[Step]) -> Result<Vec<Rule>, AttenuationError> {
+    let mut current = rules;
+    for step in steps {
+        current = match step {
+            Step::DropRule(i) => drop_rule(&current, *i)?,
+            Step::AddCond(i, cond) => add_cond(&current, *i, cond)?,
+            Step::RemoveFunctions(i, fs) => remove_functions(&current, *i, fs)?,
+        };
+    }
+    Ok(current)
+}
+
+fn cond_eq(p: &Cond, q: &Cond) -> bool {
+    match (p, q) {
+        (Cond::ArgEq(i, v), Cond::ArgEq(j, w)) => i == j && val_eq(v, w),
+        (Cond::ArgI128AtMost(i, n), Cond::ArgI128AtMost(j, m)) => i == j && n == m,
+        _ => false,
+    }
+}
+
+/// Structural equality: same contract, same function list in the same order,
+/// same conditions in the same order.
+#[must_use]
+pub fn rules_eq(xs: &[Rule], ys: &[Rule]) -> bool {
+    xs.len() == ys.len()
+        && xs.iter().zip(ys).all(|(x, y)| {
+            x.contract == y.contract
+                && x.functions == y.functions
+                && x.conds.len() == y.conds.len()
+                && x.conds.iter().zip(&y.conds).all(|(p, q)| cond_eq(p, q))
+        })
+}
+
+fn check_verdicts(
+    what: &str,
+    rules: &[Rule],
+    batch: &[Context],
+    expected_allows: &[bool],
+    expected_allows_all: bool,
+) -> Result<(), String> {
+    if expected_allows.len() != batch.len() {
+        return Err(format!(
+            "{what}: {} expected verdicts for {} contexts",
+            expected_allows.len(),
+            batch.len()
+        ));
+    }
+    for (k, (context, &expected)) in batch.iter().zip(expected_allows).enumerate() {
+        let got = allows(rules, context);
+        if got != expected {
+            return Err(format!(
+                "{what}: allows(batch[{k}]) is {got}, expected {expected}"
+            ));
+        }
+    }
+    let got = allows_all(rules, batch);
+    if got != expected_allows_all {
+        return Err(format!(
+            "{what}: allows_all is {got}, expected {expected_allows_all}"
+        ));
+    }
+    Ok(())
+}
+
+/// Evaluate `vector` with `rule-eval` and compare every result with the
+/// vector's expected one.
+///
+/// # Errors
+///
+/// A message describing the first malformed field or differing result.
+pub fn check(vector: &Vector) -> Result<(), String> {
+    if vector.format != FORMAT {
+        return Err(format!(
+            "format {} (this runner reads {FORMAT})",
+            vector.format
+        ));
+    }
+    let rules = decode_rules(&vector.rules)?;
+    let batch = vector
+        .batch
+        .iter()
+        .map(decode_context)
+        .collect::<Result<Vec<_>, _>>()?;
+    check_verdicts(
+        "rules",
+        &rules,
+        &batch,
+        &vector.expected.allows,
+        vector.expected.allows_all,
+    )?;
+    for (k, case) in vector.attenuations.iter().enumerate() {
+        let what = format!("attenuations[{k}]");
+        let steps = case
+            .steps
+            .iter()
+            .map(decode_step)
+            .collect::<Result<Vec<_>, _>>()?;
+        let got = attenuate_all(decode_rules(&vector.rules)?, &steps);
+        match (got, &case.expected) {
+            (
+                Ok(got),
+                Outcome::Ok {
+                    rules: expected,
+                    allows,
+                    allows_all,
+                },
+            ) => {
+                if !rules_eq(&got, &decode_rules(expected)?) {
+                    return Err(format!("{what}: the resulting rule set differs"));
+                }
+                check_verdicts(&what, &got, &batch, allows, *allows_all)?;
+            }
+            (Err(AttenuationError::NoSuchRule), Outcome::Error(JsonError::NoSuchRule)) => {}
+            (Ok(_), Outcome::Error(_)) => {
+                return Err(format!("{what}: the steps were taken, expected a refusal"));
+            }
+            (Err(AttenuationError::NoSuchRule), Outcome::Ok { .. }) => {
+                return Err(format!(
+                    "{what}: a step was refused with NoSuchRule, expected a result"
+                ));
+            }
+        }
+    }
+    Ok(())
+}

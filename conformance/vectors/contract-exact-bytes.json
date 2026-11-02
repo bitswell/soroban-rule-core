@@ -1,0 +1,24 @@
+{
+  "format": 1,
+  "name": "contract-exact-bytes",
+  "description": "Contract ids compare exactly: a prefix, an extension, another case and the empty id are refused, as are prefixes and extensions of a non-text id.",
+  "rules": [
+    {"contract": "746f6b656e", "functions": ["7472616e73666572"], "conds": []},
+    {"contract": "00ff", "functions": ["7472616e73666572"], "conds": []}
+  ],
+  "batch": [
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": []}},
+    {"call": {"contract": "746f6b65", "function": "7472616e73666572", "args": []}},
+    {"call": {"contract": "746f6b656e73", "function": "7472616e73666572", "args": []}},
+    {"call": {"contract": "546f6b656e", "function": "7472616e73666572", "args": []}},
+    {"call": {"contract": "", "function": "7472616e73666572", "args": []}},
+    {"call": {"contract": "00ff", "function": "7472616e73666572", "args": []}},
+    {"call": {"contract": "00", "function": "7472616e73666572", "args": []}},
+    {"call": {"contract": "00ff00", "function": "7472616e73666572", "args": []}}
+  ],
+  "expected": {
+    "allows": [true, false, false, false, false, true, false, false],
+    "allows_all": false
+  },
+  "attenuations": []
+}

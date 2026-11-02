@@ -1,0 +1,85 @@
+{
+  "format": 1,
+  "name": "random-030",
+  "description": "Randomized case 30 of seed 20261102.",
+  "rules": [
+    {
+      "contract": "63",
+      "functions": ["66", "67", "66"],
+      "conds": [
+        {"arg_i128_at_most": {"index": 3, "bound": "170141183460469231731687303715884105726"}},
+        {"arg_eq": {"index": 0, "value": {"other": "61"}}}
+      ]
+    },
+    {
+      "contract": "6331",
+      "functions": [],
+      "conds": [{"arg_eq": {"index": 0, "value": {"symbol": "61"}}}]
+    }
+  ],
+  "batch": [],
+  "expected": {"allows": [], "allows_all": true},
+  "attenuations": [
+    {
+      "steps": [
+        {
+          "add_cond": {
+            "index": 4294967295,
+            "cond": {"arg_i128_at_most": {"index": 2, "bound": "7"}}
+          }
+        }
+      ],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [{"drop_rule": {"index": 0}}],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "6331",
+              "functions": [],
+              "conds": [{"arg_eq": {"index": 0, "value": {"symbol": "61"}}}]
+            }
+          ],
+          "allows": [],
+          "allows_all": true
+        }
+      }
+    },
+    {
+      "steps": [
+        {"add_cond": {"index": 1, "cond": {"arg_i128_at_most": {"index": 1, "bound": "100"}}}}
+      ],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "63",
+              "functions": ["66", "67", "66"],
+              "conds": [
+                {
+                  "arg_i128_at_most": {
+                    "index": 3,
+                    "bound": "170141183460469231731687303715884105726"
+                  }
+                },
+                {"arg_eq": {"index": 0, "value": {"other": "61"}}}
+              ]
+            },
+            {
+              "contract": "6331",
+              "functions": [],
+              "conds": [
+                {"arg_eq": {"index": 0, "value": {"symbol": "61"}}},
+                {"arg_i128_at_most": {"index": 1, "bound": "100"}}
+              ]
+            }
+          ],
+          "allows": [],
+          "allows_all": true
+        }
+      }
+    }
+  ]
+}

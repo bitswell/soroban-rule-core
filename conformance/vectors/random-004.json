@@ -1,0 +1,65 @@
+{
+  "format": 1,
+  "name": "random-004",
+  "description": "Randomized case 4 of seed 20261102.",
+  "rules": [{"contract": "633130", "functions": [], "conds": []}],
+  "batch": [{"call": {"contract": "633130", "function": "666f6f", "args": []}}],
+  "expected": {"allows": [false], "allows_all": false},
+  "attenuations": [
+    {
+      "steps": [
+        {"remove_functions": {"index": 0, "functions": ["", "67"]}},
+        {
+          "add_cond": {
+            "index": 0,
+            "cond": {
+              "arg_i128_at_most": {"index": 3, "bound": "170141183460469231731687303715884105726"}
+            }
+          }
+        }
+      ],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "633130",
+              "functions": [],
+              "conds": [
+                {
+                  "arg_i128_at_most": {
+                    "index": 3,
+                    "bound": "170141183460469231731687303715884105726"
+                  }
+                }
+              ]
+            }
+          ],
+          "allows": [false],
+          "allows_all": false
+        }
+      }
+    },
+    {
+      "steps": [
+        {"add_cond": {"index": 0, "cond": {"arg_eq": {"index": 1, "value": {"other": "62"}}}}}
+      ],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "633130",
+              "functions": [],
+              "conds": [{"arg_eq": {"index": 1, "value": {"other": "62"}}}]
+            }
+          ],
+          "allows": [false],
+          "allows_all": false
+        }
+      }
+    },
+    {
+      "steps": [{"drop_rule": {"index": 0}}, {"drop_rule": {"index": 0}}],
+      "expected": {"error": "no_such_rule"}
+    }
+  ]
+}

@@ -1,0 +1,93 @@
+{
+  "format": 1,
+  "name": "random-029",
+  "description": "Randomized case 29 of seed 20261102.",
+  "rules": [
+    {
+      "contract": "",
+      "functions": [""],
+      "conds": [
+        {"arg_i128_at_most": {"index": 0, "bound": "170141183460469231731687303715884105726"}},
+        {"arg_i128_at_most": {"index": 2, "bound": "-1"}}
+      ]
+    },
+    {
+      "contract": "6332",
+      "functions": [],
+      "conds": [
+        {"arg_eq": {"index": 1, "value": {"symbol": "616263"}}},
+        {"arg_i128_at_most": {"index": 2, "bound": "7"}}
+      ]
+    }
+  ],
+  "batch": [],
+  "expected": {"allows": [], "allows_all": true},
+  "attenuations": [
+    {
+      "steps": [
+        {
+          "add_cond": {
+            "index": 2,
+            "cond": {
+              "arg_i128_at_most": {"index": 0, "bound": "170141183460469231731687303715884105726"}
+            }
+          }
+        },
+        {"drop_rule": {"index": 1}}
+      ],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [{"drop_rule": {"index": 1}}],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "",
+              "functions": [""],
+              "conds": [
+                {
+                  "arg_i128_at_most": {
+                    "index": 0,
+                    "bound": "170141183460469231731687303715884105726"
+                  }
+                },
+                {"arg_i128_at_most": {"index": 2, "bound": "-1"}}
+              ]
+            }
+          ],
+          "allows": [],
+          "allows_all": true
+        }
+      }
+    },
+    {
+      "steps": [
+        {
+          "add_cond": {
+            "index": 1,
+            "cond": {"arg_i128_at_most": {"index": 4294967295, "bound": "-1"}}
+          }
+        },
+        {"drop_rule": {"index": 0}}
+      ],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "6332",
+              "functions": [],
+              "conds": [
+                {"arg_eq": {"index": 1, "value": {"symbol": "616263"}}},
+                {"arg_i128_at_most": {"index": 2, "bound": "7"}},
+                {"arg_i128_at_most": {"index": 4294967295, "bound": "-1"}}
+              ]
+            }
+          ],
+          "allows": [],
+          "allows_all": true
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "format": 1,
+  "name": "random-016",
+  "description": "Randomized case 16 of seed 20261102.",
+  "rules": [{"contract": "", "functions": ["66"], "conds": []}],
+  "batch": [
+    {"call": {"contract": "", "function": "66", "args": [{"symbol": ""}, {"other": "00ff"}]}},
+    {"call": {"contract": "", "function": "66", "args": []}},
+    {"call": {"contract": "", "function": "666f", "args": []}}
+  ],
+  "expected": {"allows": [true, true, false], "allows_all": false},
+  "attenuations": [
+    {
+      "steps": [
+        {"add_cond": {"index": 0, "cond": {"arg_i128_at_most": {"index": 1, "bound": "-1"}}}},
+        {"remove_functions": {"index": 1, "functions": [""]}}
+      ],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [{"remove_functions": {"index": 0, "functions": ["66", "67"]}}],
+      "expected": {
+        "ok": {
+          "rules": [{"contract": "", "functions": [], "conds": []}],
+          "allows": [false, false, false],
+          "allows_all": false
+        }
+      }
+    },
+    {"steps": [{"drop_rule": {"index": 1}}], "expected": {"error": "no_such_rule"}}
+  ]
+}

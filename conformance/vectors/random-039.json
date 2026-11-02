@@ -1,0 +1,79 @@
+{
+  "format": 1,
+  "name": "random-039",
+  "description": "Randomized case 39 of seed 20261102.",
+  "rules": [
+    {"contract": "", "functions": ["666f6f", "", "666f6f"], "conds": []},
+    {
+      "contract": "",
+      "functions": ["666f", "", ""],
+      "conds": [
+        {"arg_i128_at_most": {"index": 0, "bound": "-170141183460469231731687303715884105728"}}
+      ]
+    },
+    {
+      "contract": "",
+      "functions": [],
+      "conds": [
+        {"arg_eq": {"index": 0, "value": {"u64": "7"}}},
+        {"arg_eq": {"index": 3, "value": {"other": "616263"}}}
+      ]
+    }
+  ],
+  "batch": [
+    {
+      "call": {
+        "contract": "",
+        "function": "666f",
+        "args": [{"bool": true}, {"address": ""}, {"bool": true}, {"symbol": "616263"}]
+      }
+    }
+  ],
+  "expected": {"allows": [false], "allows_all": false},
+  "attenuations": [
+    {
+      "steps": [{"drop_rule": {"index": 0}}, {"drop_rule": {"index": 2}}],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [{"drop_rule": {"index": 2147483648}}, {"drop_rule": {"index": 0}}],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [
+        {"add_cond": {"index": 1, "cond": {"arg_i128_at_most": {"index": 0, "bound": "7"}}}},
+        {"remove_functions": {"index": 2, "functions": ["666f6f", ""]}}
+      ],
+      "expected": {
+        "ok": {
+          "rules": [
+            {"contract": "", "functions": ["666f6f", "", "666f6f"], "conds": []},
+            {
+              "contract": "",
+              "functions": ["666f", "", ""],
+              "conds": [
+                {
+                  "arg_i128_at_most": {
+                    "index": 0,
+                    "bound": "-170141183460469231731687303715884105728"
+                  }
+                },
+                {"arg_i128_at_most": {"index": 0, "bound": "7"}}
+              ]
+            },
+            {
+              "contract": "",
+              "functions": [],
+              "conds": [
+                {"arg_eq": {"index": 0, "value": {"u64": "7"}}},
+                {"arg_eq": {"index": 3, "value": {"other": "616263"}}}
+              ]
+            }
+          ],
+          "allows": [false],
+          "allows_all": false
+        }
+      }
+    }
+  ]
+}
