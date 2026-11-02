@@ -1,0 +1,51 @@
+{
+  "format": 1,
+  "name": "cap-random-39",
+  "description": "Randomized trace 39 of seed 20261102.",
+  "limit": "100",
+  "period": 0,
+  "params_valid": false,
+  "start": {"history": [], "total": "0"},
+  "calls": [
+    {"now": 101, "amount": "101", "expected": {"error": "limit_exceeded"}},
+    {
+      "now": 103,
+      "amount": "1",
+      "expected": {"ok": {"history": [{"ledger": 103, "amount": "1"}], "total": "1"}}
+    },
+    {
+      "now": 104,
+      "amount": "170141183460469231731687303715884105727",
+      "expected": {"error": "limit_exceeded"}
+    },
+    {"now": 104, "amount": "101", "expected": {"error": "limit_exceeded"}},
+    {"now": 104, "amount": "-1", "expected": {"error": "negative_amount"}},
+    {
+      "now": 105,
+      "amount": "170141183460469231731687303715884105727",
+      "expected": {"error": "limit_exceeded"}
+    },
+    {"now": 105, "amount": "101", "expected": {"error": "limit_exceeded"}},
+    {"now": 106, "amount": "101", "expected": {"error": "limit_exceeded"}},
+    {
+      "now": 106,
+      "amount": "50",
+      "expected": {"ok": {"history": [{"ledger": 106, "amount": "50"}], "total": "50"}}
+    },
+    {
+      "now": 108,
+      "amount": "100",
+      "expected": {"ok": {"history": [{"ledger": 108, "amount": "100"}], "total": "100"}}
+    },
+    {
+      "now": 108,
+      "amount": "50",
+      "expected": {"ok": {"history": [{"ledger": 108, "amount": "50"}], "total": "50"}}
+    },
+    {
+      "now": 110,
+      "amount": "50",
+      "expected": {"ok": {"history": [{"ledger": 110, "amount": "50"}], "total": "50"}}
+    }
+  ]
+}

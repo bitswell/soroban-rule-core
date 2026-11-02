@@ -1,15 +1,17 @@
 # conformance
 
-Test vectors for rule-set evaluation and attenuation, computed by the Lean
-model in `formal/`, and a runner that checks `rule-eval` against them. Any
-other implementation of the same rules (Perch's smart account, the grant
-signer) can run the same vectors as a differential test.
+Test vectors for rule-set evaluation and attenuation, and traces of the
+spending-cap check, computed by the Lean model in `formal/`, and a runner that
+checks `rule-eval` against them. Any other implementation of the same rules
+(Perch's smart account, the grant signer) can run the same vectors as a
+differential test.
 
 | Path | Contents |
 | --- | --- |
 | `vectors/*.json` | One vector per file: a rule set, a batch of contexts, the authenticated signers, attenuation step lists, and the results the Lean model computes for them. |
-| `generator/` | The Lake package that writes the vectors: the case specifications and the JSON encoding. |
-| `runner/` | The Rust crate `rule-eval-conformance`, which loads every vector and checks `rule-eval` against it. |
+| `vectors/caps/*.json` | One cap trace per file: a cap, a starting record, and calls, each with the outcome the Lean model computes for it. |
+| `generator/` | The Lake package that writes the vectors and traces: the case specifications and the JSON encoding. |
+| `runner/` | The Rust crate `rule-eval-conformance`, which loads every vector and trace and checks `rule-eval` against it. |
 
 ## How the vectors are made
 
@@ -19,19 +21,23 @@ signer) can run the same vectors as a differential test.
 every expected result with the chain vocabulary's own functions,
 `RuleCore.Chain.RuleSet.allows`, `RuleSet.allowsAll` and
 `RuleSet.attenuateAll`, the functions the theorems in `formal/` are about, and
-writes each case to `<name>.json`. No expected result is written by hand.
+writes each case to `<name>.json`. The cap traces (`Conformance/Caps.lean`) are
+computed with `RuleCore.Cap.Params.check` and written to `caps/<name>.json`. No
+expected result is written by hand.
 
 ```sh
 cd conformance/generator
 lake exe gen-vectors ../vectors
 ```
 
-`gen-vectors <dir>` removes the `.json` files in `<dir>` and writes every named
-case plus 100 randomized cases of seed 20261102. `--seed <n>` and `--count <n>`
-choose another randomized set, for a larger run outside the committed vectors:
+`gen-vectors <dir>` removes the `.json` files in `<dir>` and `<dir>/caps` and
+writes every named case plus 100 randomized cases of seed 20261102, and every
+named cap trace plus 50 randomized traces of the same seed. `--seed <n>`,
+`--count <n>` and `--cap-count <n>` choose another randomized set, for a larger
+run outside the committed vectors:
 
 ```sh
-lake exe gen-vectors /tmp/vectors --seed 7 --count 5000
+lake exe gen-vectors /tmp/vectors --seed 7 --count 5000 --cap-count 5000
 CONFORMANCE_VECTORS=/tmp/vectors cargo test -p rule-eval-conformance
 ```
 
@@ -43,7 +49,10 @@ signers that include each other's prefixes and extensions, the `i128`, `u64`
 and `u32` extremes, and delegated and external signers with equal bytes; calls
 are mostly built from a rule of the set with arguments that usually satisfy its
 conditions, and the authenticated signers usually include some of the rules'
-signers, so allowed and refused contexts both occur.
+signers, so allowed and refused contexts both occur. The randomized cap traces
+draw caps, starting ledgers, amounts and ledger steps from small universes that
+include the `u32` and `i128` extremes; ledgers mostly advance by less than a
+period and sometimes repeat or go back, so every refusal occurs.
 
 ## Running them against rule-eval
 
@@ -56,11 +65,14 @@ The runner is a workspace member, so `cargo test --workspace` in
 tests check that `rule-eval` reproduces every result of every vector, that the
 vectors still cover every value constructor, condition, signer kind, threshold
 case, step kind and outcome, and that a vector with a changed expectation is
-reported. `rule-eval` itself
+reported. Its cap tests (`tests/caps.rs`) check that `check_spend` reproduces
+every outcome and record of every trace, that the traces still cover every
+refusal, ledger 0, `u32::MAX` and invalid caps, and that a changed expectation
+is reported. `rule-eval` itself
 keeps no dependencies; the runner depends on it, `serde` and `serde_json`.
 
 `.github/workflows/conformance.yml` rebuilds the generator, regenerates the
-vectors into an empty directory and fails if they differ from
+vectors and traces into an empty directory and fails if they differ from
 `conformance/vectors`, including a committed file the generator no longer
 writes. It also checks that `generator/lean-toolchain` matches
 `formal/lean-toolchain` and rejects the same unchecked Lean declarations as
@@ -252,3 +264,94 @@ why.
 | `attenuate-signer-chains` | Step lists of all five kinds, including one refused with `threshold_lowered` part-way through. |
 
 `random-000.json` to `random-099.json` are the randomized cases.
+
+## Cap trace format
+
+A cap trace runs calls through the spending-cap check, `check_spend` in
+`rule-eval` and `Params.check` in the model. Every file is one JSON object.
+Object fields appear in the order below; readers should not depend on it.
+
+```json
+{
+  "format": 1,
+  "name": "cap-window-slides",
+  "description": "...",
+  "limit": "100",
+  "period": 10,
+  "params_valid": true,
+  "start": {"history": [{"ledger": 5, "amount": "30"}], "total": "30"},
+  "calls": [
+    {"now": 12, "amount": "40", "expected": Outcome},
+    ...
+  ]
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `format` | The version of this format, `1`. It is versioned apart from the rule vectors. A change a reader of version 1 cannot read raises it. |
+| `name` | The file name without `.json`. |
+| `description` | What the trace exercises, for a reader; carries no data. |
+| `limit` | The cap's limit, an `i128`. |
+| `period` | The cap's period in ledgers, a `u32`. |
+| `params_valid` | Whether the cap may be installed: `limit > 0` and `period > 0`. The calls run under the cap either way. |
+| `start` | The record the first call starts from. |
+| `calls` | The calls, in order. Each starts from the record the calls before it left: the record after an accepted call, the same record after a refused one. |
+| `calls[i].now` | The current ledger, a `u32`. |
+| `calls[i].amount` | The amount spent, an `i128`. |
+| `calls[i].expected` | The outcome of the call. |
+
+Ledgers and periods are JSON numbers from `0` to `4294967295`. Amounts, totals
+and limits are JSON strings holding the decimal integer, as `i128` values are
+in the rule vectors.
+
+A record is `{"history": [Entry, ...], "total": "..."}`, and an entry is
+`{"ledger": n, "amount": "..."}`. The history lists entries in the order they
+were recorded. Most starting records are what the check could have built: in
+ledger order, with positive amounts summing to the total. A few are not, to
+exercise the checked sums and eviction's stopping rule, and their descriptions
+say so.
+
+### Outcomes
+
+```json
+{"ok": Record}
+{"error": "limit_exceeded"}
+```
+
+`ok` holds the record after the call, compared entry by entry and in order,
+and total for total. `error` names the refusal:
+
+| Error | When |
+| --- | --- |
+| `negative_amount` | `amount < 0`. |
+| `ledger_before_newest` | `amount > 0` and `now` is less than the ledger of the history's last entry. |
+| `overflow` | The evicted amounts, the total less them, or that plus `amount` does not fit in an `i128`. |
+| `limit_exceeded` | The total left after eviction plus `amount` exceeds `limit`. |
+| `history_full` | The history left after eviction holds 1000 entries. |
+
+The check, in order: a negative amount is refused; a zero amount is accepted
+and leaves the record as it was; a positive amount at a ledger before the
+newest entry is refused; the entries at the front of the history whose ledger
+is at most `now - period` (0 when `now < period`) are evicted, stopping at the
+first later entry, and their amounts summed; then the overflow, limit and
+history checks above, in that order; and otherwise `(now, amount)` is appended
+and the total increased by `amount`.
+
+### The named traces
+
+| Trace | What it exercises |
+| --- | --- |
+| `cap-within-limit`, `cap-limit-inclusive` | Spends up to the limit, the limit itself, and one over. |
+| `cap-window-slides`, `cap-period-one` | Eviction at the cutoff `now - period` and beside it, and a period of one ledger. |
+| `cap-refusal-keeps-record` | A refused spend leaves the record, its eviction included, as it was. |
+| `cap-negative-amount`, `cap-zero-amount` | Negative amounts, and zero amounts at any ledger and over a total above the limit. |
+| `cap-lowered-limit` | A limit below the starting record's total: spends wait for eviction. |
+| `cap-ledger-before-newest`, `cap-same-ledger` | The clock check, and several spends in one ledger. |
+| `cap-ledger-zero`, `cap-saturating-cutoff`, `cap-u32-extremes` | The cutoff saturating at ledger 0, and the largest ledger and period. |
+| `cap-history-fills`, `cap-history-full-after-limit` | The 1000-entry history bound, and the limit checked before it. |
+| `cap-overflow-total`, `cap-overflow-evicted`, `cap-overflow-remaining` | Each checked sum. |
+| `cap-eviction-stops-at-first-kept` | Eviction stopping at the first entry after the cutoff, on a history out of ledger order. |
+| `cap-invalid-limit`, `cap-invalid-period`, `cap-empty-run` | Caps that are not valid to install, and a trace with no calls. |
+
+`cap-random-00.json` to `cap-random-49.json` are the randomized traces.

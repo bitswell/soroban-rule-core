@@ -14,6 +14,8 @@ use rule_eval::{
 };
 use serde::Deserialize;
 
+pub mod caps;
+
 /// The vector format version this runner reads.
 pub const FORMAT: u32 = 2;
 
@@ -222,7 +224,7 @@ pub fn decode_hex(s: &str) -> Result<Vec<u8>, String> {
 }
 
 /// A decimal integer: an optional `-` and at least one digit, nothing else.
-fn decode_decimal<T: std::str::FromStr>(s: &str) -> Result<T, String> {
+pub(crate) fn decode_decimal<T: std::str::FromStr>(s: &str) -> Result<T, String> {
     let digits = s.strip_prefix('-').unwrap_or(s);
     if digits.is_empty() || !digits.bytes().all(|c| c.is_ascii_digit()) {
         return Err(format!("not a decimal integer: {s:?}"));

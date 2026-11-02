@@ -1,0 +1,27 @@
+{
+  "format": 1,
+  "name": "cap-zero-amount",
+  "description": "A zero amount passes and changes nothing: at any ledger, before the newest entry, and when the total already exceeds the limit.",
+  "limit": "50",
+  "period": 10,
+  "params_valid": true,
+  "start": {"history": [{"ledger": 5, "amount": "80"}], "total": "80"},
+  "calls": [
+    {
+      "now": 6,
+      "amount": "0",
+      "expected": {"ok": {"history": [{"ledger": 5, "amount": "80"}], "total": "80"}}
+    },
+    {
+      "now": 0,
+      "amount": "0",
+      "expected": {"ok": {"history": [{"ledger": 5, "amount": "80"}], "total": "80"}}
+    },
+    {
+      "now": 4294967295,
+      "amount": "0",
+      "expected": {"ok": {"history": [{"ledger": 5, "amount": "80"}], "total": "80"}}
+    },
+    {"now": 6, "amount": "1", "expected": {"error": "limit_exceeded"}}
+  ]
+}

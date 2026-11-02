@@ -1,0 +1,29 @@
+{
+  "format": 1,
+  "name": "cap-overflow-total",
+  "description": "A new total that does not fit in an i128 is refused with overflow.",
+  "limit": "170141183460469231731687303715884105727",
+  "period": 10,
+  "params_valid": true,
+  "start": {
+    "history": [{"ledger": 1, "amount": "170141183460469231731687303715884105726"}],
+    "total": "170141183460469231731687303715884105726"
+  },
+  "calls": [
+    {"now": 2, "amount": "2", "expected": {"error": "overflow"}},
+    {
+      "now": 2,
+      "amount": "1",
+      "expected": {
+        "ok": {
+          "history": [
+            {"ledger": 1, "amount": "170141183460469231731687303715884105726"},
+            {"ledger": 2, "amount": "1"}
+          ],
+          "total": "170141183460469231731687303715884105727"
+        }
+      }
+    },
+    {"now": 3, "amount": "1", "expected": {"error": "overflow"}}
+  ]
+}

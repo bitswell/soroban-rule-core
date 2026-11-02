@@ -16,6 +16,13 @@ authorization tree, under one list of authenticated signers) when it allows
 each one. A holder narrows a rule set in five ways: drop a rule, add a
 condition to a rule, remove functions from a rule, remove signers from a rule,
 or raise a rule's threshold.
+
+A spending cap bounds what one rule may spend: at most `limit` within `period`
+consecutive ledgers. `check_spend` takes the rule's spend record, the cap, the
+current ledger and the amount, and returns the record after the spend or a
+refusal. It mirrors the spending-limit policy Perch uses, adds a refusal for a
+ledger earlier than the newest recorded spend, and refuses every sum that
+overflows. Rules do not carry caps yet; the check stands on its own.
 [`ARCHITECTURE.md`](ARCHITECTURE.md) covers the design, and how it serves the
 three layers of authority in a smart account.
 
@@ -52,13 +59,23 @@ over authenticated signer lists as well as contexts.
   - signers compare exactly, constructor first (`Chain.Signer.delegated_ne_external`, `Chain.Signer.delegated_eq_iff`, `Chain.Signer.external_eq_iff`, `Chain.Signer.delegated_append_ne`).
 - A step is refused with `noSuchRule` exactly when its index is out of range (`*_eq_error_iff`, `*_eq_noSuchRule_iff`), and `raiseThreshold` with `thresholdLowered` exactly when the new threshold is below the rule's (`RuleSet.raiseThreshold_eq_thresholdLowered_iff`).
 
+**Spending caps.** `RuleCore.Cap` models the record and the check; runs are
+lists of calls `(now, amount)`, with no assumption about the order of ledgers.
+
+- Window safety: from the empty record, for every run and every ledger `t`, the recorded spends after `t - period` and at most `t` sum to at most the limit (`Cap.window_le_limit`). Every window of `period` consecutive ledgers starting at ledger 1 or later does too (`Cap.period_le_limit_of_pos`), and every window does when every call is at ledger 1 or later (`Cap.period_le_limit`). Without that rule, two spends of the whole limit at ledger 0 are both accepted (`Cap.period_ledger_zero`).
+- Refinement: the stored history is the recorded spends eviction left at the last spend's ledger, followed by that spend, and the stored total is their sum (`Cap.run_history`, `Cap.run_total`); with a nonzero period and that spend at ledger 1 or later, exactly the recorded spends in its window (`Cap.run_eq_window`).
+- A refusal changes nothing (`Cap.step_of_error`, `Cap.run_cons_of_error`); a negative amount is refused and a zero amount changes nothing (`Cap.check_negative`, `Cap.check_zero`); a positive spend earlier than the newest recorded ledger is refused (`Cap.check_ledgerBeforeNewest_iff`).
+- Narrowing is trace inclusion: every run a lower limit, a longer period, or a cap where there was none accepts from a valid record, the wider cap accepts (`Cap.Params.accepts_of_narrower`, `Cap.accepts_of_limit_le`, `Cap.accepts_of_period_le`, `Cap.capAccepts_of_capNarrower`). A cap installed over an existing record bounds every window holding a spend made under it (`Cap.window_le_limit_of_valid`).
+- The check keeps a record valid (`Cap.run_valid`), and a record never holds more than 1000 entries (`Cap.run_history_length_le`).
+
 **The translation equals the model.** `RuleCore.Equiv` relates
 `formal/RuleCore/Extracted/RuleEval.lean`, which Charon and Aeneas generate
 from `crates/rule-eval`, to the chain vocabulary through denotation functions.
 
 - `allows_eq` and `allows_all_eq`: on every input, the translated `allows` and `allows_all` return `ok` of the model's verdict on the denotations, authenticated signers included. `ok` rules out both a panic and divergence, so these theorems also prove that the evaluator terminates and never panics. `signers_met_eq` and `signed_count_eq` do the same for the signer requirement.
 - `drop_rule_eq`, `remove_functions_eq`, `remove_signers_eq`, `raise_threshold_eq` and `add_cond_eq`: on every input, each attenuation step returns the model's result, `noSuchRule` and `thresholdLowered` included. `add_cond_eq` takes the stated rule `CondRoom`, and `add_cond_full` shows that rule is exact.
-- Every denotation is injective (`denoteVal_injective`, `denoteContext_injective`, `denoteSigner_injective`, `denoteRule_injective`, `denoteRules_injective`, `denoteOutcome_injective`, ...).
+- `check_spend_eq`: on every input, the translated `check_spend` returns `ok` of the cap model's check on the denotations, so it terminates and never panics. It needs no stated bound.
+- Every denotation is injective (`denoteVal_injective`, `denoteContext_injective`, `denoteSigner_injective`, `denoteRule_injective`, `denoteRules_injective`, `denoteOutcome_injective`, `denoteRecord_injective`, `denoteSpend_injective`, ...).
 
 **The model's theorems hold of the translation.** `RuleCore.Extracted`
 states these on the translated functions alone:
@@ -69,6 +86,7 @@ states these on the translated functions alone:
 - no creation is allowed (`allows_create`, `allows_all_create`);
 - `argEq` needs the same constructor (`val_eq_iff`, `val_eq_kind`, `val_eq_other_bytes`, `cond_holds_argEq_iff`, `cond_holds_argEq_false_of_kind_ne`);
 - byte strings compare exactly (`bytes_eq_iff`, `rule_allows_call`, `rule_allows_prefix_false`, `rule_allows_extension_false`);
+- a run of the translated `check_spend` returns a record denoting the model's run (`runSpends_eq`), so from the empty record it holds at most 1000 entries and is the recorded spends in its window (`runSpends_length_le`, `runSpends_window`); the translated check refuses a negative amount, changes nothing on a zero amount and refuses a spend before the newest recorded ledger (`check_spend_negative`, `check_spend_zero`, `check_spend_before_newest`);
 - signers compare exactly (`signer_eq_iff`, `signer_eq_delegated_external`); authenticating more signers never refuses (`allows_of_subset`, `allows_all_of_subset`); repeats and order in either list change nothing (`allows_congr`, `allows_all_congr`, `rule_allows_congr_signers`); threshold 0 ignores the signers, a threshold of all distinct signers needs every one, and a threshold above them allows nothing (`rule_allows_threshold_zero`, `signers_met_all_iff`, `rule_allows_false_of_lt`).
 
 **Stated rules.** These are not theorems. [`TRUSTED.md`](TRUSTED.md) states
@@ -77,6 +95,7 @@ each one.
 - *The empty batch*: every rule set allows the empty batch (`RuleSet.allowsAll_nil`). A batch collected from a Soroban authorization tree is never empty. A caller that builds batches another way must reject the empty batch.
 - *No creation* is a property of the chain vocabulary. The generic model makes no such claim.
 - *`CondRoom`*: the rule `add_cond` extends has fewer than `Usize.max` conditions.
+- *Ledgers start at 1*: every call of the cap check is made at ledger 1 or later, as on Stellar, whose genesis ledger is ledger 1. Only `Cap.period_le_limit` takes it.
 
 **Stated, not proven.** `narrower_of_denote` proves that the model's narrower
 on the denotations implies narrower on the translation. The converse, that
@@ -87,19 +106,24 @@ lists longer than `Usize.max` have no Rust counterpart.
 The mapping from OpenZeppelin's context rules and threshold policies to signers
 and thresholds here ([`ARCHITECTURE.md`](ARCHITECTURE.md#openzeppelins-rules-as-input-for-m4))
 is read from OpenZeppelin's source, recorded as input for M4, and neither
-proven nor tested.
+proven nor tested. So is the correspondence between `check_spend` and the
+spending-limit policy at the revision Perch pins
+([`ARCHITECTURE.md`](ARCHITECTURE.md#mirroring-perch)), and the reading that a
+record of 816 or more entries does not fit in one mainnet ledger entry.
 
 ## What is tested
 
 - **Conformance vectors.** `conformance/vectors/*.json` holds 148 vectors, each a rule set, a batch, the authenticated signers, the per-context and whole-batch verdicts, and attenuation steps with their results. The Lean model computes every expected result. Of these, 48 are named cases and 100 are drawn from a seeded generator. The signer cases cover thresholds 0, 1, k, all signers and above, repeated signers in either list, delegated and external signers with equal bytes, missing signers, batches under one authenticated list, and both signer steps. CI regenerates them from the model and fails on any difference (`conformance.yml`). The runner in `conformance/runner` checks `rule-eval` against every vector: `rule_eval_agrees_with_every_vector`, `vectors_cover_every_kind` and `a_wrong_expectation_is_reported`. [`conformance/README.md`](conformance/README.md) documents the format, so other implementations can run the same vectors.
+- **Cap traces.** `conformance/vectors/caps/*.json` holds 72 traces, each a cap, a starting record and calls with the outcome and record the Lean model computes for each. Of these, 22 are named and 50 drawn from the same seeded generator; together they cover every refusal, ledger 0, `u32::MAX`, the history bound and caps that are not valid to install. CI regenerates them with the vectors. The runner checks `check_spend` against every trace: `rule_eval_agrees_with_every_cap_trace`, `cap_traces_cover_every_outcome` and `a_wrong_cap_expectation_is_reported`.
 - **Exhaustive small universes.** `crates/rule-eval/tests` checks `allows` against an ordinary-Rust reading of the semantics over every rule set of up to two rules and 335 contexts (`allows_agrees_with_the_reference_reading`). It also checks:
   - `allows_all` against `allows` (`allows_all_is_the_conjunction_of_allows`);
   - that no rule set allows a creation (`no_rule_allows_a_creation`);
   - that every step builds its result and only narrows (`every_step_builds_its_result_and_only_narrows`);
   - that every two-step chain stays inside its root (`every_two_step_chain_stays_inside_its_root`);
   - `signers_met` against the reference reading over every signer list of up to three signers, thresholds 0 to 4 and 63 authenticated lists (`signers_met_agrees_with_the_reference_reading`), that authenticating more signers never refuses and that order and repeats change nothing (`authenticating_more_signers_never_refuses`, `the_same_authenticated_signers_in_another_order_or_repeated_give_the_same_verdict`);
-  - that every step on rules with signers only narrows under every authenticated list, alone and in two-step chains (`signer_steps_only_narrow_under_every_authenticated_list`).
-- **Unit tests** cover every value constructor and both conditions, missing, wrong-typed and `u32::MAX` indices, exact byte and signer comparison, each threshold case, repeated signers, and each step at out-of-range indices and, for `raise_threshold`, below the current threshold.
+  - that every step on rules with signers only narrows under every authenticated list, alone and in two-step chains (`signer_steps_only_narrow_under_every_authenticated_list`);
+  - `check_spend` against a plain reading of the check on every run of up to three calls from 25 under 16 small caps, and that every such run keeps every window within the limit (`check_spend_agrees_with_the_reference_reading`, `every_short_run_stays_within_every_window`).
+- **Unit tests** cover every value constructor and both conditions, missing, wrong-typed and `u32::MAX` indices, exact byte and signer comparison, each threshold case, repeated signers, and each step at out-of-range indices and, for `raise_threshold`, below the current threshold. For caps they cover each refusal and its precedence, eviction at and beside the cutoff, the cutoff at ledger 0 and at `u32::MAX`, the history bound and each checked sum.
 - **CI gates.** Every pull request and every push to `main` runs:
   - `cargo test`, `cargo clippy -D warnings`, and builds for native and `wasm32v1-none` in the release and contract profiles, on the pinned nightly and on stable (`rust.yml`);
   - `lake build` of every module (`lean.yml`), which also rejects `sorry`, `admit`, `partial`, `unsafe`, `native_decide`, `implemented_by`, `extern` and `axiom` in every Lean source, the translation included;
@@ -107,7 +131,7 @@ proven nor tested.
   - re-extraction with Charon `--error-on-warnings` and Aeneas `-warnings-as-errors`, which fails on any difference from the committed translation (`extraction.yml`);
   - the claim-ledger check (`claims.yml`, plus a step in `lean.yml`).
 
-The vectors' JSON encoding and decoding are not verified (see
+The vectors' and traces' JSON encoding and decoding are not verified (see
 [`TRUSTED.md`](TRUSTED.md#the-conformance-encoding)).
 
 ## What is trusted
@@ -142,7 +166,7 @@ cd formal && lake exe cache get && lake build && cd ..
 tools/extract.sh
 tools/extract.sh --check
 
-# Conformance vectors: regenerate from the Lean model
+# Conformance vectors and cap traces: regenerate from the Lean model
 cd conformance/generator && lake build && lake exe gen-vectors ../vectors && cd ../..
 
 # Claim ledger (needs uv): the checker's self-tests, then the ledger
@@ -158,8 +182,8 @@ script's header).
 
 | Path | Contents |
 | --- | --- |
-| `crates/rule-eval/` | The rule-set evaluator and its attenuation steps: `no_std`, no dependencies, `forbid(unsafe_code)`. |
-| `conformance/` | The vectors (`vectors/`), the Lean generator that computes them (`generator/`) and the Rust runner (`runner/`). |
+| `crates/rule-eval/` | The rule-set evaluator, its attenuation steps and the spending-cap check: `no_std`, no dependencies, `forbid(unsafe_code)`. |
+| `conformance/` | The vectors (`vectors/`) and cap traces (`vectors/caps/`), the Lean generator that computes them (`generator/`) and the Rust runner (`runner/`). |
 | `formal/` | The Lean package: `Model/`, `Vocab/`, `Extracted/` (generated), `Equiv/`, `Theorems/` and `Axioms.lean`. |
 | `tools/extract.sh` | Runs Charon and Aeneas on `crates/rule-eval`. |
 | `tools/check-claims`, `tools/tests/` | The claim-ledger checker and its self-tests. |

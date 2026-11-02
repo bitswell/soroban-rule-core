@@ -848,6 +848,222 @@ def attenuate.raise_threshold
           (alloc.vec.Vec.new rule.Rule) 0#usize
       ok (core.result.Result.Ok out)
 
+/-- [rule_eval::cap::MAX_HISTORY_ENTRIES]
+    Source: 'crates/rule-eval/src/cap.rs', lines 35:0-35:44
+    Visibility: public -/
+@[global_simps, irreducible]
+def cap.MAX_HISTORY_ENTRIES : Std.Usize := 1000#usize
+
+/-- [rule_eval::cap::SpendEntry]
+    Source: 'crates/rule-eval/src/cap.rs', lines 38:0-41:1
+    Visibility: public -/
+structure cap.SpendEntry where
+  ledger : Std.U32
+  amount : Std.I128
+
+/-- [rule_eval::cap::SpendRecord]
+    Source: 'crates/rule-eval/src/cap.rs', lines 45:0-48:1
+    Visibility: public -/
+structure cap.SpendRecord where
+  history : alloc.vec.Vec cap.SpendEntry
+  total : Std.I128
+
+/-- [rule_eval::cap::CapParams]
+    Source: 'crates/rule-eval/src/cap.rs', lines 51:0-54:1
+    Visibility: public -/
+structure cap.CapParams where
+  limit : Std.I128
+  period : Std.U32
+
+/-- [rule_eval::cap::CapError]
+    Source: 'crates/rule-eval/src/cap.rs', lines 57:0-70:1
+    Visibility: public -/
+@[discriminant isize]
+inductive cap.CapError where
+| NegativeAmount : cap.CapError
+| LedgerBeforeNewest : cap.CapError
+| Overflow : cap.CapError
+| LimitExceeded : cap.CapError
+| HistoryFull : cap.CapError
+
+/-- [rule_eval::cap::params_valid]:
+    Source: 'crates/rule-eval/src/cap.rs', lines 74:0-76:1
+    Visibility: public -/
+def cap.params_valid (params : cap.CapParams) : Result Bool := do
+  if params.limit > 0#i128
+  then ok (params.period > 0#u32)
+  else ok false
+
+/-- [rule_eval::cap::empty_record]:
+    Source: 'crates/rule-eval/src/cap.rs', lines 80:0-85:1
+    Visibility: public -/
+def cap.empty_record : Result cap.SpendRecord := do
+  ok { history := (alloc.vec.Vec.new cap.SpendEntry), total := 0#i128 }
+
+/-- [rule_eval::cap::Eviction]
+    Source: 'crates/rule-eval/src/cap.rs', lines 88:0-94:1 -/
+@[discriminant isize]
+inductive cap.Eviction where
+| Stopped : Std.Usize → Std.I128 → cap.Eviction
+| Overflow : cap.Eviction
+
+/-- [rule_eval::cap::before_newest]:
+    Source: 'crates/rule-eval/src/cap.rs', lines 97:0-103:1 -/
+def cap.before_newest
+  (history : Slice cap.SpendEntry) (now : Std.U32) : Result Bool := do
+  let len := Slice.len history
+  if len = 0#usize
+  then ok false
+  else
+    let i ← len - 1#usize
+    let se ← Slice.index_usize history i
+    ok (now < se.ledger)
+
+/-- [rule_eval::cap::evict]: loop body 0:
+    Source: 'crates/rule-eval/src/cap.rs', lines 110:4-127:1 -/
+@[rust_loop_body]
+def cap.evict_loop.body
+  (history : Slice cap.SpendEntry) (cutoff : Std.U32) (removed : Std.I128)
+  (i : Std.Usize) :
+  Result (ControlFlow (Std.I128 × Std.Usize) cap.Eviction)
+  := do
+  let i1 := Slice.len history
+  if i < i1
+  then
+    let se ← Slice.index_usize history i
+    if se.ledger > cutoff
+    then ok (done (cap.Eviction.Stopped i removed))
+    else
+      let o ← lift (I128.checked_add removed se.amount)
+      match o with
+      | none => ok (done cap.Eviction.Overflow)
+      | some sum => let i2 ← i + 1#usize
+                    ok (cont (sum, i2))
+  else ok (done (cap.Eviction.Stopped i removed))
+
+/-- [rule_eval::cap::evict]: loop 0:
+    Source: 'crates/rule-eval/src/cap.rs', lines 110:4-127:1 -/
+@[rust_loop]
+def cap.evict_loop
+  (history : Slice cap.SpendEntry) (cutoff : Std.U32) (removed : Std.I128)
+  (i : Std.Usize) :
+  Result cap.Eviction
+  := do
+  loop
+    (fun (removed1, i1) => cap.evict_loop.body history cutoff removed1 i1)
+    (removed, i)
+
+/-- [rule_eval::cap::evict]:
+    Source: 'crates/rule-eval/src/cap.rs', lines 107:0-127:1 -/
+@[reducible]
+def cap.evict
+  (history : Slice cap.SpendEntry) (cutoff : Std.U32) :
+  Result cap.Eviction
+  := do
+  cap.evict_loop history cutoff 0#i128 0#usize
+
+/-- [rule_eval::cap::entry_copy]:
+    Source: 'crates/rule-eval/src/cap.rs', lines 130:0-135:1 -/
+def cap.entry_copy (entry : cap.SpendEntry) : Result cap.SpendEntry := do
+  ok entry
+
+/-- [rule_eval::cap::entries_from]: loop body 0:
+    Source: 'crates/rule-eval/src/cap.rs', lines 141:4-144:5 -/
+@[rust_loop_body]
+def cap.entries_from_loop.body
+  (history : Slice cap.SpendEntry) (out : alloc.vec.Vec cap.SpendEntry)
+  (i : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec cap.SpendEntry) × Std.Usize)
+    (alloc.vec.Vec cap.SpendEntry))
+  := do
+  let i1 := Slice.len history
+  if i < i1
+  then
+    let se ← Slice.index_usize history i
+    let se1 ← cap.entry_copy se
+    let out1 ← alloc.vec.Vec.push out se1
+    let i2 ← i + 1#usize
+    ok (cont (out1, i2))
+  else ok (done out)
+
+/-- [rule_eval::cap::entries_from]: loop 0:
+    Source: 'crates/rule-eval/src/cap.rs', lines 141:4-144:5 -/
+@[rust_loop]
+def cap.entries_from_loop
+  (history : Slice cap.SpendEntry) (out : alloc.vec.Vec cap.SpendEntry)
+  (i : Std.Usize) :
+  Result (alloc.vec.Vec cap.SpendEntry)
+  := do
+  loop
+    (fun (out1, i1) => cap.entries_from_loop.body history out1 i1)
+    (out, i)
+
+/-- [rule_eval::cap::entries_from]:
+    Source: 'crates/rule-eval/src/cap.rs', lines 138:0-146:1 -/
+@[reducible]
+def cap.entries_from
+  (history : Slice cap.SpendEntry) (start : Std.Usize) :
+  Result (alloc.vec.Vec cap.SpendEntry)
+  := do
+  cap.entries_from_loop history (alloc.vec.Vec.new cap.SpendEntry) start
+
+/-- [rule_eval::cap::record_copy]:
+    Source: 'crates/rule-eval/src/cap.rs', lines 149:0-154:1 -/
+def cap.record_copy (record : cap.SpendRecord) : Result cap.SpendRecord := do
+  let s := alloc.vec.Vec.deref record.history
+  let v ← cap.entries_from s 0#usize
+  ok { record with history := v }
+
+/-- [rule_eval::cap::check_spend]:
+    Source: 'crates/rule-eval/src/cap.rs', lines 169:0-209:1
+    Visibility: public -/
+def cap.check_spend
+  (record : cap.SpendRecord) (limit : Std.I128) (period : Std.U32)
+  (now : Std.U32) (amount : Std.I128) :
+  Result (core.result.Result cap.SpendRecord cap.CapError)
+  := do
+  if amount < 0#i128
+  then ok (core.result.Result.Err cap.CapError.NegativeAmount)
+  else
+    if amount = 0#i128
+    then let sr ← cap.record_copy record
+         ok (core.result.Result.Ok sr)
+    else
+      let s := alloc.vec.Vec.deref record.history
+      let b ← cap.before_newest s now
+      if b
+      then ok (core.result.Result.Err cap.CapError.LedgerBeforeNewest)
+      else
+        let s1 := alloc.vec.Vec.deref record.history
+        let i ← lift (core.num.U32.saturating_sub now period)
+        let e ← cap.evict s1 i
+        match e with
+        | cap.Eviction.Stopped kept_from removed =>
+          let o ← lift (I128.checked_sub record.total removed)
+          match o with
+          | none => ok (core.result.Result.Err cap.CapError.Overflow)
+          | some remaining =>
+            let o1 ← lift (I128.checked_add remaining amount)
+            match o1 with
+            | none => ok (core.result.Result.Err cap.CapError.Overflow)
+            | some total =>
+              if total > limit
+              then ok (core.result.Result.Err cap.CapError.LimitExceeded)
+              else
+                let i1 := alloc.vec.Vec.len record.history
+                let i2 ← i1 - kept_from
+                if i2 >= cap.MAX_HISTORY_ENTRIES
+                then ok (core.result.Result.Err cap.CapError.HistoryFull)
+                else
+                  let s2 := alloc.vec.Vec.deref record.history
+                  let history ← cap.entries_from s2 kept_from
+                  let history1 ←
+                    alloc.vec.Vec.push history ({ ledger := now, amount } :
+                      cap.SpendEntry)
+                  ok (core.result.Result.Ok { history := history1, total })
+        | cap.Eviction.Overflow =>
+          ok (core.result.Result.Err cap.CapError.Overflow)
+
 /-- [rule_eval::context::Context]
     Source: 'crates/rule-eval/src/context.rs', lines 8:0-17:1
     Visibility: public -/
@@ -861,7 +1077,7 @@ inductive context.Context where
 | Create : alloc.vec.Vec Std.U8 → context.Context
 
 /-- [rule_eval::_]
-    Source: 'crates/rule-eval/src/lib.rs', lines 98:0-98:41 -/
+    Source: 'crates/rule-eval/src/lib.rs', lines 108:0-108:41 -/
 @[global_simps, irreducible]
 def «_» : Result Unit := massert (core.num.Usize.BITS >= 32#u32)
 

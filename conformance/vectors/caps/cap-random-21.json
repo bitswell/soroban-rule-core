@@ -1,0 +1,89 @@
+{
+  "format": 1,
+  "name": "cap-random-21",
+  "description": "Randomized trace 21 of seed 20261102.",
+  "limit": "170141183460469231731687303715884105727",
+  "period": 4294967295,
+  "params_valid": true,
+  "start": {"history": [], "total": "0"},
+  "calls": [
+    {"now": 1, "amount": "0", "expected": {"ok": {"history": [], "total": "0"}}},
+    {
+      "now": 0,
+      "amount": "85070591730234615865843651857942052863",
+      "expected": {
+        "ok": {
+          "history": [{"ledger": 0, "amount": "85070591730234615865843651857942052863"}],
+          "total": "85070591730234615865843651857942052863"
+        }
+      }
+    },
+    {
+      "now": 3,
+      "amount": "0",
+      "expected": {
+        "ok": {
+          "history": [{"ledger": 0, "amount": "85070591730234615865843651857942052863"}],
+          "total": "85070591730234615865843651857942052863"
+        }
+      }
+    },
+    {
+      "now": 13,
+      "amount": "0",
+      "expected": {
+        "ok": {
+          "history": [{"ledger": 0, "amount": "85070591730234615865843651857942052863"}],
+          "total": "85070591730234615865843651857942052863"
+        }
+      }
+    },
+    {
+      "now": 13,
+      "amount": "2",
+      "expected": {"ok": {"history": [{"ledger": 13, "amount": "2"}], "total": "2"}}
+    },
+    {
+      "now": 16,
+      "amount": "85070591730234615865843651857942052863",
+      "expected": {
+        "ok": {
+          "history": [
+            {"ledger": 13, "amount": "2"},
+            {"ledger": 16, "amount": "85070591730234615865843651857942052863"}
+          ],
+          "total": "85070591730234615865843651857942052865"
+        }
+      }
+    },
+    {
+      "now": 38,
+      "amount": "-170141183460469231731687303715884105728",
+      "expected": {"error": "negative_amount"}
+    },
+    {
+      "now": 38,
+      "amount": "170141183460469231731687303715884105727",
+      "expected": {"error": "overflow"}
+    },
+    {"now": 38, "amount": "-1", "expected": {"error": "negative_amount"}},
+    {
+      "now": 38,
+      "amount": "0",
+      "expected": {
+        "ok": {
+          "history": [
+            {"ledger": 13, "amount": "2"},
+            {"ledger": 16, "amount": "85070591730234615865843651857942052863"}
+          ],
+          "total": "85070591730234615865843651857942052865"
+        }
+      }
+    },
+    {
+      "now": 38,
+      "amount": "170141183460469231731687303715884105727",
+      "expected": {"error": "overflow"}
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "format": 1,
+  "name": "cap-random-42",
+  "description": "Randomized trace 42 of seed 20261102.",
+  "limit": "5",
+  "period": 4294967295,
+  "params_valid": true,
+  "start": {"history": [], "total": "0"},
+  "calls": [
+    {
+      "now": 106,
+      "amount": "1",
+      "expected": {"ok": {"history": [{"ledger": 106, "amount": "1"}], "total": "1"}}
+    },
+    {
+      "now": 127,
+      "amount": "0",
+      "expected": {"ok": {"history": [{"ledger": 106, "amount": "1"}], "total": "1"}}
+    },
+    {"now": 127, "amount": "5", "expected": {"error": "limit_exceeded"}},
+    {"now": 145, "amount": "6", "expected": {"error": "limit_exceeded"}},
+    {
+      "now": 158,
+      "amount": "1",
+      "expected": {
+        "ok": {
+          "history": [{"ledger": 106, "amount": "1"}, {"ledger": 158, "amount": "1"}],
+          "total": "2"
+        }
+      }
+    },
+    {
+      "now": 161,
+      "amount": "0",
+      "expected": {
+        "ok": {
+          "history": [{"ledger": 106, "amount": "1"}, {"ledger": 158, "amount": "1"}],
+          "total": "2"
+        }
+      }
+    },
+    {
+      "now": 173,
+      "amount": "-170141183460469231731687303715884105728",
+      "expected": {"error": "negative_amount"}
+    },
+    {
+      "now": 193,
+      "amount": "2",
+      "expected": {
+        "ok": {
+          "history": [
+            {"ledger": 106, "amount": "1"},
+            {"ledger": 158, "amount": "1"},
+            {"ledger": 193, "amount": "2"}
+          ],
+          "total": "4"
+        }
+      }
+    },
+    {"now": 193, "amount": "3", "expected": {"error": "limit_exceeded"}},
+    {
+      "now": 203,
+      "amount": "1",
+      "expected": {
+        "ok": {
+          "history": [
+            {"ledger": 106, "amount": "1"},
+            {"ledger": 158, "amount": "1"},
+            {"ledger": 193, "amount": "2"},
+            {"ledger": 203, "amount": "1"}
+          ],
+          "total": "5"
+        }
+      }
+    },
+    {"now": 217, "amount": "2", "expected": {"error": "limit_exceeded"}}
+  ]
+}

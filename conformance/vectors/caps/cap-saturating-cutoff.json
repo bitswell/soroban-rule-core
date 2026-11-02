@@ -1,0 +1,26 @@
+{
+  "format": 1,
+  "name": "cap-saturating-cutoff",
+  "description": "Before ledger period the cutoff is 0: an entry at ledger 0 is evicted, one at ledger 1 is kept.",
+  "limit": "100",
+  "period": 10,
+  "params_valid": true,
+  "start": {
+    "history": [{"ledger": 0, "amount": "60"}, {"ledger": 1, "amount": "40"}],
+    "total": "100"
+  },
+  "calls": [
+    {"now": 5, "amount": "61", "expected": {"error": "limit_exceeded"}},
+    {
+      "now": 5,
+      "amount": "60",
+      "expected": {
+        "ok": {
+          "history": [{"ledger": 1, "amount": "40"}, {"ledger": 5, "amount": "60"}],
+          "total": "100"
+        }
+      }
+    },
+    {"now": 6, "amount": "1", "expected": {"error": "limit_exceeded"}}
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "format": 1,
+  "name": "cap-eviction-stops-at-first-kept",
+  "description": "Eviction walks from the front and stops at the first entry after the cutoff; the record is not one the check builds.",
+  "limit": "100",
+  "period": 10,
+  "params_valid": true,
+  "start": {
+    "history": [
+      {"ledger": 15, "amount": "10"},
+      {"ledger": 5, "amount": "10"},
+      {"ledger": 16, "amount": "10"}
+    ],
+    "total": "30"
+  },
+  "calls": [
+    {
+      "now": 20,
+      "amount": "1",
+      "expected": {
+        "ok": {
+          "history": [
+            {"ledger": 15, "amount": "10"},
+            {"ledger": 5, "amount": "10"},
+            {"ledger": 16, "amount": "10"},
+            {"ledger": 20, "amount": "1"}
+          ],
+          "total": "31"
+        }
+      }
+    },
+    {
+      "now": 26,
+      "amount": "1",
+      "expected": {
+        "ok": {
+          "history": [{"ledger": 20, "amount": "1"}, {"ledger": 26, "amount": "1"}],
+          "total": "2"
+        }
+      }
+    }
+  ]
+}

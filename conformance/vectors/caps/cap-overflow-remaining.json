@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "name": "cap-overflow-remaining",
+  "description": "A total minus the evicted amounts that does not fit in an i128 is refused with overflow; the record is not one the check builds.",
+  "limit": "100",
+  "period": 10,
+  "params_valid": true,
+  "start": {
+    "history": [{"ledger": 1, "amount": "1"}],
+    "total": "-170141183460469231731687303715884105728"
+  },
+  "calls": [{"now": 30, "amount": "1", "expected": {"error": "overflow"}}]
+}

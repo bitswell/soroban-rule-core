@@ -44,6 +44,11 @@
 //! that allows no context, under any authenticated signers, that the original
 //! does not.
 //!
+//! [`check_spend`] is the spending-cap check: given what a capped rule has
+//! spent in its window ([`SpendRecord`]), the cap, the current ledger and the
+//! amount of a new spend, it returns the record after the spend or a
+//! [`CapError`].
+//!
 //! Identifiers and byte payloads compare exactly (same length, same bytes).
 //! Values of different [`Val`] constructors are never equal, and signers of
 //! different [`Signer`] constructors are never equal. The evaluator
@@ -65,13 +70,13 @@
 //!   every target with at least 32-bit pointers (asserted at compile time
 //!   below);
 //! - no parameter or local variable is named after a module of the crate
-//!   (`attenuate`, `bytes`, `context`, `rule`, `rule_set`, `signer`, `val`):
-//!   the translation puts each module's items in a Lean namespace of that
-//!   name, which a binding of the same name would shadow.
+//!   (`attenuate`, `bytes`, `cap`, `context`, `rule`, `rule_set`, `signer`,
+//!   `val`): the translation puts each module's items in a Lean namespace of
+//!   that name, which a binding of the same name would shadow.
 //!
 //! The only panic left is allocation failure in `Vec::push`, which the
-//! attenuation steps call to build their result; [`allows`] and
-//! [`allows_all`] do not allocate.
+//! attenuation steps and [`check_spend`] call to build their result;
+//! [`allows`] and [`allows_all`] do not allocate.
 #![no_std]
 #![forbid(unsafe_code)]
 
@@ -79,6 +84,7 @@ extern crate alloc;
 
 mod attenuate;
 mod bytes;
+mod cap;
 mod context;
 mod rule;
 mod rule_set;
@@ -89,6 +95,10 @@ pub use attenuate::{
     AttenuationError, add_cond, drop_rule, raise_threshold, remove_functions, remove_signers,
 };
 pub use bytes::{bytes_eq, bytes_in};
+pub use cap::{
+    CapError, CapParams, MAX_HISTORY_ENTRIES, SpendEntry, SpendRecord, check_spend, empty_record,
+    params_valid,
+};
 pub use context::Context;
 pub use rule::{Cond, Rule, cond_holds, rule_allows};
 pub use rule_set::{allows, allows_all};

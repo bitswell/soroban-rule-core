@@ -1,0 +1,47 @@
+{
+  "format": 1,
+  "name": "cap-refusal-keeps-record",
+  "description": "A refused spend leaves the record as it was, its eviction included.",
+  "limit": "100",
+  "period": 10,
+  "params_valid": true,
+  "start": {"history": [], "total": "0"},
+  "calls": [
+    {
+      "now": 10,
+      "amount": "60",
+      "expected": {"ok": {"history": [{"ledger": 10, "amount": "60"}], "total": "60"}}
+    },
+    {
+      "now": 11,
+      "amount": "40",
+      "expected": {
+        "ok": {
+          "history": [{"ledger": 10, "amount": "60"}, {"ledger": 11, "amount": "40"}],
+          "total": "100"
+        }
+      }
+    },
+    {"now": 20, "amount": "80", "expected": {"error": "limit_exceeded"}},
+    {
+      "now": 20,
+      "amount": "1",
+      "expected": {
+        "ok": {
+          "history": [{"ledger": 11, "amount": "40"}, {"ledger": 20, "amount": "1"}],
+          "total": "41"
+        }
+      }
+    },
+    {
+      "now": 21,
+      "amount": "61",
+      "expected": {
+        "ok": {
+          "history": [{"ledger": 20, "amount": "1"}, {"ledger": 21, "amount": "61"}],
+          "total": "62"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "name": "cap-empty-run",
+  "description": "A trace with no calls.",
+  "limit": "1",
+  "period": 1,
+  "params_valid": true,
+  "start": {"history": [], "total": "0"},
+  "calls": []
+}

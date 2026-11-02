@@ -3,10 +3,11 @@ import Conformance
 /-!
 # gen-vectors
 
-`gen-vectors <dir> [--seed <n>] [--count <n>]` writes every named case and
-`count` randomized cases of seed `seed` (by default the committed seed and
-count) into `<dir>`, one `<name>.json` per case, after removing the `.json`
-files already there.
+`gen-vectors <dir> [--seed <n>] [--count <n>] [--cap-count <n>]` writes every
+named case and `count` randomized cases of seed `seed` (by default the
+committed seed and count) into `<dir>`, one `<name>.json` per case, and every
+named cap trace and `cap-count` randomized cap traces of the same seed into
+`<dir>/caps`, after removing the `.json` files already in each.
 -/
 
 open Conformance
@@ -15,9 +16,10 @@ structure Options where
   dir : System.FilePath
   seed : UInt64 := Random.defaultSeed
   count : Nat := Random.defaultCount
+  capCount : Nat := Caps.defaultCount
 
 def usage : String :=
-  "usage: gen-vectors <dir> [--seed <n>] [--count <n>]"
+  "usage: gen-vectors <dir> [--seed <n>] [--count <n>] [--cap-count <n>]"
 
 def parseFlags (o : Options) : List String → Except String Options
   | [] => .ok o
@@ -29,6 +31,10 @@ def parseFlags (o : Options) : List String → Except String Options
     match n.toNat? with
     | some v => parseFlags { o with count := v } rest
     | none => .error s!"--count: not a number: {n}"
+  | "--cap-count" :: n :: rest =>
+    match n.toNat? with
+    | some v => parseFlags { o with capCount := v } rest
+    | none => .error s!"--cap-count: not a number: {n}"
   | flag :: _ => .error s!"unexpected argument: {flag}\n{usage}"
 
 def parseArgs : List String → Except String Options
@@ -44,11 +50,24 @@ def main (args : List String) : IO UInt32 := do
   if names.eraseDups.length ≠ names.length then
     IO.eprintln "two cases share a name"
     return 1
-  IO.FS.createDirAll o.dir
-  for entry in ← o.dir.readDir do
-    if entry.path.extension == some "json" then
-      IO.FS.removeFile entry.path
+  let traces := Caps.traces o.seed o.capCount
+  let traceNames := traces.map (·.name)
+  if traceNames.eraseDups.length ≠ traceNames.length then
+    IO.eprintln "two cap traces share a name"
+    return 1
+  for t in traces do
+    unless t.inRange do
+      IO.eprintln s!"{t.name}: a ledger, period or amount does not fit the Rust types"
+      return 1
+  let capDir := o.dir / "caps"
+  for d in [o.dir, capDir] do
+    IO.FS.createDirAll d
+    for entry in ← d.readDir do
+      if entry.path.extension == some "json" then
+        IO.FS.removeFile entry.path
   for c in cases do
     IO.FS.writeFile (o.dir / s!"{c.name}.json") c.toJson.render
-  IO.println s!"wrote {cases.length} vectors to {o.dir}"
+  for t in traces do
+    IO.FS.writeFile (capDir / s!"{t.name}.json") t.toJson.render
+  IO.println s!"wrote {cases.length} vectors to {o.dir} and {traces.length} cap traces to {capDir}"
   return 0

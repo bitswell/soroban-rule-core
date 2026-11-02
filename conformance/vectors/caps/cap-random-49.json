@@ -1,0 +1,32 @@
+{
+  "format": 1,
+  "name": "cap-random-49",
+  "description": "Randomized trace 49 of seed 20261102.",
+  "limit": "10",
+  "period": 0,
+  "params_valid": false,
+  "start": {"history": [], "total": "0"},
+  "calls": [
+    {"now": 0, "amount": "-1", "expected": {"error": "negative_amount"}},
+    {
+      "now": 0,
+      "amount": "-170141183460469231731687303715884105728",
+      "expected": {"error": "negative_amount"}
+    },
+    {
+      "now": 2,
+      "amount": "3",
+      "expected": {"ok": {"history": [{"ledger": 2, "amount": "3"}], "total": "3"}}
+    },
+    {
+      "now": 2,
+      "amount": "3",
+      "expected": {"ok": {"history": [{"ledger": 2, "amount": "3"}], "total": "3"}}
+    },
+    {
+      "now": 4,
+      "amount": "170141183460469231731687303715884105727",
+      "expected": {"error": "limit_exceeded"}
+    }
+  ]
+}
