@@ -1,30 +1,72 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "random-031",
   "description": "Randomized case 31 of seed 20261102.",
-  "rules": [{"contract": "", "functions": [], "conds": []}],
-  "batch": [],
-  "expected": {"allows": [], "allows_all": true},
+  "rules": [
+    {
+      "contract": "",
+      "functions": [],
+      "conds": [],
+      "signers": [{"delegated": {"address": "62"}}],
+      "threshold": 2
+    }
+  ],
+  "batch": [
+    {"call": {"contract": "", "function": "67", "args": []}},
+    {"call": {"contract": "", "function": "", "args": []}}
+  ],
+  "authenticated": [
+    {"delegated": {"address": "62"}},
+    {"delegated": {"address": "61"}},
+    {"delegated": {"address": "62"}}
+  ],
+  "expected": {"allows": [false, false], "allows_all": false},
   "attenuations": [
     {
-      "steps": [
-        {"add_cond": {"index": 0, "cond": {"arg_eq": {"index": 0, "value": {"address": ""}}}}},
-        {"drop_rule": {"index": 0}}
-      ],
-      "expected": {"ok": {"rules": [], "allows": [], "allows_all": true}}
-    },
-    {
-      "steps": [
-        {"remove_functions": {"index": 1, "functions": []}},
-        {"remove_functions": {"index": 0, "functions": ["67", "66"]}}
-      ],
+      "steps": [{"remove_functions": {"index": 1, "functions": []}}],
       "expected": {"error": "no_such_rule"}
     },
     {
       "steps": [
-        {"add_cond": {"index": 1, "cond": {"arg_i128_at_most": {"index": 0, "bound": "7"}}}}
+        {"raise_threshold": {"index": 0, "threshold": 1}},
+        {"drop_rule": {"index": 4294967295}}
       ],
-      "expected": {"error": "no_such_rule"}
+      "expected": {"error": "threshold_lowered"}
+    },
+    {
+      "steps": [
+        {
+          "add_cond": {
+            "index": 0,
+            "cond": {
+              "arg_i128_at_most": {"index": 1, "bound": "-170141183460469231731687303715884105727"}
+            }
+          }
+        },
+        {"remove_functions": {"index": 0, "functions": []}}
+      ],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "",
+              "functions": [],
+              "conds": [
+                {
+                  "arg_i128_at_most": {
+                    "index": 1,
+                    "bound": "-170141183460469231731687303715884105727"
+                  }
+                }
+              ],
+              "signers": [{"delegated": {"address": "62"}}],
+              "threshold": 2
+            }
+          ],
+          "allows": [false, false],
+          "allows_all": false
+        }
+      }
     }
   ]
 }

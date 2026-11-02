@@ -27,9 +27,11 @@ claims:
 
   - id: model.semantics
     claim: >-
-      A rule allows a context exactly when its scope matches and every one of
-      its conditions holds; a rule set allows a context exactly when some rule
-      does; a batch is allowed exactly when every context in it is.
+      A rule allows a context under the authenticated signers exactly when its
+      scope matches, every one of its conditions holds and its signer
+      requirement holds; a rule set allows a context exactly when some rule
+      does; a batch is allowed exactly when every context in it is, under one
+      list of authenticated signers.
     status: proven
     evidence:
       - theorem: RuleCore.Rule.allows_iff
@@ -37,7 +39,9 @@ claims:
       - theorem: RuleCore.RuleSet.allowsAll_iff
 
   - id: model.narrower-preorder
-    claim: Narrower is reflexive and transitive.
+    claim: >-
+      Narrower, which quantifies over authenticated signer lists as well as
+      contexts, is reflexive and transitive.
     status: proven
     evidence:
       - theorem: RuleCore.RuleSet.narrower_refl
@@ -46,21 +50,28 @@ claims:
   - id: model.steps-narrow
     claim: >-
       Each attenuation step (drop a rule, add a condition to a rule, restrict a
-      rule's scope) yields a rule set narrower than the one it started from.
+      rule's scope, remove signers from a rule, raise a rule's threshold)
+      yields a rule set narrower than the one it started from, under every
+      list of authenticated signers.
     status: proven
     evidence:
       - theorem: RuleCore.RuleSet.dropRule_narrower
       - theorem: RuleCore.RuleSet.addCond_narrower
       - theorem: RuleCore.RuleSet.restrictScope_narrower
+      - theorem: RuleCore.RuleSet.removeSigners_narrower
+      - theorem: RuleCore.RuleSet.raiseThreshold_narrower
       - theorem: RuleCore.RuleSet.attenuate_narrower
       - theorem: RuleCore.RuleSet.modifyRule_narrower
       - theorem: RuleCore.Rule.allows_of_allows_addCond
       - theorem: RuleCore.Rule.allows_of_allows_restrictScope
+      - theorem: RuleCore.Rule.allows_of_allows_removeSigners
+      - theorem: RuleCore.Rule.allows_of_allows_threshold_le
+      - theorem: RuleCore.Rule.signed_of_signed_removeSigners
 
   - id: model.chains-stay-inside-root
     claim: >-
-      Every rule set reached from a root by any chain of attenuation steps is
-      narrower than the root.
+      Every rule set reached from a root by any chain of the five attenuation
+      steps is narrower than the root.
     status: proven
     evidence:
       - theorem: RuleCore.RuleSet.Derives.narrower
@@ -82,7 +93,17 @@ claims:
       - theorem: RuleCore.RuleSet.dropRule_eq_error_iff
       - theorem: RuleCore.RuleSet.addCond_eq_error_iff
       - theorem: RuleCore.RuleSet.restrictScope_eq_error_iff
+      - theorem: RuleCore.RuleSet.removeSigners_eq_error_iff
+      - theorem: RuleCore.RuleSet.raiseThreshold_eq_noSuchRule_iff
       - theorem: RuleCore.RuleSet.modifyRule_eq_error_iff
+
+  - id: model.threshold-lowered
+    claim: >-
+      raiseThreshold is refused with thresholdLowered exactly when the rule
+      exists and the new threshold is below its current one.
+    status: proven
+    evidence:
+      - theorem: RuleCore.RuleSet.raiseThreshold_eq_thresholdLowered_iff
 
   - id: model.empty-batch
     claim: Every rule set, the empty one included, allows the empty batch.
@@ -90,16 +111,71 @@ claims:
     evidence:
       - theorem: RuleCore.RuleSet.allowsAll_nil
 
+  - id: model.signer-requirement
+    claim: >-
+      A rule's signer requirement holds exactly when at least its threshold of
+      its distinct signers are among the authenticated signers; the signers
+      counted are exactly the rule's signers that are authenticated, each once.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Rule.signed_iff
+      - theorem: RuleCore.Rule.mem_present
+      - theorem: RuleCore.Rule.nodup_present
+      - theorem: RuleCore.nodup_eraseDups
+
+  - id: model.signer-thresholds
+    claim: >-
+      Threshold 0 is no signer requirement; a threshold equal to the number of
+      distinct signers requires every signer; a threshold above it is never
+      met, so the rule allows nothing.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Rule.signed_of_threshold_zero
+      - theorem: RuleCore.Rule.allows_of_threshold_zero
+      - theorem: RuleCore.Rule.signed_iff_of_threshold_eq
+      - theorem: RuleCore.Rule.signed_false_of_lt
+      - theorem: RuleCore.Rule.allows_false_of_lt
+
+  - id: model.signers-monotone
+    claim: >-
+      Authenticating more signers never turns an allow into a refusal, for a
+      rule, a rule set and a batch.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Rule.signed_of_subset
+      - theorem: RuleCore.Rule.allows_of_subset
+      - theorem: RuleCore.RuleSet.allows_of_subset
+      - theorem: RuleCore.RuleSet.allowsAll_of_subset
+      - theorem: RuleCore.Rule.present_length_le_of_subset
+
+  - id: model.signer-repeats
+    claim: >-
+      Repeats and order in the authenticated signers, or in a rule's own
+      signer list, do not change the verdict: it depends only on which signers
+      each list holds.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Rule.signed_congr
+      - theorem: RuleCore.RuleSet.allows_congr
+      - theorem: RuleCore.RuleSet.allowsAll_congr
+      - theorem: RuleCore.RuleSet.allows_eraseDups
+      - theorem: RuleCore.Rule.signed_congr_signers
+      - theorem: RuleCore.Rule.allows_congr_signers
+      - theorem: RuleCore.Rule.signed_eraseDups_signers
+      - theorem: RuleCore.length_eq_of_nodup_of_mem_iff
+
   # The chain vocabulary (formal/RuleCore/Vocab, theorems in RuleCore.Chain).
 
   - id: chain.conds-read-their-call
     claim: >-
       A chain rule allows a call exactly when the call's contract is the
-      rule's contract, its function is in the rule's function list, and every
-      condition of the rule holds on that call's own arguments.
+      rule's contract, its function is in the rule's function list, every
+      condition of the rule holds on that call's own arguments, and at least
+      its threshold of its distinct signers are authenticated.
     status: proven
     evidence:
       - theorem: RuleCore.Chain.Rule.allows_call_iff
+      - theorem: RuleCore.Chain.Rule.signed_iff
       - theorem: RuleCore.Chain.Rule.allows_iff
       - theorem: RuleCore.Chain.RuleSet.allows_iff
       - theorem: RuleCore.Chain.RuleSet.allowsAll_iff
@@ -118,22 +194,29 @@ claims:
 
   - id: chain.steps-narrow
     claim: >-
-      Each chain attenuation step (dropRule, addCond, removeFunctions) yields
-      a narrower rule set, and each denotes the generic step of the same kind.
+      Each chain attenuation step (dropRule, addCond, removeFunctions,
+      removeSigners, raiseThreshold) yields a narrower rule set, and each
+      denotes the generic step of the same kind.
     status: proven
     evidence:
       - theorem: RuleCore.Chain.RuleSet.dropRule_narrower
       - theorem: RuleCore.Chain.RuleSet.addCond_narrower
       - theorem: RuleCore.Chain.RuleSet.removeFunctions_narrower
+      - theorem: RuleCore.Chain.RuleSet.removeSigners_narrower
+      - theorem: RuleCore.Chain.RuleSet.raiseThreshold_narrower
       - theorem: RuleCore.Chain.RuleSet.attenuate_narrower
       - theorem: RuleCore.Chain.RuleSet.denote_dropRule
       - theorem: RuleCore.Chain.RuleSet.denote_addCond
       - theorem: RuleCore.Chain.RuleSet.denote_removeFunctions
+      - theorem: RuleCore.Chain.RuleSet.denote_removeSigners
+      - theorem: RuleCore.Chain.RuleSet.denote_raiseThreshold
       - theorem: RuleCore.Chain.RuleSet.denote_attenuate
       - theorem: RuleCore.Chain.RuleSet.denote_modifyRule
       - theorem: RuleCore.Chain.Rule.denote_addCond
       - theorem: RuleCore.Chain.Rule.denote_removeFunctions
+      - theorem: RuleCore.Chain.Rule.denote_removeSigners
       - theorem: RuleCore.Chain.Rule.mem_removeFunctions
+      - theorem: RuleCore.Chain.Rule.mem_removeSigners
       - theorem: RuleCore.Chain.RuleSet.rules_denote
 
   - id: chain.narrower-preorder
@@ -168,7 +251,17 @@ claims:
       - theorem: RuleCore.Chain.RuleSet.dropRule_eq_error_iff
       - theorem: RuleCore.Chain.RuleSet.addCond_eq_error_iff
       - theorem: RuleCore.Chain.RuleSet.removeFunctions_eq_error_iff
+      - theorem: RuleCore.Chain.RuleSet.removeSigners_eq_error_iff
+      - theorem: RuleCore.Chain.RuleSet.raiseThreshold_eq_noSuchRule_iff
       - theorem: RuleCore.Chain.RuleSet.modifyRule_eq_error_iff
+
+  - id: chain.threshold-lowered
+    claim: >-
+      The chain raiseThreshold is refused with thresholdLowered exactly when
+      the rule exists and the new UInt32 threshold is below its current one.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Chain.RuleSet.raiseThreshold_eq_thresholdLowered_iff
 
   - id: chain.no-creation
     claim: >-
@@ -206,6 +299,54 @@ claims:
       - theorem: RuleCore.Chain.Rule.allows_prefix_false
       - theorem: RuleCore.Chain.Rule.allows_extension_false
 
+  - id: chain.signers-exact
+    claim: >-
+      Signers compare exactly, constructor first: a delegated signer never
+      equals an external one, whatever their bytes; signers of one kind are
+      equal exactly when their bytes are, with no prefix or extension match;
+      a rule signer counts only when exactly that signer is authenticated.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Chain.Signer.delegated_ne_external
+      - theorem: RuleCore.Chain.Signer.delegated_eq_iff
+      - theorem: RuleCore.Chain.Signer.external_eq_iff
+      - theorem: RuleCore.Chain.Signer.delegated_append_ne
+      - theorem: RuleCore.Chain.Rule.mem_present
+
+  - id: chain.signer-thresholds
+    claim: >-
+      For chain rules, threshold 0 makes the verdict independent of the
+      authenticated signers; a threshold equal to the number of distinct
+      signers requires every signer; a threshold above it allows nothing.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Chain.Rule.signed_of_threshold_zero
+      - theorem: RuleCore.Chain.Rule.allows_of_threshold_zero
+      - theorem: RuleCore.Chain.Rule.signed_iff_of_threshold_eq
+      - theorem: RuleCore.Chain.Rule.allows_false_of_lt
+
+  - id: chain.signers-monotone
+    claim: >-
+      Authenticating more signers never turns a chain allow into a refusal,
+      for a rule, a rule set and a batch.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Chain.Rule.allows_of_subset
+      - theorem: RuleCore.Chain.RuleSet.allows_of_subset
+      - theorem: RuleCore.Chain.RuleSet.allowsAll_of_subset
+
+  - id: chain.signer-repeats
+    claim: >-
+      Repeats and order in the authenticated signers, or in a chain rule's
+      signer list, do not change the verdict.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Chain.RuleSet.allows_congr
+      - theorem: RuleCore.Chain.RuleSet.allowsAll_congr
+      - theorem: RuleCore.Chain.RuleSet.allows_eraseDups
+      - theorem: RuleCore.Chain.Rule.allows_congr_signers
+      - theorem: RuleCore.Chain.Rule.allows_eraseDups_signers
+
   - id: chain.empty-function-list
     claim: A rule with an empty function list allows nothing.
     status: proven
@@ -214,12 +355,15 @@ claims:
 
   - id: chain.examples
     claim: >-
-      Ten concrete verdicts of the chain vocabulary are checked by the kernel
-      on every build: a capped transfer at, over and below its cap, with an
-      amount of another constructor and with no amount; a prefix of the
-      contract id; a batch holding a creation; an argument index of
+      Seventeen concrete verdicts of the chain vocabulary are checked by the
+      kernel on every build: a capped transfer at, over and below its cap,
+      with an amount of another constructor and with no amount; a prefix of
+      the contract id; a batch holding a creation; an argument index of
       2^32 - 1; a rule with its only function removed; an out-of-range rule
-      index.
+      index; two of three distinct signers; a signer authenticated twice; a
+      signer listed twice; an external signer holding a delegated signer's
+      bytes; a threshold above the signers; a lowered threshold refused; a
+      signer removed with the threshold kept.
     status: tested
     evidence:
       - ci: {workflow: .github/workflows/lean.yml, job: lean, step: lake build, runs: lake build}
@@ -231,9 +375,11 @@ claims:
   - id: equiv.evaluation
     claim: >-
       On every input, the translated allows and allows_all return ok of the
-      chain model's allows and allowsAll on the denotations; since ok excludes
-      divergence and failure, they terminate and never panic. The same holds
-      for rule_allows, conds_hold, cond_holds, val_eq, bytes_eq and bytes_in.
+      chain model's allows and allowsAll on the denotations, authenticated
+      signers included; since ok excludes divergence and failure, they
+      terminate and never panic. The same holds for rule_allows, conds_hold,
+      cond_holds, val_eq, bytes_eq, bytes_in, signers_met, signed_count,
+      signer_eq, signer_in and signer_in_first.
     status: proven
     assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel, trusted.denotations]
     evidence:
@@ -245,14 +391,21 @@ claims:
       - theorem: RuleCore.Equiv.val_eq_eq
       - theorem: RuleCore.Equiv.bytes_eq_eq
       - theorem: RuleCore.Equiv.bytes_in_eq
+      - theorem: RuleCore.Equiv.signers_met_eq
+      - theorem: RuleCore.Equiv.signed_count_eq
+      - theorem: RuleCore.Equiv.signer_eq_eq
+      - theorem: RuleCore.Equiv.signer_in_eq
+      - theorem: RuleCore.Equiv.signer_in_first_eq
+      - theorem: RuleCore.Equiv.any_signer_eq_mem
 
   - id: equiv.attenuation
     claim: >-
-      On every input, the translated drop_rule and remove_functions return ok
-      of a result that denotes the chain model's step on the denotations,
-      noSuchRule included; add_cond does the same whenever the rule at its
-      index has room for one more condition (CondRoom), and fails when it does
-      not, so CondRoom is exact.
+      On every input, the translated drop_rule, remove_functions,
+      remove_signers and raise_threshold return ok of a result that denotes
+      the chain model's step on the denotations, noSuchRule and
+      thresholdLowered included; add_cond does the same whenever the rule at
+      its index has room for one more condition (CondRoom), and fails when it
+      does not, so CondRoom is exact.
     status: proven
     assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel, trusted.denotations, rule.cond-room]
     evidence:
@@ -268,9 +421,20 @@ claims:
       - theorem: RuleCore.Equiv.add_cond_err
       - theorem: RuleCore.Equiv.bytes_list_without_eq
       - theorem: RuleCore.Equiv.rule_without_functions_eq
+      - theorem: RuleCore.Equiv.remove_signers_eq
+      - theorem: RuleCore.Equiv.remove_signers_ok
+      - theorem: RuleCore.Equiv.remove_signers_err
+      - theorem: RuleCore.Equiv.raise_threshold_eq
+      - theorem: RuleCore.Equiv.raise_threshold_ok
+      - theorem: RuleCore.Equiv.raise_threshold_err
+      - theorem: RuleCore.Equiv.raise_threshold_lowered
+      - theorem: RuleCore.Equiv.signers_without_eq
+      - theorem: RuleCore.Equiv.rule_without_signers_eq
+      - theorem: RuleCore.Equiv.denote_filter_inList
+      - theorem: RuleCore.Equiv.denote_filter_signerInList
 
   - id: equiv.copies
-    claim: Every translated copy (bytes, byte lists, values, conditions, rules) returns ok of its input.
+    claim: Every translated copy (bytes, byte lists, values, conditions, signers, rules) returns ok of its input.
     status: proven
     evidence:
       - theorem: RuleCore.Equiv.bytes_copy_eq
@@ -279,6 +443,8 @@ claims:
       - theorem: RuleCore.Equiv.val_copy_eq
       - theorem: RuleCore.Equiv.cond_copy_eq
       - theorem: RuleCore.Equiv.conds_copy_deref
+      - theorem: RuleCore.Equiv.signer_copy_eq
+      - theorem: RuleCore.Equiv.signers_copy_deref
       - theorem: RuleCore.Equiv.rule_copy_eq
 
   - id: equiv.denotations-injective
@@ -291,6 +457,8 @@ claims:
       - theorem: RuleCore.Equiv.denoteVal_injective
       - theorem: RuleCore.Equiv.denoteContext_injective
       - theorem: RuleCore.Equiv.denoteCond_injective
+      - theorem: RuleCore.Equiv.denoteSigner_injective
+      - theorem: RuleCore.Equiv.denoteSigners_injective
       - theorem: RuleCore.Equiv.denoteRule_injective
       - theorem: RuleCore.Equiv.denoteRules_injective
       - theorem: RuleCore.Equiv.denoteError_injective
@@ -298,19 +466,25 @@ claims:
 
   - id: equiv.loops
     claim: >-
-      What each of the three loop shapes returns follows from one round of its
-      body; Vec::push succeeds below Usize.max elements and fails at it; the
-      loop counter's increment and in-range indexing succeed; get is the list
-      lookup.
+      What each of the four loop shapes returns follows from one round of its
+      body; counting each element at its first position counts the elements
+      of eraseDups; Vec::push succeeds below Usize.max elements and fails at
+      it; the loop counter's and the signer count's increments and in-range
+      indexing succeed; get is the list lookup.
     status: proven
     evidence:
       - theorem: RuleCore.Equiv.loop_any
       - theorem: RuleCore.Equiv.loop_all
       - theorem: RuleCore.Equiv.loop_build
       - theorem: RuleCore.Equiv.loop_build_fail
+      - theorem: RuleCore.Equiv.loop_count
+      - theorem: RuleCore.Equiv.countFrom_first
+      - theorem: RuleCore.Equiv.countFrom_first_from
+      - theorem: RuleCore.Equiv.countFrom_map
       - theorem: RuleCore.Equiv.push_eq
       - theorem: RuleCore.Equiv.push_full
       - theorem: RuleCore.Equiv.incr_eq
+      - theorem: RuleCore.Equiv.incr_eq_of_le
       - theorem: RuleCore.Equiv.index_usize_eq
       - theorem: RuleCore.Equiv.slice_get_eq
 
@@ -327,6 +501,8 @@ claims:
       - theorem: RuleCore.Extracted.drop_rule_narrower
       - theorem: RuleCore.Extracted.add_cond_narrower
       - theorem: RuleCore.Extracted.remove_functions_narrower
+      - theorem: RuleCore.Extracted.remove_signers_narrower
+      - theorem: RuleCore.Extracted.raise_threshold_narrower
       - theorem: RuleCore.Extracted.Step.narrower
       - theorem: RuleCore.Extracted.add_cond_room
 
@@ -395,6 +571,53 @@ claims:
       - theorem: RuleCore.Extracted.rule_allows_call
       - theorem: RuleCore.Extracted.rule_allows_prefix_false
       - theorem: RuleCore.Extracted.rule_allows_extension_false
+
+  - id: extracted.signers-exact
+    claim: >-
+      The translated signer_eq returns true exactly on equal signers, so a
+      Delegated signer never equals an External one, whatever their bytes.
+    status: proven
+    assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel]
+    evidence:
+      - theorem: RuleCore.Extracted.signer_eq_iff
+      - theorem: RuleCore.Extracted.signer_eq_delegated_external
+
+  - id: extracted.signers-monotone
+    claim: >-
+      Authenticating more signers never turns the translated allows or
+      allows_all from true to false.
+    status: proven
+    assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel]
+    evidence:
+      - theorem: RuleCore.Extracted.allows_of_subset
+      - theorem: RuleCore.Extracted.allows_all_of_subset
+      - theorem: RuleCore.Extracted.denoteSigners_subset
+
+  - id: extracted.signer-repeats
+    claim: >-
+      Repeats and order in the authenticated signers, or in a translated
+      rule's signer vector, do not change the translated verdict.
+    status: proven
+    assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel]
+    evidence:
+      - theorem: RuleCore.Extracted.allows_congr
+      - theorem: RuleCore.Extracted.allows_all_congr
+      - theorem: RuleCore.Extracted.rule_allows_congr_signers
+      - theorem: RuleCore.Extracted.denoteSigners_mem_iff
+
+  - id: extracted.signer-thresholds
+    claim: >-
+      With threshold 0 the translated rule_allows does not depend on the
+      authenticated signers; the translated signers_met with a threshold equal
+      to the number of distinct signers holds exactly when every signer is
+      authenticated; with a threshold above that number rule_allows returns
+      false.
+    status: proven
+    assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel, trusted.denotations]
+    evidence:
+      - theorem: RuleCore.Extracted.rule_allows_threshold_zero
+      - theorem: RuleCore.Extracted.signers_met_all_iff
+      - theorem: RuleCore.Extracted.rule_allows_false_of_lt
 
   # Stated rules: what the theorems take as given about their callers.
 
@@ -509,11 +732,39 @@ claims:
       - test: rule-eval/evaluate::out_of_range_condition_indices_are_false
       - test: rule-eval/evaluate::values_equal_only_with_the_same_constructor
 
+  - id: tested.signers
+    claim: >-
+      Over a universe of five signers of both kinds (equal bytes across kinds,
+      an address extending another), every signer list of up to three
+      signers, thresholds 0 to 4 and 63 authenticated lists, signers_met
+      agrees with an ordinary-Rust reading of the requirement, authenticating
+      more signers never refuses, and order and repeats in the authenticated
+      list change nothing; unit tests cover exact signer comparison, each
+      threshold case, repeats in either list, delegated versus external
+      signers with equal bytes, missing signers and one authenticated list per
+      batch.
+    status: tested
+    evidence:
+      - test: rule-eval/signers::signers_met_agrees_with_the_reference_reading
+      - test: rule-eval/signers::authenticating_more_signers_never_refuses
+      - test: rule-eval/signers::the_same_authenticated_signers_in_another_order_or_repeated_give_the_same_verdict
+      - test: rule-eval/signers::allows_agrees_with_the_reference_reading_under_signers
+      - test: rule-eval/signers::signers_compare_exactly
+      - test: rule-eval/signers::signer_in_needs_an_exact_member
+      - test: rule-eval/signers::threshold_zero_needs_no_signer
+      - test: rule-eval/signers::thresholds_count_distinct_authenticated_signers
+      - test: rule-eval/signers::repeats_in_either_list_count_once
+      - test: rule-eval/signers::delegated_and_external_with_equal_bytes_are_different_signers
+      - test: rule-eval/signers::missing_signers_refuse_only_the_rule_that_needs_them
+      - test: rule-eval/signers::the_batch_shares_one_authenticated_list
+
   - id: tested.attenuation
     claim: >-
       Every attenuation step builds the expected rule set and only narrows,
-      on every rule set of up to two rules; every chain of two steps stays
-      inside its root; out-of-range indices are refused.
+      on every rule set of up to two rules, and every step on rules with
+      signers only narrows under every authenticated list; every chain of two
+      steps stays inside its root; out-of-range indices are refused, and a
+      lowered threshold is refused.
     status: tested
     evidence:
       - test: rule-eval/attenuate::every_step_builds_its_result_and_only_narrows
@@ -524,6 +775,9 @@ claims:
       - test: rule-eval/attenuate::adding_a_cap_denies_what_it_excludes
       - test: rule-eval/attenuate::remove_functions_removes_from_that_rule_only
       - test: rule-eval/attenuate::remove_functions_matches_names_exactly_and_removes_duplicates
+      - test: rule-eval/attenuate::remove_signers_removes_every_occurrence_from_that_rule_only
+      - test: rule-eval/attenuate::raise_threshold_sets_that_rule_and_refuses_to_lower
+      - test: rule-eval/attenuate::signer_steps_only_narrow_under_every_authenticated_list
 
   # Conformance vectors (conformance/).
 
@@ -540,8 +794,9 @@ claims:
   - id: conformance.rule-eval-agrees
     claim: >-
       rule-eval returns every verdict and attenuation result of every vector;
-      the vectors cover every value constructor, condition, step kind and
-      outcome; a vector with a changed expectation is reported.
+      the vectors cover every value constructor, condition, signer kind,
+      repeated signers, each threshold case, step kind and outcome; a vector
+      with a changed expectation is reported.
     status: tested
     evidence:
       - test: rule-eval-conformance/vectors::rule_eval_agrees_with_every_vector
@@ -686,9 +941,21 @@ claims:
     claim: >-
       Narrower on the translation gives the model's narrower on the
       denotations. Only the other direction is proven (narrower_of_denote):
-      model byte strings and argument lists longer than Usize.max have no Rust
-      counterpart.
+      model byte strings, argument lists and signer lists longer than
+      Usize.max have no Rust counterpart.
     status: unproven
     evidence:
       - file: README.md
         contains: "narrower on the translation implies the model's narrower"
+
+  - id: unproven.openzeppelin-signer-mapping
+    claim: >-
+      An OpenZeppelin context rule without policies corresponds to a rule here
+      whose threshold is its number of distinct signers, and a rule with a
+      simple_threshold policy of k to a threshold of k. This is read from
+      OpenZeppelin's source at one commit, recorded as input for M4, and
+      neither proven nor tested.
+    status: unproven
+    evidence:
+      - file: ARCHITECTURE.md
+        contains: "A context rule without policies requires all of its signers."

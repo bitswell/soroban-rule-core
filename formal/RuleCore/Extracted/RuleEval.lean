@@ -21,24 +21,20 @@ set_option maxRecDepth 2048
 namespace rule_eval
 
 /-- [rule_eval::attenuate::AttenuationError]
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 14:0-17:1
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 16:0-21:1
     Visibility: public -/
 @[discriminant isize]
 inductive attenuate.AttenuationError where
 | NoSuchRule : attenuate.AttenuationError
+| ThresholdLowered : attenuate.AttenuationError
 
-/-- [rule_eval::val::Val]
-    Source: 'crates/rule-eval/src/val.rs', lines 8:0-21:1
+/-- [rule_eval::signer::Signer]
+    Source: 'crates/rule-eval/src/signer.rs', lines 8:0-14:1
     Visibility: public -/
 @[discriminant isize]
-inductive val.Val where
-| I128 : Std.I128 → val.Val
-| U64 : Std.U64 → val.Val
-| Bool : Bool → val.Val
-| Bytes : alloc.vec.Vec Std.U8 → val.Val
-| Address : alloc.vec.Vec Std.U8 → val.Val
-| Symbol : alloc.vec.Vec Std.U8 → val.Val
-| Other : alloc.vec.Vec Std.U8 → val.Val
+inductive signer.Signer where
+| Delegated : alloc.vec.Vec Std.U8 → signer.Signer
+| External : alloc.vec.Vec Std.U8 → alloc.vec.Vec Std.U8 → signer.Signer
 
 /-- [rule_eval::bytes::bytes_copy]: loop body 0:
     Source: 'crates/rule-eval/src/bytes.rs', lines 38:4-41:5 -/
@@ -74,6 +70,72 @@ def bytes.bytes_copy_loop
 def bytes.bytes_copy (s : Slice Std.U8) : Result (alloc.vec.Vec Std.U8) := do
   bytes.bytes_copy_loop s (alloc.vec.Vec.new Std.U8) 0#usize
 
+/-- [rule_eval::signer::signer_copy]:
+    Source: 'crates/rule-eval/src/signer.rs', lines 78:0-83:1 -/
+def signer.signer_copy (s : signer.Signer) : Result signer.Signer := do
+  match s with
+  | signer.Signer.Delegated x =>
+    let s1 := alloc.vec.Vec.deref x
+    let v ← bytes.bytes_copy s1
+    ok (signer.Signer.Delegated v)
+  | signer.Signer.External v k =>
+    let s1 := alloc.vec.Vec.deref v
+    let v1 ← bytes.bytes_copy s1
+    let s2 := alloc.vec.Vec.deref k
+    let v2 ← bytes.bytes_copy s2
+    ok (signer.Signer.External v1 v2)
+
+/-- [rule_eval::signer::signers_copy]: loop body 0:
+    Source: 'crates/rule-eval/src/signer.rs', lines 89:4-92:5 -/
+@[rust_loop_body]
+def signer.signers_copy_loop.body
+  (list : Slice signer.Signer) (out : alloc.vec.Vec signer.Signer)
+  (i : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec signer.Signer) × Std.Usize)
+    (alloc.vec.Vec signer.Signer))
+  := do
+  let i1 := Slice.len list
+  if i < i1
+  then
+    let s ← Slice.index_usize list i
+    let s1 ← signer.signer_copy s
+    let out1 ← alloc.vec.Vec.push out s1
+    let i2 ← i + 1#usize
+    ok (cont (out1, i2))
+  else ok (done out)
+
+/-- [rule_eval::signer::signers_copy]: loop 0:
+    Source: 'crates/rule-eval/src/signer.rs', lines 89:4-92:5 -/
+@[rust_loop]
+def signer.signers_copy_loop
+  (list : Slice signer.Signer) (out : alloc.vec.Vec signer.Signer)
+  (i : Std.Usize) :
+  Result (alloc.vec.Vec signer.Signer)
+  := do
+  loop
+    (fun (out1, i1) => signer.signers_copy_loop.body list out1 i1)
+    (out, i)
+
+/-- [rule_eval::signer::signers_copy]:
+    Source: 'crates/rule-eval/src/signer.rs', lines 86:0-94:1 -/
+@[reducible]
+def signer.signers_copy
+  (list : Slice signer.Signer) : Result (alloc.vec.Vec signer.Signer) := do
+  signer.signers_copy_loop list (alloc.vec.Vec.new signer.Signer) 0#usize
+
+/-- [rule_eval::val::Val]
+    Source: 'crates/rule-eval/src/val.rs', lines 8:0-21:1
+    Visibility: public -/
+@[discriminant isize]
+inductive val.Val where
+| I128 : Std.I128 → val.Val
+| U64 : Std.U64 → val.Val
+| Bool : Bool → val.Val
+| Bytes : alloc.vec.Vec Std.U8 → val.Val
+| Address : alloc.vec.Vec Std.U8 → val.Val
+| Symbol : alloc.vec.Vec Std.U8 → val.Val
+| Other : alloc.vec.Vec Std.U8 → val.Val
+
 /-- [rule_eval::val::val_copy]:
     Source: 'crates/rule-eval/src/val.rs', lines 39:0-49:1 -/
 def val.val_copy (v : val.Val) : Result val.Val := do
@@ -99,7 +161,7 @@ def val.val_copy (v : val.Val) : Result val.Val := do
     ok (val.Val.Other v1)
 
 /-- [rule_eval::rule::Cond]
-    Source: 'crates/rule-eval/src/rule.rs', lines 12:0-18:1
+    Source: 'crates/rule-eval/src/rule.rs', lines 13:0-19:1
     Visibility: public -/
 @[discriminant isize]
 inductive rule.Cond where
@@ -107,7 +169,7 @@ inductive rule.Cond where
 | ArgI128AtMost : Std.U32 → Std.I128 → rule.Cond
 
 /-- [rule_eval::rule::cond_copy]:
-    Source: 'crates/rule-eval/src/rule.rs', lines 75:0-80:1 -/
+    Source: 'crates/rule-eval/src/rule.rs', lines 85:0-90:1 -/
 def rule.cond_copy (cond : rule.Cond) : Result rule.Cond := do
   match cond with
   | rule.Cond.ArgEq index v =>
@@ -116,7 +178,7 @@ def rule.cond_copy (cond : rule.Cond) : Result rule.Cond := do
   | rule.Cond.ArgI128AtMost _ _ => ok cond
 
 /-- [rule_eval::rule::conds_copy]: loop body 0:
-    Source: 'crates/rule-eval/src/rule.rs', lines 86:4-89:5 -/
+    Source: 'crates/rule-eval/src/rule.rs', lines 96:4-99:5 -/
 @[rust_loop_body]
 def rule.conds_copy_loop.body
   (conds : Slice rule.Cond) (out : alloc.vec.Vec rule.Cond) (i : Std.Usize) :
@@ -134,7 +196,7 @@ def rule.conds_copy_loop.body
   else ok (done out)
 
 /-- [rule_eval::rule::conds_copy]: loop 0:
-    Source: 'crates/rule-eval/src/rule.rs', lines 86:4-89:5 -/
+    Source: 'crates/rule-eval/src/rule.rs', lines 96:4-99:5 -/
 @[rust_loop]
 def rule.conds_copy_loop
   (conds : Slice rule.Cond) (out : alloc.vec.Vec rule.Cond) (i : Std.Usize) :
@@ -145,19 +207,21 @@ def rule.conds_copy_loop
     (out, i)
 
 /-- [rule_eval::rule::conds_copy]:
-    Source: 'crates/rule-eval/src/rule.rs', lines 83:0-91:1 -/
+    Source: 'crates/rule-eval/src/rule.rs', lines 93:0-101:1 -/
 @[reducible]
 def rule.conds_copy
   (conds : Slice rule.Cond) : Result (alloc.vec.Vec rule.Cond) := do
   rule.conds_copy_loop conds (alloc.vec.Vec.new rule.Cond) 0#usize
 
 /-- [rule_eval::rule::Rule]
-    Source: 'crates/rule-eval/src/rule.rs', lines 22:0-26:1
+    Source: 'crates/rule-eval/src/rule.rs', lines 24:0-33:1
     Visibility: public -/
 structure rule.Rule where
   contract : alloc.vec.Vec Std.U8
   functions : alloc.vec.Vec (alloc.vec.Vec Std.U8)
   conds : alloc.vec.Vec rule.Cond
+  signers : alloc.vec.Vec signer.Signer
+  threshold : Std.U32
 
 /-- [rule_eval::bytes::bytes_list_copy]: loop body 0:
     Source: 'crates/rule-eval/src/bytes.rs', lines 49:4-52:5 -/
@@ -202,7 +266,7 @@ def bytes.bytes_list_copy
     0#usize
 
 /-- [rule_eval::rule::rule_copy]:
-    Source: 'crates/rule-eval/src/rule.rs', lines 94:0-100:1 -/
+    Source: 'crates/rule-eval/src/rule.rs', lines 104:0-112:1 -/
 def rule.rule_copy (r : rule.Rule) : Result rule.Rule := do
   let s := alloc.vec.Vec.deref r.contract
   let v ← bytes.bytes_copy s
@@ -210,10 +274,12 @@ def rule.rule_copy (r : rule.Rule) : Result rule.Rule := do
   let v1 ← bytes.bytes_list_copy s1
   let s2 := alloc.vec.Vec.deref r.conds
   let v2 ← rule.conds_copy s2
-  ok { contract := v, functions := v1, conds := v2 }
+  let s3 := alloc.vec.Vec.deref r.signers
+  let v3 ← signer.signers_copy s3
+  ok { r with contract := v, functions := v1, conds := v2, signers := v3 }
 
 /-- [rule_eval::attenuate::drop_rule]: loop body 0:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 31:4-36:5
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 35:4-40:5
     Visibility: public -/
 @[rust_loop_body]
 def attenuate.drop_rule_loop.body
@@ -238,7 +304,7 @@ def attenuate.drop_rule_loop.body
   else ok (done out)
 
 /-- [rule_eval::attenuate::drop_rule]: loop 0:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 31:4-36:5
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 35:4-40:5
     Visibility: public -/
 @[rust_loop]
 def attenuate.drop_rule_loop
@@ -251,7 +317,7 @@ def attenuate.drop_rule_loop
     (out, i)
 
 /-- [rule_eval::attenuate::drop_rule]:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 24:0-38:1
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 28:0-42:1
     Visibility: public -/
 def attenuate.drop_rule
   (rules : Slice rule.Rule) (index : Std.U32) :
@@ -269,7 +335,7 @@ def attenuate.drop_rule
     ok (core.result.Result.Ok out)
 
 /-- [rule_eval::attenuate::add_cond]: loop body 0:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 52:4-59:5
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 56:4-63:5
     Visibility: public -/
 @[rust_loop_body]
 def attenuate.add_cond_loop.body
@@ -297,7 +363,7 @@ def attenuate.add_cond_loop.body
   else ok (done out)
 
 /-- [rule_eval::attenuate::add_cond]: loop 0:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 52:4-59:5
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 56:4-63:5
     Visibility: public -/
 @[rust_loop]
 def attenuate.add_cond_loop
@@ -310,7 +376,7 @@ def attenuate.add_cond_loop
     (out, i)
 
 /-- [rule_eval::attenuate::add_cond]:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 45:0-61:1
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 49:0-65:1
     Visibility: public -/
 def attenuate.add_cond
   (rules : Slice rule.Rule) (index : Std.U32) (cond : rule.Cond) :
@@ -457,7 +523,7 @@ def bytes.bytes_list_without
     Std.U8)) 0#usize
 
 /-- [rule_eval::attenuate::rule_without_functions]:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 92:0-98:1 -/
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 96:0-104:1 -/
 def attenuate.rule_without_functions
   (r : rule.Rule) (functions : Slice (alloc.vec.Vec Std.U8)) :
   Result rule.Rule
@@ -468,10 +534,12 @@ def attenuate.rule_without_functions
   let v1 ← bytes.bytes_list_without s1 functions
   let s2 := alloc.vec.Vec.deref r.conds
   let v2 ← rule.conds_copy s2
-  ok { contract := v, functions := v1, conds := v2 }
+  let s3 := alloc.vec.Vec.deref r.signers
+  let v3 ← signer.signers_copy s3
+  ok { r with contract := v, functions := v1, conds := v2, signers := v3 }
 
 /-- [rule_eval::attenuate::remove_functions]: loop body 0:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 80:4-87:5
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 84:4-91:5
     Visibility: public -/
 @[rust_loop_body]
 def attenuate.remove_functions_loop.body
@@ -500,7 +568,7 @@ def attenuate.remove_functions_loop.body
   else ok (done out)
 
 /-- [rule_eval::attenuate::remove_functions]: loop 0:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 80:4-87:5
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 84:4-91:5
     Visibility: public -/
 @[rust_loop]
 def attenuate.remove_functions_loop
@@ -514,7 +582,7 @@ def attenuate.remove_functions_loop
     (out, i)
 
 /-- [rule_eval::attenuate::remove_functions]:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 69:0-89:1
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 73:0-93:1
     Visibility: public -/
 def attenuate.remove_functions
   (rules : Slice rule.Rule) (index : Std.U32)
@@ -532,6 +600,254 @@ def attenuate.remove_functions
         rule.Rule) 0#usize
     ok (core.result.Result.Ok out)
 
+/-- [rule_eval::signer::signer_eq]:
+    Source: 'crates/rule-eval/src/signer.rs', lines 19:0-25:1
+    Visibility: public -/
+def signer.signer_eq
+  (a : signer.Signer) (b : signer.Signer) : Result Bool := do
+  match a with
+  | signer.Signer.Delegated x =>
+    match b with
+    | signer.Signer.Delegated y =>
+      let s := alloc.vec.Vec.deref x
+      let s1 := alloc.vec.Vec.deref y
+      bytes.bytes_eq s s1
+    | signer.Signer.External _ _ => ok false
+  | signer.Signer.External v k =>
+    match b with
+    | signer.Signer.Delegated _ => ok false
+    | signer.Signer.External w l =>
+      let s := alloc.vec.Vec.deref v
+      let s1 := alloc.vec.Vec.deref w
+      let b1 ← bytes.bytes_eq s s1
+      if b1
+      then
+        let s2 := alloc.vec.Vec.deref k
+        let s3 := alloc.vec.Vec.deref l
+        bytes.bytes_eq s2 s3
+      else ok false
+
+/-- [rule_eval::signer::signer_in]: loop body 0:
+    Source: 'crates/rule-eval/src/signer.rs', lines 31:4-38:1
+    Visibility: public -/
+@[rust_loop_body]
+def signer.signer_in_loop.body
+  (x : signer.Signer) (list : Slice signer.Signer) (i : Std.Usize) :
+  Result (ControlFlow Std.Usize Bool)
+  := do
+  let i1 := Slice.len list
+  if i < i1
+  then
+    let s ← Slice.index_usize list i
+    let b ← signer.signer_eq x s
+    if b
+    then ok (done true)
+    else let i2 ← i + 1#usize
+         ok (cont i2)
+  else ok (done false)
+
+/-- [rule_eval::signer::signer_in]: loop 0:
+    Source: 'crates/rule-eval/src/signer.rs', lines 31:4-38:1
+    Visibility: public -/
+@[rust_loop]
+def signer.signer_in_loop
+  (x : signer.Signer) (list : Slice signer.Signer) (i : Std.Usize) :
+  Result Bool
+  := do
+  loop
+    (fun i1 => signer.signer_in_loop.body x list i1)
+    i
+
+/-- [rule_eval::signer::signer_in]:
+    Source: 'crates/rule-eval/src/signer.rs', lines 29:0-38:1
+    Visibility: public -/
+@[reducible]
+def signer.signer_in
+  (x : signer.Signer) (list : Slice signer.Signer) : Result Bool := do
+  signer.signer_in_loop x list 0#usize
+
+/-- [rule_eval::signer::signers_without]: loop body 0:
+    Source: 'crates/rule-eval/src/signer.rs', lines 100:4-105:5 -/
+@[rust_loop_body]
+def signer.signers_without_loop.body
+  (list : Slice signer.Signer) (remove : Slice signer.Signer)
+  (out : alloc.vec.Vec signer.Signer) (i : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec signer.Signer) × Std.Usize)
+    (alloc.vec.Vec signer.Signer))
+  := do
+  let i1 := Slice.len list
+  if i < i1
+  then
+    let s ← Slice.index_usize list i
+    let b ← signer.signer_in s remove
+    let out1 ←
+      if b
+      then ok out
+      else do
+           let s1 ← signer.signer_copy s
+           alloc.vec.Vec.push out s1
+    let i2 ← i + 1#usize
+    ok (cont (out1, i2))
+  else ok (done out)
+
+/-- [rule_eval::signer::signers_without]: loop 0:
+    Source: 'crates/rule-eval/src/signer.rs', lines 100:4-105:5 -/
+@[rust_loop]
+def signer.signers_without_loop
+  (list : Slice signer.Signer) (remove : Slice signer.Signer)
+  (out : alloc.vec.Vec signer.Signer) (i : Std.Usize) :
+  Result (alloc.vec.Vec signer.Signer)
+  := do
+  loop
+    (fun (out1, i1) => signer.signers_without_loop.body list remove out1 i1)
+    (out, i)
+
+/-- [rule_eval::signer::signers_without]:
+    Source: 'crates/rule-eval/src/signer.rs', lines 97:0-107:1 -/
+@[reducible]
+def signer.signers_without
+  (list : Slice signer.Signer) (remove : Slice signer.Signer) :
+  Result (alloc.vec.Vec signer.Signer)
+  := do
+  signer.signers_without_loop list remove (alloc.vec.Vec.new signer.Signer)
+    0#usize
+
+/-- [rule_eval::attenuate::rule_without_signers]:
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 135:0-143:1 -/
+def attenuate.rule_without_signers
+  (r : rule.Rule) (signers : Slice signer.Signer) : Result rule.Rule := do
+  let s := alloc.vec.Vec.deref r.contract
+  let v ← bytes.bytes_copy s
+  let s1 := alloc.vec.Vec.deref r.functions
+  let v1 ← bytes.bytes_list_copy s1
+  let s2 := alloc.vec.Vec.deref r.conds
+  let v2 ← rule.conds_copy s2
+  let s3 := alloc.vec.Vec.deref r.signers
+  let v3 ← signer.signers_without s3 signers
+  ok { r with contract := v, functions := v1, conds := v2, signers := v3 }
+
+/-- [rule_eval::attenuate::remove_signers]: loop body 0:
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 123:4-130:5
+    Visibility: public -/
+@[rust_loop_body]
+def attenuate.remove_signers_loop.body
+  (rules : Slice rule.Rule) (signers : Slice signer.Signer) (index : Std.Usize)
+  (out : alloc.vec.Vec rule.Rule) (i : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec rule.Rule) × Std.Usize) (alloc.vec.Vec
+    rule.Rule))
+  := do
+  let i1 := Slice.len rules
+  if i < i1
+  then
+    let out1 ←
+      if i = index
+      then
+        do
+        let r ← Slice.index_usize rules i
+        let r1 ← attenuate.rule_without_signers r signers
+        alloc.vec.Vec.push out r1
+      else
+        do
+        let r ← Slice.index_usize rules i
+        let r1 ← rule.rule_copy r
+        alloc.vec.Vec.push out r1
+    let i2 ← i + 1#usize
+    ok (cont (out1, i2))
+  else ok (done out)
+
+/-- [rule_eval::attenuate::remove_signers]: loop 0:
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 123:4-130:5
+    Visibility: public -/
+@[rust_loop]
+def attenuate.remove_signers_loop
+  (rules : Slice rule.Rule) (signers : Slice signer.Signer) (index : Std.Usize)
+  (out : alloc.vec.Vec rule.Rule) (i : Std.Usize) :
+  Result (alloc.vec.Vec rule.Rule)
+  := do
+  loop
+    (fun (out1, i1) => attenuate.remove_signers_loop.body rules signers index
+      out1 i1)
+    (out, i)
+
+/-- [rule_eval::attenuate::remove_signers]:
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 112:0-132:1
+    Visibility: public -/
+def attenuate.remove_signers
+  (rules : Slice rule.Rule) (index : Std.U32) (signers : Slice signer.Signer) :
+  Result (core.result.Result (alloc.vec.Vec rule.Rule)
+    attenuate.AttenuationError)
+  := do
+  let index1 ← lift (UScalar.cast .Usize index)
+  let i := Slice.len rules
+  if index1 >= i
+  then ok (core.result.Result.Err attenuate.AttenuationError.NoSuchRule)
+  else
+    let out ←
+      attenuate.remove_signers_loop rules signers index1 (alloc.vec.Vec.new
+        rule.Rule) 0#usize
+    ok (core.result.Result.Ok out)
+
+/-- [rule_eval::attenuate::raise_threshold]: loop body 0:
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 168:4-175:5
+    Visibility: public -/
+@[rust_loop_body]
+def attenuate.raise_threshold_loop.body
+  (rules : Slice rule.Rule) (threshold : Std.U32) (index : Std.Usize)
+  (out : alloc.vec.Vec rule.Rule) (i : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec rule.Rule) × Std.Usize) (alloc.vec.Vec
+    rule.Rule))
+  := do
+  let i1 := Slice.len rules
+  if i < i1
+  then
+    let r ← Slice.index_usize rules i
+    let r1 ← rule.rule_copy r
+    let r2 ← if i = index
+               then ok { r1 with threshold }
+               else ok r1
+    let out1 ← alloc.vec.Vec.push out r2
+    let i2 ← i + 1#usize
+    ok (cont (out1, i2))
+  else ok (done out)
+
+/-- [rule_eval::attenuate::raise_threshold]: loop 0:
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 168:4-175:5
+    Visibility: public -/
+@[rust_loop]
+def attenuate.raise_threshold_loop
+  (rules : Slice rule.Rule) (threshold : Std.U32) (index : Std.Usize)
+  (out : alloc.vec.Vec rule.Rule) (i : Std.Usize) :
+  Result (alloc.vec.Vec rule.Rule)
+  := do
+  loop
+    (fun (out1, i1) => attenuate.raise_threshold_loop.body rules threshold
+      index out1 i1)
+    (out, i)
+
+/-- [rule_eval::attenuate::raise_threshold]:
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 152:0-177:1
+    Visibility: public -/
+def attenuate.raise_threshold
+  (rules : Slice rule.Rule) (index : Std.U32) (threshold : Std.U32) :
+  Result (core.result.Result (alloc.vec.Vec rule.Rule)
+    attenuate.AttenuationError)
+  := do
+  let index1 ← lift (UScalar.cast .Usize index)
+  let o ←
+    core.slice.Slice.get (core.slice.index.SliceIndexUsizeSlice rule.Rule)
+      rules index1
+  match o with
+  | none => ok (core.result.Result.Err attenuate.AttenuationError.NoSuchRule)
+  | some r =>
+    if threshold < r.threshold
+    then
+      ok (core.result.Result.Err attenuate.AttenuationError.ThresholdLowered)
+    else
+      let out ←
+        attenuate.raise_threshold_loop rules threshold index1
+          (alloc.vec.Vec.new rule.Rule) 0#usize
+      ok (core.result.Result.Ok out)
+
 /-- [rule_eval::context::Context]
     Source: 'crates/rule-eval/src/context.rs', lines 8:0-17:1
     Visibility: public -/
@@ -545,7 +861,7 @@ inductive context.Context where
 | Create : alloc.vec.Vec Std.U8 → context.Context
 
 /-- [rule_eval::_]
-    Source: 'crates/rule-eval/src/lib.rs', lines 76:0-76:41 -/
+    Source: 'crates/rule-eval/src/lib.rs', lines 98:0-98:41 -/
 @[global_simps, irreducible]
 def «_» : Result Unit := massert (core.num.Usize.BITS >= 32#u32)
 
@@ -631,7 +947,7 @@ def val.val_eq (a : val.Val) (b : val.Val) : Result Bool := do
       bytes.bytes_eq s s1
 
 /-- [rule_eval::rule::cond_holds]:
-    Source: 'crates/rule-eval/src/rule.rs', lines 30:0-41:1
+    Source: 'crates/rule-eval/src/rule.rs', lines 37:0-48:1
     Visibility: public -/
 def rule.cond_holds
   (cond : rule.Cond) (args : Slice val.Val) : Result Bool := do
@@ -662,7 +978,7 @@ def rule.cond_holds
       | val.Val.Other _ => ok false
 
 /-- [rule_eval::rule::conds_hold]: loop body 0:
-    Source: 'crates/rule-eval/src/rule.rs', lines 46:4-53:1 -/
+    Source: 'crates/rule-eval/src/rule.rs', lines 53:4-60:1 -/
 @[rust_loop_body]
 def rule.conds_hold_loop.body
   (conds : Slice rule.Cond) (args : Slice val.Val) (i : Std.Usize) :
@@ -680,7 +996,7 @@ def rule.conds_hold_loop.body
   else ok (done true)
 
 /-- [rule_eval::rule::conds_hold]: loop 0:
-    Source: 'crates/rule-eval/src/rule.rs', lines 46:4-53:1 -/
+    Source: 'crates/rule-eval/src/rule.rs', lines 53:4-60:1 -/
 @[rust_loop]
 def rule.conds_hold_loop
   (conds : Slice rule.Cond) (args : Slice val.Val) (i : Std.Usize) :
@@ -691,17 +1007,123 @@ def rule.conds_hold_loop
     i
 
 /-- [rule_eval::rule::conds_hold]:
-    Source: 'crates/rule-eval/src/rule.rs', lines 44:0-53:1 -/
+    Source: 'crates/rule-eval/src/rule.rs', lines 51:0-60:1 -/
 @[reducible]
 def rule.conds_hold
   (conds : Slice rule.Cond) (args : Slice val.Val) : Result Bool := do
   rule.conds_hold_loop conds args 0#usize
 
+/-- [rule_eval::signer::signer_in_first]: loop body 0:
+    Source: 'crates/rule-eval/src/signer.rs', lines 43:4-53:1 -/
+@[rust_loop_body]
+def signer.signer_in_first_loop.body
+  (x : signer.Signer) (list : Slice signer.Signer) (before : Std.Usize)
+  (i : Std.Usize) :
+  Result (ControlFlow Std.Usize Bool)
+  := do
+  let i1 := Slice.len list
+  if i < i1
+  then
+    if i >= before
+    then ok (done false)
+    else
+      let s ← Slice.index_usize list i
+      let b ← signer.signer_eq x s
+      if b
+      then ok (done true)
+      else let i2 ← i + 1#usize
+           ok (cont i2)
+  else ok (done false)
+
+/-- [rule_eval::signer::signer_in_first]: loop 0:
+    Source: 'crates/rule-eval/src/signer.rs', lines 43:4-53:1 -/
+@[rust_loop]
+def signer.signer_in_first_loop
+  (x : signer.Signer) (list : Slice signer.Signer) (before : Std.Usize)
+  (i : Std.Usize) :
+  Result Bool
+  := do
+  loop
+    (fun i1 => signer.signer_in_first_loop.body x list before i1)
+    i
+
+/-- [rule_eval::signer::signer_in_first]:
+    Source: 'crates/rule-eval/src/signer.rs', lines 41:0-53:1 -/
+@[reducible]
+def signer.signer_in_first
+  (x : signer.Signer) (list : Slice signer.Signer) (before : Std.Usize) :
+  Result Bool
+  := do
+  signer.signer_in_first_loop x list before 0#usize
+
+/-- [rule_eval::signer::signed_count]: loop body 0:
+    Source: 'crates/rule-eval/src/signer.rs', lines 61:4-66:5 -/
+@[rust_loop_body]
+def signer.signed_count_loop.body
+  (signers : Slice signer.Signer) (authenticated : Slice signer.Signer)
+  (count : Std.Usize) (i : Std.Usize) :
+  Result (ControlFlow (Std.Usize × Std.Usize) Std.Usize)
+  := do
+  let i1 := Slice.len signers
+  if i < i1
+  then
+    let s ← Slice.index_usize signers i
+    let b ← signer.signer_in_first s signers i
+    let count1 ←
+      if b
+      then ok count
+      else
+        do
+        let b1 ← signer.signer_in s authenticated
+        if b1
+        then count + 1#usize
+        else ok count
+    let i2 ← i + 1#usize
+    ok (cont (count1, i2))
+  else ok (done count)
+
+/-- [rule_eval::signer::signed_count]: loop 0:
+    Source: 'crates/rule-eval/src/signer.rs', lines 61:4-66:5 -/
+@[rust_loop]
+def signer.signed_count_loop
+  (signers : Slice signer.Signer) (authenticated : Slice signer.Signer)
+  (count : Std.Usize) (i : Std.Usize) :
+  Result Std.Usize
+  := do
+  loop
+    (fun (count1, i1) => signer.signed_count_loop.body signers authenticated
+      count1 i1)
+    (count, i)
+
+/-- [rule_eval::signer::signed_count]:
+    Source: 'crates/rule-eval/src/signer.rs', lines 58:0-68:1 -/
+@[reducible]
+def signer.signed_count
+  (signers : Slice signer.Signer) (authenticated : Slice signer.Signer) :
+  Result Std.Usize
+  := do
+  signer.signed_count_loop signers authenticated 0#usize 0#usize
+
+/-- [rule_eval::signer::signers_met]:
+    Source: 'crates/rule-eval/src/signer.rs', lines 73:0-75:1
+    Visibility: public -/
+def signer.signers_met
+  (signers : Slice signer.Signer) (threshold : Std.U32)
+  (authenticated : Slice signer.Signer) :
+  Result Bool
+  := do
+  let i ← lift (UScalar.cast .Usize threshold)
+  let i1 ← signer.signed_count signers authenticated
+  ok (i <= i1)
+
 /-- [rule_eval::rule::rule_allows]:
-    Source: 'crates/rule-eval/src/rule.rs', lines 59:0-72:1
+    Source: 'crates/rule-eval/src/rule.rs', lines 68:0-82:1
     Visibility: public -/
 def rule.rule_allows
-  (r : rule.Rule) (ctx : context.Context) : Result Bool := do
+  (r : rule.Rule) (ctx : context.Context) (authenticated : Slice signer.Signer)
+  :
+  Result Bool
+  := do
   match ctx with
   | context.Context.Call contract function args =>
     let s := alloc.vec.Vec.deref contract
@@ -716,24 +1138,30 @@ def rule.rule_allows
       then
         let s4 := alloc.vec.Vec.deref r.conds
         let s5 := alloc.vec.Vec.deref args
-        rule.conds_hold s4 s5
+        let b2 ← rule.conds_hold s4 s5
+        if b2
+        then
+          let s6 := alloc.vec.Vec.deref r.signers
+          signer.signers_met s6 r.threshold authenticated
+        else ok false
       else ok false
     else ok false
   | context.Context.Create _ => ok false
 
 /-- [rule_eval::rule_set::allows]: loop body 0:
-    Source: 'crates/rule-eval/src/rule_set.rs', lines 10:4-17:1
+    Source: 'crates/rule-eval/src/rule_set.rs', lines 12:4-19:1
     Visibility: public -/
 @[rust_loop_body]
 def rule_set.allows_loop.body
-  (rules : Slice rule.Rule) (ctx : context.Context) (i : Std.Usize) :
+  (rules : Slice rule.Rule) (ctx : context.Context)
+  (authenticated : Slice signer.Signer) (i : Std.Usize) :
   Result (ControlFlow Std.Usize Bool)
   := do
   let i1 := Slice.len rules
   if i < i1
   then
     let r ← Slice.index_usize rules i
-    let b ← rule.rule_allows r ctx
+    let b ← rule.rule_allows r ctx authenticated
     if b
     then ok (done true)
     else let i2 ← i + 1#usize
@@ -741,39 +1169,43 @@ def rule_set.allows_loop.body
   else ok (done false)
 
 /-- [rule_eval::rule_set::allows]: loop 0:
-    Source: 'crates/rule-eval/src/rule_set.rs', lines 10:4-17:1
+    Source: 'crates/rule-eval/src/rule_set.rs', lines 12:4-19:1
     Visibility: public -/
 @[rust_loop]
 def rule_set.allows_loop
-  (rules : Slice rule.Rule) (ctx : context.Context) (i : Std.Usize) :
+  (rules : Slice rule.Rule) (ctx : context.Context)
+  (authenticated : Slice signer.Signer) (i : Std.Usize) :
   Result Bool
   := do
   loop
-    (fun i1 => rule_set.allows_loop.body rules ctx i1)
+    (fun i1 => rule_set.allows_loop.body rules ctx authenticated i1)
     i
 
 /-- [rule_eval::rule_set::allows]:
-    Source: 'crates/rule-eval/src/rule_set.rs', lines 8:0-17:1
+    Source: 'crates/rule-eval/src/rule_set.rs', lines 10:0-19:1
     Visibility: public -/
 @[reducible]
 def rule_set.allows
-  (rules : Slice rule.Rule) (ctx : context.Context) : Result Bool := do
-  rule_set.allows_loop rules ctx 0#usize
+  (rules : Slice rule.Rule) (ctx : context.Context)
+  (authenticated : Slice signer.Signer) :
+  Result Bool
+  := do
+  rule_set.allows_loop rules ctx authenticated 0#usize
 
 /-- [rule_eval::rule_set::allows_all]: loop body 0:
-    Source: 'crates/rule-eval/src/rule_set.rs', lines 25:4-32:1
+    Source: 'crates/rule-eval/src/rule_set.rs', lines 29:4-36:1
     Visibility: public -/
 @[rust_loop_body]
 def rule_set.allows_all_loop.body
-  (rules : Slice rule.Rule) (contexts : Slice context.Context) (i : Std.Usize)
-  :
+  (rules : Slice rule.Rule) (contexts : Slice context.Context)
+  (authenticated : Slice signer.Signer) (i : Std.Usize) :
   Result (ControlFlow Std.Usize Bool)
   := do
   let i1 := Slice.len contexts
   if i < i1
   then
     let c ← Slice.index_usize contexts i
-    let b ← rule_set.allows rules c
+    let b ← rule_set.allows rules c authenticated
     if b
     then let i2 ← i + 1#usize
          ok (cont i2)
@@ -781,26 +1213,27 @@ def rule_set.allows_all_loop.body
   else ok (done true)
 
 /-- [rule_eval::rule_set::allows_all]: loop 0:
-    Source: 'crates/rule-eval/src/rule_set.rs', lines 25:4-32:1
+    Source: 'crates/rule-eval/src/rule_set.rs', lines 29:4-36:1
     Visibility: public -/
 @[rust_loop]
 def rule_set.allows_all_loop
-  (rules : Slice rule.Rule) (contexts : Slice context.Context) (i : Std.Usize)
-  :
+  (rules : Slice rule.Rule) (contexts : Slice context.Context)
+  (authenticated : Slice signer.Signer) (i : Std.Usize) :
   Result Bool
   := do
   loop
-    (fun i1 => rule_set.allows_all_loop.body rules contexts i1)
+    (fun i1 => rule_set.allows_all_loop.body rules contexts authenticated i1)
     i
 
 /-- [rule_eval::rule_set::allows_all]:
-    Source: 'crates/rule-eval/src/rule_set.rs', lines 23:0-32:1
+    Source: 'crates/rule-eval/src/rule_set.rs', lines 27:0-36:1
     Visibility: public -/
 @[reducible]
 def rule_set.allows_all
-  (rules : Slice rule.Rule) (contexts : Slice context.Context) :
+  (rules : Slice rule.Rule) (contexts : Slice context.Context)
+  (authenticated : Slice signer.Signer) :
   Result Bool
   := do
-  rule_set.allows_all_loop rules contexts 0#usize
+  rule_set.allows_all_loop rules contexts authenticated 0#usize
 
 end rule_eval

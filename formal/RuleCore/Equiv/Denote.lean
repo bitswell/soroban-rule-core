@@ -16,16 +16,20 @@ Each is structural, constructor for constructor and field for field:
   `Bytes` of the same bytes, each `Std.U8` the `UInt8` with the same bit vector;
 * an `i128` is its bit vector, a `u64` and a `u32` the `UInt64` and `UInt32`
   with the same bit vector;
-* `Val`, `Context` and `Cond` map each constructor to the constructor of the
-  same name, and `Rule` maps each field to the field of the same name;
-* a slice or vector of rules is the list of its rules' denotations;
-* `AttenuationError::NoSuchRule` is `AttenuationError.noSuchRule`, and a Rust
-  `Result` of the attenuation steps is the `Except` with the denoted payload.
+* `Val`, `Context`, `Cond` and `Signer` map each constructor to the
+  constructor of the same name, and `Rule` maps each field to the field of the
+  same name;
+* a slice or vector of rules or signers is the list of its elements'
+  denotations;
+* `AttenuationError::NoSuchRule` is `AttenuationError.noSuchRule` and
+  `AttenuationError::ThresholdLowered` is `AttenuationError.thresholdLowered`,
+  and a Rust `Result` of the attenuation steps is the `Except` with the denoted
+  payload.
 
 Every denotation is injective (`denoteVal_injective`, `denoteContext_injective`,
-`denoteCond_injective`, `denoteRule_injective`, `denoteRules_injective`,
-`denoteOutcome_injective`), so two extracted values with the same meaning are
-the same value.
+`denoteCond_injective`, `denoteSigner_injective`, `denoteSigners_injective`,
+`denoteRule_injective`, `denoteRules_injective`, `denoteOutcome_injective`), so
+two extracted values with the same meaning are the same value.
 -/
 
 namespace RuleCore.Equiv
@@ -63,16 +67,27 @@ def denoteCond : rule_eval.rule.Cond → Chain.Cond
   | .ArgEq index val => .argEq (denoteU32 index) (denoteVal val)
   | .ArgI128AtMost index bound => .argI128AtMost (denoteU32 index) bound.bv
 
+def denoteSigner : rule_eval.signer.Signer → Chain.Signer
+  | .Delegated address => .delegated (denoteBytes address)
+  | .External verifier key => .external (denoteBytes verifier) (denoteBytes key)
+
+/-- The signers of a Rust slice or vector of signers. -/
+def denoteSigners (signers : List rule_eval.signer.Signer) : List Chain.Signer :=
+  signers.map denoteSigner
+
 def denoteRule (r : rule_eval.rule.Rule) : Chain.Rule where
   contract := denoteBytes r.contract
   functions := r.functions.val.map denoteBytes
   conds := r.conds.val.map denoteCond
+  signers := denoteSigners r.signers.val
+  threshold := denoteU32 r.threshold
 
 /-- The rules of a Rust slice or vector of rules, as a chain rule set. -/
 def denoteRules (rules : List rule_eval.rule.Rule) : Chain.RuleSet := rules.map denoteRule
 
 def denoteError : rule_eval.attenuate.AttenuationError → AttenuationError
   | .NoSuchRule => .noSuchRule
+  | .ThresholdLowered => .thresholdLowered
 
 /-- What an attenuation step returned, as the model's outcome. -/
 def denoteOutcome :
@@ -160,25 +175,34 @@ theorem denoteCond_injective : Function.Injective denoteCond := by
   · rw [denoteU32_injective h.1, denoteVal_injective h.2]
   · rw [denoteU32_injective h.1, i128_bv_injective h.2]
 
+theorem denoteSigner_injective : Function.Injective denoteSigner := by
+  intro a b h
+  cases a <;> cases b <;> simp only [denoteSigner, reduceCtorEq, Chain.Signer.delegated.injEq,
+    Chain.Signer.external.injEq] at h
+  · rw [denoteBytes_injective h]
+  · rw [denoteBytes_injective h.1, denoteBytes_injective h.2]
+
+theorem denoteSigners_injective : Function.Injective denoteSigners :=
+  List.map_injective_iff.mpr denoteSigner_injective
+
 theorem denoteRule_injective : Function.Injective denoteRule := by
   intro a b h
   simp only [denoteRule, Chain.Rule.mk.injEq] at h
-  obtain ⟨hc, hf, hk⟩ := h
+  obtain ⟨hc, hf, hk, hs, ht⟩ := h
   cases a
   cases b
   simp only [rule_eval.rule.Rule.mk.injEq]
   exact ⟨denoteBytes_injective hc,
     alloc.vec.Vec.ext _ _ ((List.map_injective_iff.mpr denoteBytes_injective).eq_iff.mp hf),
-    alloc.vec.Vec.ext _ _ ((List.map_injective_iff.mpr denoteCond_injective).eq_iff.mp hk)⟩
+    alloc.vec.Vec.ext _ _ ((List.map_injective_iff.mpr denoteCond_injective).eq_iff.mp hk),
+    alloc.vec.Vec.ext _ _ (denoteSigners_injective hs), denoteU32_injective ht⟩
 
 theorem denoteRules_injective : Function.Injective denoteRules :=
   List.map_injective_iff.mpr denoteRule_injective
 
 theorem denoteError_injective : Function.Injective denoteError := by
-  intro a b _
-  cases a
-  cases b
-  rfl
+  intro a b h
+  cases a <;> cases b <;> first | rfl | cases h
 
 theorem denoteOutcome_injective : Function.Injective denoteOutcome := by
   intro a b h
@@ -193,8 +217,7 @@ theorem denoteOutcome_injective : Function.Injective denoteOutcome := by
     cases b with
     | Ok out => simp [denoteOutcome] at h
     | Err e' =>
-      cases e
-      cases e'
-      rfl
+      simp only [denoteOutcome, Except.error.injEq] at h
+      rw [denoteError_injective h]
 
 end RuleCore.Equiv

@@ -7,22 +7,31 @@ import RuleCore.Vocab.Bytes
 The concrete rules installed on chain, and their meaning as generic rules.
 
 A context is a contract call (contract, function, arguments) or a contract
-creation. A rule names one contract, a list of its functions, and conditions on
-the call's arguments. `Rule.denote` gives each rule's meaning as a generic
-`RuleCore.Rule Context`: its scope matches a call to the rule's contract and one
-of its functions, and each condition reads the arguments of the call it is
-evaluated against. A creation has no arguments, every scope is false on it, and
-so no rule allows a creation.
+creation. A rule names one contract, a list of its functions, conditions on the
+call's arguments, a list of signers and a threshold. `Rule.denote` gives each
+rule's meaning as a generic `RuleCore.Rule Context Signer`: its scope matches a
+call to the rule's contract and one of its functions, each condition reads the
+arguments of the call it is evaluated against, and its signers and threshold
+are the rule's own. A creation has no arguments, every scope is false on it,
+and so no rule allows a creation.
+
+A signer follows OpenZeppelin's smart-account signer kinds: `delegated` is an
+address that authorizes for itself, as its `ScAddress` XDR; `external` is a
+key checked by a verifier contract, as the verifier's address and the key's
+bytes. Signers compare exactly, constructor first: a delegated signer never
+equals an external one, whatever their bytes. An authorization carries the
+signers it authenticated, one list for every context of its batch.
 
 Argument values follow Soroban's: `i128` is `BitVec 128` compared as a signed
 two's-complement integer and `u64` is `UInt64`, matching the bit-vector
 representation Aeneas gives Rust's `i128` and `u64`. Argument and rule indices
-are `UInt32`, as in the Rust evaluator, and are read as list positions through
-`toNat`: an index past the end of the arguments is a missing argument, and one
-past the end of the rule set is `AttenuationError.noSuchRule`. An argument of a type the
-other constructors do not model is `other` of its full XDR. Values of different
-constructors are never equal, so an `argEq` written for one type never holds
-on an argument of another.
+and thresholds are `UInt32`, as in the Rust evaluator; indices are read as list
+positions and thresholds as counts through `toNat`: an index past the end of
+the arguments is a missing argument, and one past the end of the rule set is
+`AttenuationError.noSuchRule`. An argument of a type the other constructors do
+not model is `other` of its full XDR. Values of different constructors are
+never equal, so an `argEq` written for one type never holds on an argument of
+another.
 
 `allows`, `allowsAll` and `narrower` on chain rule sets are the generic ones on
 the denotation, and each chain attenuation operation denotes the generic step of
@@ -61,6 +70,15 @@ def Val.kind : Val → Kind
   | .symbol _ => .symbol
   | .other _ => .other
 
+/-- A signer: an address that authorizes for itself, or a key checked by a
+verifier contract. -/
+inductive Signer where
+  /-- An address, as its `ScAddress` XDR. -/
+  | delegated (address : Bytes)
+  /-- A verifier contract's address, as its `ScAddress` XDR, and a key. -/
+  | external (verifier : Bytes) (key : Bytes)
+  deriving DecidableEq, Repr
+
 /-- One context of a Soroban authorization tree. -/
 inductive Context where
   | call (contract : Bytes) (function : Bytes) (args : List Val)
@@ -86,6 +104,8 @@ structure Rule where
   contract : Bytes
   functions : List Bytes
   conds : List Cond
+  signers : List Signer
+  threshold : UInt32
   deriving DecidableEq, Repr
 
 abbrev RuleSet := List Rule
@@ -104,20 +124,26 @@ def Cond.denote (cond : Cond) : Context → Bool
   | .call _ _ args => cond.holds args
   | .create _ => false
 
-def Rule.denote (r : Rule) : RuleCore.Rule Context :=
-  { scope := r.scope, conds := r.conds.map Cond.denote }
+def Rule.denote (r : Rule) : RuleCore.Rule Context Signer :=
+  { scope := r.scope, conds := r.conds.map Cond.denote, signers := r.signers,
+    threshold := r.threshold.toNat }
 
-def RuleSet.denote (rs : RuleSet) : RuleCore.RuleSet Context :=
+def RuleSet.denote (rs : RuleSet) : RuleCore.RuleSet Context Signer :=
   .ofRules (rs.map Rule.denote)
 
-def Rule.allows (r : Rule) (c : Context) : Bool :=
-  r.denote.allows c
+/-- The rule's signer requirement: at least `threshold` of its distinct
+signers are among the authenticated `auth`. -/
+def Rule.signed (r : Rule) (auth : List Signer) : Bool :=
+  r.denote.signed auth
 
-def RuleSet.allows (rs : RuleSet) (c : Context) : Bool :=
-  rs.denote.allows c
+def Rule.allows (r : Rule) (c : Context) (auth : List Signer) : Bool :=
+  r.denote.allows c auth
 
-def RuleSet.allowsAll (rs : RuleSet) (cs : List Context) : Bool :=
-  rs.denote.allowsAll cs
+def RuleSet.allows (rs : RuleSet) (c : Context) (auth : List Signer) : Bool :=
+  rs.denote.allows c auth
+
+def RuleSet.allowsAll (rs : RuleSet) (cs : List Context) (auth : List Signer) : Bool :=
+  rs.denote.allowsAll cs auth
 
 def RuleSet.narrower (rs' rs : RuleSet) : Prop :=
   rs'.denote.narrower rs.denote
@@ -131,6 +157,11 @@ def Rule.addCond (r : Rule) (cond : Cond) : Rule :=
 /-- Rule `r` with every function in `fs` removed from its function list. -/
 def Rule.removeFunctions (r : Rule) (fs : List Bytes) : Rule :=
   { r with functions := r.functions.filter (fun f => decide (f ∉ fs)) }
+
+/-- Rule `r` with every signer in `ss` removed from its signer list, its
+threshold unchanged. -/
+def Rule.removeSigners (r : Rule) (ss : List Signer) : Rule :=
+  { r with signers := r.signers.filter (fun s => decide (s ∉ ss)) }
 
 /-- Replace the rule at position `i` by `f` of it. -/
 def RuleSet.modifyRule (rs : RuleSet) (i : Nat) (f : Rule → Rule) :
@@ -149,17 +180,33 @@ def RuleSet.removeFunctions (rs : RuleSet) (i : UInt32) (fs : List Bytes) :
     Except AttenuationError RuleSet :=
   rs.modifyRule i.toNat (·.removeFunctions fs)
 
+def RuleSet.removeSigners (rs : RuleSet) (i : UInt32) (ss : List Signer) :
+    Except AttenuationError RuleSet :=
+  rs.modifyRule i.toNat (·.removeSigners ss)
+
+/-- Set rule `i`'s threshold to `k`, refusing to lower it. -/
+def RuleSet.raiseThreshold (rs : RuleSet) (i k : UInt32) : Except AttenuationError RuleSet :=
+  match rs[i.toNat]? with
+  | some r =>
+    if k < r.threshold then .error .thresholdLowered
+    else .ok (rs.set i.toNat { r with threshold := k })
+  | none => .error .noSuchRule
+
 /-- One attenuation step. -/
 inductive Attenuation where
   | dropRule (i : UInt32)
   | addCond (i : UInt32) (cond : Cond)
   | removeFunctions (i : UInt32) (fs : List Bytes)
+  | removeSigners (i : UInt32) (ss : List Signer)
+  | raiseThreshold (i k : UInt32)
   deriving DecidableEq, Repr
 
 def RuleSet.attenuate (rs : RuleSet) : Attenuation → Except AttenuationError RuleSet
   | .dropRule i => rs.dropRule i
   | .addCond i cond => rs.addCond i cond
   | .removeFunctions i fs => rs.removeFunctions i fs
+  | .removeSigners i ss => rs.removeSigners i ss
+  | .raiseThreshold i k => rs.raiseThreshold i k
 
 /-- Apply `steps` in order, failing with the first step that fails. -/
 def RuleSet.attenuateAll (rs : RuleSet) (steps : List Attenuation) :
@@ -180,9 +227,11 @@ def notCalling (fs : List Bytes) : Context → Bool
   | .create _ => true
 
 /-- The generic attenuation step a chain step denotes. -/
-def Attenuation.denote : Attenuation → RuleCore.Attenuation Context
+def Attenuation.denote : Attenuation → RuleCore.Attenuation Context Signer
   | .dropRule i => .dropRule i.toNat
   | .addCond i cond => .addCond i.toNat cond.denote
   | .removeFunctions i fs => .restrictScope i.toNat (notCalling fs)
+  | .removeSigners i ss => .removeSigners i.toNat ss
+  | .raiseThreshold i k => .raiseThreshold i.toNat k.toNat
 
 end RuleCore.Chain

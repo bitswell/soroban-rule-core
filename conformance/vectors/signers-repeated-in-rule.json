@@ -1,0 +1,51 @@
+{
+  "format": 2,
+  "name": "signers-repeated-in-rule",
+  "description": "A signer listed twice in a rule counts once: [alice, alice, bob] has two distinct signers, so threshold 3 is never met.",
+  "rules": [
+    {
+      "contract": "74776f",
+      "functions": ["7472616e73666572"],
+      "conds": [],
+      "signers": [
+        {"delegated": {"address": "616c696365"}},
+        {"delegated": {"address": "616c696365"}},
+        {"delegated": {"address": "626f62"}}
+      ],
+      "threshold": 2
+    },
+    {
+      "contract": "7468726565",
+      "functions": ["7472616e73666572"],
+      "conds": [],
+      "signers": [
+        {"delegated": {"address": "616c696365"}},
+        {"delegated": {"address": "616c696365"}},
+        {"delegated": {"address": "626f62"}}
+      ],
+      "threshold": 3
+    },
+    {
+      "contract": "6f6e65",
+      "functions": ["7472616e73666572"],
+      "conds": [],
+      "signers": [
+        {"delegated": {"address": "616c696365"}},
+        {"delegated": {"address": "616c696365"}}
+      ],
+      "threshold": 1
+    }
+  ],
+  "batch": [
+    {"call": {"contract": "74776f", "function": "7472616e73666572", "args": []}},
+    {"call": {"contract": "7468726565", "function": "7472616e73666572", "args": []}},
+    {"call": {"contract": "6f6e65", "function": "7472616e73666572", "args": []}}
+  ],
+  "authenticated": [
+    {"delegated": {"address": "616c696365"}},
+    {"delegated": {"address": "626f62"}},
+    {"delegated": {"address": "616c696365"}}
+  ],
+  "expected": {"allows": [true, false, true], "allows_all": false},
+  "attenuations": []
+}

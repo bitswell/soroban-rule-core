@@ -7,13 +7,14 @@ import RuleCore.Theorems.Chain
 The chain vocabulary's theorems, carried over to the Lean translation of
 `crates/rule-eval` through the equivalence theorems of `RuleCore.Equiv`. Each
 is stated on the extracted functions alone: `Narrower` is defined by the
-extracted `allows`, and a step is a call of an extracted attenuation function
-that returned `Ok`.
+extracted `allows`, under every slice of authenticated signers, and a step is a
+call of an extracted attenuation function that returned `Ok`.
 
 Attenuation:
 
 * `drop_rule_narrower`, `add_cond_narrower`, `remove_functions_narrower`,
-  `Step.narrower`: each extracted attenuation step yields a narrower rule set.
+  `remove_signers_narrower`, `raise_threshold_narrower`, `Step.narrower`: each
+  extracted attenuation step yields a narrower rule set.
 * `Narrower.refl`, `Narrower.trans`: `Narrower` is a preorder.
 * `Derives.narrower`: any chain of extracted steps stays inside its root.
 * `allows_all_of_narrower`, `Derives.allows_all`: a narrower rule set accepts
@@ -25,6 +26,24 @@ Contract creation:
 
 * `allows_create`, `allows_all_create`: no rule set allows a contract creation,
   and a batch containing one is denied.
+
+Signers:
+
+* `signer_eq_iff`, `signer_eq_delegated_external`: the extracted `signer_eq`
+  is equality of the Rust signers; a `Delegated` signer never equals an
+  `External` one, whatever their bytes.
+* `allows_of_subset`, `allows_all_of_subset`: authenticating more signers never
+  turns an allow into a refusal.
+* `allows_congr`, `allows_all_congr`: the verdict depends only on which signers
+  are authenticated, not on their order or repeats.
+* `rule_allows_congr_signers`: nor on the order or repeats of a rule's own
+  signer list.
+* `rule_allows_threshold_zero`: with threshold 0 a rule's verdict does not
+  depend on the authenticated signers.
+* `signers_met_all_iff`: a threshold equal to the number of distinct signers is
+  met exactly when every signer is authenticated.
+* `rule_allows_false_of_lt`: a rule whose threshold is above its number of
+  distinct signers allows nothing.
 
 Arguments and byte strings:
 
@@ -48,24 +67,26 @@ namespace RuleCore.Extracted
 open Aeneas Aeneas.Std Result RuleCore.Equiv
 
 /-- `rs'` is narrower than `rs` on the extracted evaluator: every context the
-extracted `allows` accepts under `rs'`, it accepts under `rs`. -/
+extracted `allows` accepts under `rs'` and some authenticated signers, it
+accepts under `rs` and the same signers. -/
 def Narrower (rs' rs : Slice rule_eval.rule.Rule) : Prop :=
-  ∀ c, rule_eval.rule_set.allows rs' c = ok true → rule_eval.rule_set.allows rs c = ok true
+  ∀ c authenticated, rule_eval.rule_set.allows rs' c authenticated = ok true →
+    rule_eval.rule_set.allows rs c authenticated = ok true
 
 theorem Narrower.refl (rs : Slice rule_eval.rule.Rule) : Narrower rs rs :=
-  fun _ h => h
+  fun _ _ h => h
 
 theorem Narrower.trans {rs'' rs' rs : Slice rule_eval.rule.Rule} :
     Narrower rs'' rs' → Narrower rs' rs → Narrower rs'' rs :=
-  fun h₁ h₂ c h => h₂ c (h₁ c h)
+  fun h₁ h₂ c a h => h₂ c a (h₁ c a h)
 
 /-- The model's `narrower` on the denotations gives `Narrower` on the extracted
 evaluator. -/
 theorem narrower_of_denote {rs' rs : Slice rule_eval.rule.Rule}
     (h : (denoteRules rs'.val).narrower (denoteRules rs.val)) : Narrower rs' rs := by
-  intro c hc
+  intro c a hc
   rw [allows_eq] at hc ⊢
-  exact congrArg ok (h _ (Result.ok_injective hc))
+  exact congrArg ok (h _ _ (Result.ok_injective hc))
 
 /-! ## Attenuation -/
 
@@ -88,6 +109,26 @@ theorem remove_functions_narrower {rules : Slice rule_eval.rule.Rule} {index : S
   apply narrower_of_denote
   rw [vec_deref_val]
   exact Chain.RuleSet.removeFunctions_narrower hd.symm
+
+theorem remove_signers_narrower {rules : Slice rule_eval.rule.Rule} {index : Std.U32}
+    {signers : Slice rule_eval.signer.Signer} {out : alloc.vec.Vec rule_eval.rule.Rule}
+    (h : rule_eval.attenuate.remove_signers rules index signers = ok (.Ok out)) :
+    Narrower (alloc.vec.Vec.deref out) rules := by
+  obtain ⟨res, hres, hd⟩ := remove_signers_eq rules index signers
+  obtain rfl := Result.ok_injective (h.symm.trans hres)
+  apply narrower_of_denote
+  rw [vec_deref_val]
+  exact Chain.RuleSet.removeSigners_narrower hd.symm
+
+theorem raise_threshold_narrower {rules : Slice rule_eval.rule.Rule} {index threshold : Std.U32}
+    {out : alloc.vec.Vec rule_eval.rule.Rule}
+    (h : rule_eval.attenuate.raise_threshold rules index threshold = ok (.Ok out)) :
+    Narrower (alloc.vec.Vec.deref out) rules := by
+  obtain ⟨res, hres, hd⟩ := raise_threshold_eq rules index threshold
+  obtain rfl := Result.ok_injective (h.symm.trans hres)
+  apply narrower_of_denote
+  rw [vec_deref_val]
+  exact Chain.RuleSet.raiseThreshold_narrower hd.symm
 
 /-- An `add_cond` that returned `Ok` had room for the condition. -/
 theorem add_cond_room {rules : Slice rule_eval.rule.Rule} {index : Std.U32}
@@ -113,8 +154,8 @@ theorem add_cond_narrower {rules : Slice rule_eval.rule.Rule} {index : Std.U32}
   exact Chain.RuleSet.addCond_narrower hd.symm
 
 /-- One extracted attenuation step from `rs` that returned `Ok`: `Step rs rs'`
-when one of `drop_rule`, `add_cond` and `remove_functions` on `rs` returned
-`Ok` of the rules of `rs'`. -/
+when one of `drop_rule`, `add_cond`, `remove_functions`, `remove_signers` and
+`raise_threshold` on `rs` returned `Ok` of the rules of `rs'`. -/
 inductive Step (rs : Slice rule_eval.rule.Rule) : Slice rule_eval.rule.Rule → Prop where
   | dropRule (index : Std.U32) {out : alloc.vec.Vec rule_eval.rule.Rule} :
       rule_eval.attenuate.drop_rule rs index = ok (.Ok out) → Step rs (alloc.vec.Vec.deref out)
@@ -125,6 +166,13 @@ inductive Step (rs : Slice rule_eval.rule.Rule) : Slice rule_eval.rule.Rule → 
   | removeFunctions (index : Std.U32) (functions : Slice (alloc.vec.Vec Std.U8))
       {out : alloc.vec.Vec rule_eval.rule.Rule} :
       rule_eval.attenuate.remove_functions rs index functions = ok (.Ok out) →
+        Step rs (alloc.vec.Vec.deref out)
+  | removeSigners (index : Std.U32) (signers : Slice rule_eval.signer.Signer)
+      {out : alloc.vec.Vec rule_eval.rule.Rule} :
+      rule_eval.attenuate.remove_signers rs index signers = ok (.Ok out) →
+        Step rs (alloc.vec.Vec.deref out)
+  | raiseThreshold (index threshold : Std.U32) {out : alloc.vec.Vec rule_eval.rule.Rule} :
+      rule_eval.attenuate.raise_threshold rs index threshold = ok (.Ok out) →
         Step rs (alloc.vec.Vec.deref out)
 
 /-- `Derives root rs`: `rs` is reachable from `root` by zero or more extracted
@@ -137,6 +185,8 @@ theorem Step.narrower {rs rs' : Slice rule_eval.rule.Rule} : Step rs rs' → Nar
   | .dropRule _ h => drop_rule_narrower h
   | .addCond _ _ h => add_cond_narrower h
   | .removeFunctions _ _ h => remove_functions_narrower h
+  | .removeSigners _ _ h => remove_signers_narrower h
+  | .raiseThreshold _ _ h => raise_threshold_narrower h
 
 /-- Every rule set derived from a root by extracted attenuation steps stays
 inside the root. -/
@@ -148,41 +198,174 @@ theorem Derives.narrower {root rs : Slice rule_eval.rule.Rule} (h : Derives root
 
 /-- A narrower rule set accepts a batch only if its ancestor does. -/
 theorem allows_all_of_narrower {rs' rs : Slice rule_eval.rule.Rule} (h : Narrower rs' rs)
-    (cs : Slice rule_eval.context.Context) :
-    rule_eval.rule_set.allows_all rs' cs = ok true →
-      rule_eval.rule_set.allows_all rs cs = ok true := by
+    (cs : Slice rule_eval.context.Context) (authenticated : Slice rule_eval.signer.Signer) :
+    rule_eval.rule_set.allows_all rs' cs authenticated = ok true →
+      rule_eval.rule_set.allows_all rs cs authenticated = ok true := by
   rw [allows_all_eq, allows_all_eq]
   intro hc
-  have hc := (Chain.RuleSet.allowsAll_iff _ _).mp (Result.ok_injective hc)
-  refine congrArg ok ((Chain.RuleSet.allowsAll_iff _ _).mpr ?_)
+  have hc := (Chain.RuleSet.allowsAll_iff _ _ _).mp (Result.ok_injective hc)
+  refine congrArg ok ((Chain.RuleSet.allowsAll_iff _ _ _).mpr ?_)
   intro c' hm
   obtain ⟨c, hcm, rfl⟩ := List.mem_map.mp hm
-  have := h c (by rw [allows_eq]; exact congrArg ok (hc _ hm))
+  have := h c authenticated (by rw [allows_eq]; exact congrArg ok (hc _ hm))
   rw [allows_eq] at this
   exact Result.ok_injective this
 
 theorem Derives.allows_all {root rs : Slice rule_eval.rule.Rule} (h : Derives root rs)
-    (cs : Slice rule_eval.context.Context) :
-    rule_eval.rule_set.allows_all rs cs = ok true →
-      rule_eval.rule_set.allows_all root cs = ok true :=
-  allows_all_of_narrower h.narrower cs
+    (cs : Slice rule_eval.context.Context) (authenticated : Slice rule_eval.signer.Signer) :
+    rule_eval.rule_set.allows_all rs cs authenticated = ok true →
+      rule_eval.rule_set.allows_all root cs authenticated = ok true :=
+  allows_all_of_narrower h.narrower cs authenticated
 
 /-! ## Contract creation -/
 
 /-- No rule set allows a contract creation. -/
-theorem allows_create (rules : Slice rule_eval.rule.Rule) (wasmHash : alloc.vec.Vec Std.U8) :
-    rule_eval.rule_set.allows rules (.Create wasmHash) = ok false := by
+theorem allows_create (rules : Slice rule_eval.rule.Rule) (wasmHash : alloc.vec.Vec Std.U8)
+    (authenticated : Slice rule_eval.signer.Signer) :
+    rule_eval.rule_set.allows rules (.Create wasmHash) authenticated = ok false := by
   rw [allows_eq]
   simp [denoteContext]
 
 /-- A batch containing a contract creation is denied. -/
 theorem allows_all_create (rules : Slice rule_eval.rule.Rule)
     {cs : Slice rule_eval.context.Context} {wasmHash : alloc.vec.Vec Std.U8}
-    (h : .Create wasmHash ∈ cs.val) :
-    rule_eval.rule_set.allows_all rules cs = ok false := by
+    (h : .Create wasmHash ∈ cs.val) (authenticated : Slice rule_eval.signer.Signer) :
+    rule_eval.rule_set.allows_all rules cs authenticated = ok false := by
   rw [allows_all_eq]
   exact congrArg ok (Chain.RuleSet.allowsAll_false_of_create_mem _
-    (List.mem_map_of_mem (f := denoteContext) h))
+    (List.mem_map_of_mem (f := denoteContext) h) _)
+
+/-! ## Signers -/
+
+/-- The extracted `signer_eq` is equality of the Rust signers. -/
+theorem signer_eq_iff (a b : rule_eval.signer.Signer) :
+    rule_eval.signer.signer_eq a b = ok true ↔ a = b := by
+  rw [signer_eq_eq]
+  constructor
+  · intro h
+    exact denoteSigner_injective (of_decide_eq_true (Result.ok_injective h))
+  · intro h
+    simp [h]
+
+/-- A `Delegated` signer never equals an `External` one, even when the
+address is the verifier's or the key's bytes. -/
+theorem signer_eq_delegated_external (address verifier key : alloc.vec.Vec Std.U8) :
+    rule_eval.signer.signer_eq (.Delegated address) (.External verifier key) = ok false := by
+  simp [signer_eq_eq, denoteSigner]
+
+theorem denoteSigners_subset {a a' : Slice rule_eval.signer.Signer}
+    (h : ∀ s ∈ a.val, s ∈ a'.val) : denoteSigners a.val ⊆ denoteSigners a'.val := by
+  intro s hs
+  obtain ⟨t, ht, rfl⟩ := List.mem_map.mp hs
+  exact List.mem_map_of_mem (h t ht)
+
+theorem denoteSigners_mem_iff {a a' : Slice rule_eval.signer.Signer}
+    (h : ∀ s, s ∈ a.val ↔ s ∈ a'.val) (s : Chain.Signer) :
+    s ∈ denoteSigners a.val ↔ s ∈ denoteSigners a'.val :=
+  ⟨fun hs => denoteSigners_subset (fun t ht => (h t).mp ht) hs,
+    fun hs => denoteSigners_subset (fun t ht => (h t).mpr ht) hs⟩
+
+/-- Authenticating more signers never turns an allow into a refusal. -/
+theorem allows_of_subset (rules : Slice rule_eval.rule.Rule) (c : rule_eval.context.Context)
+    {authenticated authenticated' : Slice rule_eval.signer.Signer}
+    (h : ∀ s ∈ authenticated.val, s ∈ authenticated'.val) :
+    rule_eval.rule_set.allows rules c authenticated = ok true →
+      rule_eval.rule_set.allows rules c authenticated' = ok true := by
+  rw [allows_eq, allows_eq]
+  intro ha
+  exact congrArg ok (Chain.RuleSet.allows_of_subset _ _ (denoteSigners_subset h)
+    (Result.ok_injective ha))
+
+theorem allows_all_of_subset (rules : Slice rule_eval.rule.Rule)
+    (cs : Slice rule_eval.context.Context)
+    {authenticated authenticated' : Slice rule_eval.signer.Signer}
+    (h : ∀ s ∈ authenticated.val, s ∈ authenticated'.val) :
+    rule_eval.rule_set.allows_all rules cs authenticated = ok true →
+      rule_eval.rule_set.allows_all rules cs authenticated' = ok true := by
+  rw [allows_all_eq, allows_all_eq]
+  intro ha
+  exact congrArg ok (Chain.RuleSet.allowsAll_of_subset _ _ (denoteSigners_subset h)
+    (Result.ok_injective ha))
+
+/-- The verdict depends only on which signers are authenticated, not on their
+order or repeats. -/
+theorem allows_congr (rules : Slice rule_eval.rule.Rule) (c : rule_eval.context.Context)
+    {authenticated authenticated' : Slice rule_eval.signer.Signer}
+    (h : ∀ s, s ∈ authenticated.val ↔ s ∈ authenticated'.val) :
+    rule_eval.rule_set.allows rules c authenticated =
+      rule_eval.rule_set.allows rules c authenticated' := by
+  rw [allows_eq, allows_eq, Chain.RuleSet.allows_congr _ _ (denoteSigners_mem_iff h)]
+
+theorem allows_all_congr (rules : Slice rule_eval.rule.Rule)
+    (cs : Slice rule_eval.context.Context)
+    {authenticated authenticated' : Slice rule_eval.signer.Signer}
+    (h : ∀ s, s ∈ authenticated.val ↔ s ∈ authenticated'.val) :
+    rule_eval.rule_set.allows_all rules cs authenticated =
+      rule_eval.rule_set.allows_all rules cs authenticated' := by
+  rw [allows_all_eq, allows_all_eq, Chain.RuleSet.allowsAll_congr _ _ (denoteSigners_mem_iff h)]
+
+/-- A rule's verdict depends only on which signers it lists, not on their order
+or repeats. -/
+theorem rule_allows_congr_signers (r : rule_eval.rule.Rule)
+    {signers : alloc.vec.Vec rule_eval.signer.Signer}
+    (h : ∀ s, s ∈ signers.val ↔ s ∈ r.signers.val) (c : rule_eval.context.Context)
+    (authenticated : Slice rule_eval.signer.Signer) :
+    rule_eval.rule.rule_allows { r with signers } c authenticated =
+      rule_eval.rule.rule_allows r c authenticated := by
+  rw [rule_allows_eq, rule_allows_eq]
+  congr 1
+  exact Chain.Rule.allows_congr_signers (denoteRule r) (ss := denoteSigners signers.val)
+    (fun s => by
+      simp only [denoteRule, denoteSigners, List.mem_map]
+      exact ⟨fun ⟨t, ht, he⟩ => ⟨t, (h t).mp ht, he⟩, fun ⟨t, ht, he⟩ => ⟨t, (h t).mpr ht, he⟩⟩)
+    _ _
+
+/-- With threshold 0 a rule's verdict does not depend on the authenticated
+signers. -/
+theorem rule_allows_threshold_zero {r : rule_eval.rule.Rule} (h : r.threshold.val = 0)
+    (c : rule_eval.context.Context) (authenticated authenticated' : Slice rule_eval.signer.Signer) :
+    rule_eval.rule.rule_allows r c authenticated = rule_eval.rule.rule_allows r c authenticated' := by
+  rw [rule_allows_eq, rule_allows_eq]
+  congr 1
+  apply Chain.Rule.allows_of_threshold_zero
+  apply UInt32.toNat_inj.mp
+  simpa [denoteRule] using h
+
+/-- A threshold equal to the number of distinct signers is met exactly when
+every signer is authenticated. -/
+theorem signers_met_all_iff {signers : Slice rule_eval.signer.Signer} {threshold : Std.U32}
+    (h : threshold.val = (denoteSigners signers.val).eraseDups.length)
+    (authenticated : Slice rule_eval.signer.Signer) :
+    rule_eval.signer.signers_met signers threshold authenticated = ok true ↔
+      ∀ s ∈ signers.val, s ∈ authenticated.val := by
+  let r : RuleCore.Rule Chain.Context Chain.Signer :=
+    { scope := fun _ => true, conds := [], signers := denoteSigners signers.val,
+      threshold := threshold.val }
+  have hall := RuleCore.Rule.signed_iff_of_threshold_eq (r := r) h (denoteSigners authenticated.val)
+  rw [signers_met_eq]
+  have hsigned : r.signed (denoteSigners authenticated.val) =
+      decide (threshold.val ≤ ((denoteSigners signers.val).eraseDups.filter
+        (· ∈ denoteSigners authenticated.val)).length) := rfl
+  rw [← hsigned]
+  constructor
+  · intro hok s hs
+    have := (hall.mp (Result.ok_injective hok)) (denoteSigner s) (List.mem_map_of_mem hs)
+    obtain ⟨t, ht, he⟩ := List.mem_map.mp this
+    rw [← denoteSigner_injective he]
+    exact ht
+  · intro hmem
+    refine congrArg ok (hall.mpr fun x hx => ?_)
+    obtain ⟨s, hs, rfl⟩ := List.mem_map.mp hx
+    exact List.mem_map_of_mem (hmem s hs)
+
+/-- A rule whose threshold is above its number of distinct signers allows
+nothing. -/
+theorem rule_allows_false_of_lt {r : rule_eval.rule.Rule}
+    (h : (denoteSigners r.signers.val).eraseDups.length < r.threshold.val)
+    (c : rule_eval.context.Context) (authenticated : Slice rule_eval.signer.Signer) :
+    rule_eval.rule.rule_allows r c authenticated = ok false := by
+  rw [rule_allows_eq]
+  exact congrArg ok (Chain.Rule.allows_false_of_lt (by simpa [denoteRule] using h) _ _)
 
 /-! ## Arguments -/
 
@@ -260,8 +443,8 @@ theorem bytes_eq_iff (a b : Slice Std.U8) :
 /-- A rule allows only calls to exactly its contract and exactly one of its
 functions. -/
 theorem rule_allows_call {r : rule_eval.rule.Rule} {contract function : alloc.vec.Vec Std.U8}
-    {args : alloc.vec.Vec rule_eval.val.Val}
-    (h : rule_eval.rule.rule_allows r (.Call contract function args) = ok true) :
+    {args : alloc.vec.Vec rule_eval.val.Val} {authenticated : Slice rule_eval.signer.Signer}
+    (h : rule_eval.rule.rule_allows r (.Call contract function args) authenticated = ok true) :
     contract = r.contract ∧ function ∈ r.functions.val := by
   rw [rule_allows_eq] at h
   obtain ⟨hc, hf⟩ := Chain.Rule.contract_eq_of_allows (Result.ok_injective h)
@@ -274,9 +457,10 @@ theorem rule_allows_call {r : rule_eval.rule.Rule} {contract function : alloc.ve
 denied. -/
 theorem rule_allows_extension_false (r : rule_eval.rule.Rule)
     {contract function : alloc.vec.Vec Std.U8} {args : alloc.vec.Vec rule_eval.val.Val}
-    {ext : List Std.U8} (hc : contract.val = r.contract.val ++ ext) (hne : ext ≠ []) :
-    rule_eval.rule.rule_allows r (.Call contract function args) = ok false := by
-  cases h : rule_eval.rule.rule_allows r (.Call contract function args) with
+    {ext : List Std.U8} (hc : contract.val = r.contract.val ++ ext) (hne : ext ≠ [])
+    (authenticated : Slice rule_eval.signer.Signer) :
+    rule_eval.rule.rule_allows r (.Call contract function args) authenticated = ok false := by
+  cases h : rule_eval.rule.rule_allows r (.Call contract function args) authenticated with
   | ret b =>
     cases b
     · rfl
@@ -289,9 +473,10 @@ theorem rule_allows_extension_false (r : rule_eval.rule.Rule)
 /-- A call to a proper prefix of the rule's contract id is denied. -/
 theorem rule_allows_prefix_false (r : rule_eval.rule.Rule)
     {contract function : alloc.vec.Vec Std.U8} {args : alloc.vec.Vec rule_eval.val.Val}
-    {ext : List Std.U8} (hc : contract.val ++ ext = r.contract.val) (hne : ext ≠ []) :
-    rule_eval.rule.rule_allows r (.Call contract function args) = ok false := by
-  cases h : rule_eval.rule.rule_allows r (.Call contract function args) with
+    {ext : List Std.U8} (hc : contract.val ++ ext = r.contract.val) (hne : ext ≠ [])
+    (authenticated : Slice rule_eval.signer.Signer) :
+    rule_eval.rule.rule_allows r (.Call contract function args) authenticated = ok false := by
+  cases h : rule_eval.rule.rule_allows r (.Call contract function args) authenticated with
   | ret b =>
     cases b
     · rfl

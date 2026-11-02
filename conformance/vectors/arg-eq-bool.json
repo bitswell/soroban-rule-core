@@ -1,12 +1,14 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "arg-eq-bool",
   "description": "argEq on a bool: equal value, the other value, and integers holding one.",
   "rules": [
     {
       "contract": "746f6b656e",
       "functions": ["7472616e73666572"],
-      "conds": [{"arg_eq": {"index": 0, "value": {"bool": true}}}]
+      "conds": [{"arg_eq": {"index": 0, "value": {"bool": true}}}],
+      "signers": [],
+      "threshold": 0
     }
   ],
   "batch": [
@@ -15,6 +17,7 @@
     {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": [{"u64": "1"}]}},
     {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": [{"i128": "1"}]}}
   ],
+  "authenticated": [],
   "expected": {"allows": [true, false, false, false], "allows_all": false},
   "attenuations": []
 }

@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "random-009",
   "description": "Randomized case 9 of seed 20261102.",
   "rules": [
@@ -9,50 +9,63 @@
       "conds": [
         {"arg_i128_at_most": {"index": 1, "bound": "100"}},
         {"arg_eq": {"index": 3, "value": {"bytes": ""}}}
-      ]
-    },
-    {"contract": "6331", "functions": ["666f6f", "666f"], "conds": []},
-    {
-      "contract": "63",
-      "functions": ["66", "666f", "67"],
-      "conds": [
-        {"arg_i128_at_most": {"index": 2, "bound": "-170141183460469231731687303715884105727"}},
-        {"arg_eq": {"index": 0, "value": {"other": ""}}}
-      ]
+      ],
+      "signers": [],
+      "threshold": 0
     },
     {
-      "contract": "63",
-      "functions": ["666f6f", "666f6f", "66"],
+      "contract": "6331",
+      "functions": ["66", "", "66"],
+      "conds": [],
+      "signers": [{"external": {"verifier": "76", "key": "6b"}}],
+      "threshold": 0
+    },
+    {
+      "contract": "",
+      "functions": [],
+      "conds": [{"arg_i128_at_most": {"index": 1, "bound": "100"}}],
+      "signers": [
+        {"delegated": {"address": "6162"}},
+        {"external": {"verifier": "76", "key": "6b"}},
+        {"delegated": {"address": "62"}}
+      ],
+      "threshold": 0
+    },
+    {
+      "contract": "633130",
+      "functions": ["666f6f"],
       "conds": [
-        {"arg_i128_at_most": {"index": 2147483648, "bound": "1"}},
         {
           "arg_i128_at_most": {
             "index": 2147483648,
             "bound": "170141183460469231731687303715884105727"
           }
         }
-      ]
+      ],
+      "signers": [],
+      "threshold": 1
     }
   ],
-  "batch": [{"call": {"contract": "63", "function": "", "args": [{"bytes": "616263"}]}}],
-  "expected": {"allows": [false], "allows_all": false},
+  "batch": [
+    {"call": {"contract": "633130", "function": "67", "args": []}},
+    {"call": {"contract": "", "function": "66", "args": [{"other": "616263"}, {"i128": "1"}]}},
+    {"create": {"wasm_hash": "61"}},
+    {"call": {"contract": "6331", "function": "66", "args": []}}
+  ],
+  "authenticated": [
+    {"delegated": {"address": "6162"}},
+    {"external": {"verifier": "76", "key": "6b"}},
+    {"external": {"verifier": "76", "key": "6b"}},
+    {"delegated": {"address": "6162"}},
+    {"delegated": {"address": "61"}},
+    {"external": {"verifier": "61", "key": ""}}
+  ],
+  "expected": {"allows": [false, false, false, true], "allows_all": false},
   "attenuations": [
     {
       "steps": [
-        {"drop_rule": {"index": 0}},
-        {
-          "add_cond": {
-            "index": 4,
-            "cond": {
-              "arg_i128_at_most": {"index": 0, "bound": "-170141183460469231731687303715884105727"}
-            }
-          }
-        }
+        {"add_cond": {"index": 2, "cond": {"arg_eq": {"index": 0, "value": {"symbol": "6162"}}}}}
       ],
-      "expected": {"error": "no_such_rule"}
-    },
-    {
-      "steps": [{"add_cond": {"index": 2, "cond": {"arg_eq": {"index": 0, "value": {"u64": "0"}}}}}],
       "expected": {
         "ok": {
           "rules": [
@@ -62,44 +75,63 @@
               "conds": [
                 {"arg_i128_at_most": {"index": 1, "bound": "100"}},
                 {"arg_eq": {"index": 3, "value": {"bytes": ""}}}
-              ]
-            },
-            {"contract": "6331", "functions": ["666f6f", "666f"], "conds": []},
-            {
-              "contract": "63",
-              "functions": ["66", "666f", "67"],
-              "conds": [
-                {
-                  "arg_i128_at_most": {
-                    "index": 2,
-                    "bound": "-170141183460469231731687303715884105727"
-                  }
-                },
-                {"arg_eq": {"index": 0, "value": {"other": ""}}},
-                {"arg_eq": {"index": 0, "value": {"u64": "0"}}}
-              ]
+              ],
+              "signers": [],
+              "threshold": 0
             },
             {
-              "contract": "63",
-              "functions": ["666f6f", "666f6f", "66"],
+              "contract": "6331",
+              "functions": ["66", "", "66"],
+              "conds": [],
+              "signers": [{"external": {"verifier": "76", "key": "6b"}}],
+              "threshold": 0
+            },
+            {
+              "contract": "",
+              "functions": [],
               "conds": [
-                {"arg_i128_at_most": {"index": 2147483648, "bound": "1"}},
+                {"arg_i128_at_most": {"index": 1, "bound": "100"}},
+                {"arg_eq": {"index": 0, "value": {"symbol": "6162"}}}
+              ],
+              "signers": [
+                {"delegated": {"address": "6162"}},
+                {"external": {"verifier": "76", "key": "6b"}},
+                {"delegated": {"address": "62"}}
+              ],
+              "threshold": 0
+            },
+            {
+              "contract": "633130",
+              "functions": ["666f6f"],
+              "conds": [
                 {
                   "arg_i128_at_most": {
                     "index": 2147483648,
                     "bound": "170141183460469231731687303715884105727"
                   }
                 }
-              ]
+              ],
+              "signers": [],
+              "threshold": 1
             }
           ],
-          "allows": [false],
+          "allows": [false, false, false, true],
           "allows_all": false
         }
       }
     },
     {
-      "steps": [{"drop_rule": {"index": 2}}, {"remove_functions": {"index": 2, "functions": []}}],
+      "steps": [
+        {
+          "remove_signers": {
+            "index": 3,
+            "signers": [
+              {"external": {"verifier": "76", "key": "6b"}},
+              {"delegated": {"address": "6162"}}
+            ]
+          }
+        }
+      ],
       "expected": {
         "ok": {
           "rules": [
@@ -109,24 +141,91 @@
               "conds": [
                 {"arg_i128_at_most": {"index": 1, "bound": "100"}},
                 {"arg_eq": {"index": 3, "value": {"bytes": ""}}}
-              ]
+              ],
+              "signers": [],
+              "threshold": 0
             },
-            {"contract": "6331", "functions": ["666f6f", "666f"], "conds": []},
             {
-              "contract": "63",
-              "functions": ["666f6f", "666f6f", "66"],
+              "contract": "6331",
+              "functions": ["66", "", "66"],
+              "conds": [],
+              "signers": [{"external": {"verifier": "76", "key": "6b"}}],
+              "threshold": 0
+            },
+            {
+              "contract": "",
+              "functions": [],
+              "conds": [{"arg_i128_at_most": {"index": 1, "bound": "100"}}],
+              "signers": [
+                {"delegated": {"address": "6162"}},
+                {"external": {"verifier": "76", "key": "6b"}},
+                {"delegated": {"address": "62"}}
+              ],
+              "threshold": 0
+            },
+            {
+              "contract": "633130",
+              "functions": ["666f6f"],
               "conds": [
-                {"arg_i128_at_most": {"index": 2147483648, "bound": "1"}},
                 {
                   "arg_i128_at_most": {
                     "index": 2147483648,
                     "bound": "170141183460469231731687303715884105727"
                   }
                 }
-              ]
+              ],
+              "signers": [],
+              "threshold": 1
             }
           ],
-          "allows": [false],
+          "allows": [false, false, false, true],
+          "allows_all": false
+        }
+      }
+    },
+    {
+      "steps": [
+        {"drop_rule": {"index": 3}},
+        {
+          "remove_signers": {
+            "index": 0,
+            "signers": [{"external": {"verifier": "76", "key": "6b32"}}]
+          }
+        }
+      ],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "633130",
+              "functions": ["666f"],
+              "conds": [
+                {"arg_i128_at_most": {"index": 1, "bound": "100"}},
+                {"arg_eq": {"index": 3, "value": {"bytes": ""}}}
+              ],
+              "signers": [],
+              "threshold": 0
+            },
+            {
+              "contract": "6331",
+              "functions": ["66", "", "66"],
+              "conds": [],
+              "signers": [{"external": {"verifier": "76", "key": "6b"}}],
+              "threshold": 0
+            },
+            {
+              "contract": "",
+              "functions": [],
+              "conds": [{"arg_i128_at_most": {"index": 1, "bound": "100"}}],
+              "signers": [
+                {"delegated": {"address": "6162"}},
+                {"external": {"verifier": "76", "key": "6b"}},
+                {"delegated": {"address": "62"}}
+              ],
+              "threshold": 0
+            }
+          ],
+          "allows": [false, false, false, true],
           "allows_all": false
         }
       }

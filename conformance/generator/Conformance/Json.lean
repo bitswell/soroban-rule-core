@@ -130,11 +130,25 @@ def encodeCond : Cond → Json
   | .argI128AtMost i n =>
     tagged "arg_i128_at_most" (.obj [("index", encodeIndex i), ("bound", .str (toString n.toInt))])
 
+def encodeSigner : Signer → Json
+  | .delegated address => tagged "delegated" (.obj [("address", .str (hex address))])
+  | .external verifier key =>
+    tagged "external" (.obj [("verifier", .str (hex verifier)), ("key", .str (hex key))])
+
+def encodeSigners (ss : List Signer) : Json :=
+  .arr (ss.map encodeSigner)
+
+/-- A threshold is a `u32`, written like an index. -/
+def encodeThreshold (k : UInt32) : Json :=
+  .num k.toNat
+
 def encodeRule (r : Rule) : Json :=
   .obj [
     ("contract", .str (hex r.contract)),
     ("functions", encodeBytesList r.functions),
-    ("conds", .arr (r.conds.map encodeCond))]
+    ("conds", .arr (r.conds.map encodeCond)),
+    ("signers", encodeSigners r.signers),
+    ("threshold", encodeThreshold r.threshold)]
 
 def encodeRuleSet (rs : RuleSet) : Json :=
   .arr (rs.map encodeRule)
@@ -144,8 +158,13 @@ def encodeStep : Attenuation → Json
   | .addCond i cond => tagged "add_cond" (.obj [("index", encodeIndex i), ("cond", encodeCond cond)])
   | .removeFunctions i fs =>
     tagged "remove_functions" (.obj [("index", encodeIndex i), ("functions", encodeBytesList fs)])
+  | .removeSigners i ss =>
+    tagged "remove_signers" (.obj [("index", encodeIndex i), ("signers", encodeSigners ss)])
+  | .raiseThreshold i k =>
+    tagged "raise_threshold" (.obj [("index", encodeIndex i), ("threshold", encodeThreshold k)])
 
 def encodeError : AttenuationError → Json
   | .noSuchRule => .str "no_such_rule"
+  | .thresholdLowered => .str "threshold_lowered"
 
 end Conformance

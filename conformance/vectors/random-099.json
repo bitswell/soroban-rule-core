@@ -1,79 +1,131 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "random-099",
   "description": "Randomized case 99 of seed 20261102.",
   "rules": [
-    {"contract": "633130", "functions": [], "conds": []},
-    {"contract": "63", "functions": [], "conds": []},
     {
-      "contract": "63",
-      "functions": ["666f6f", "67", ""],
+      "contract": "633130",
+      "functions": [],
+      "conds": [],
+      "signers": [
+        {"external": {"verifier": "76", "key": "6b"}},
+        {"external": {"verifier": "76", "key": "6b32"}}
+      ],
+      "threshold": 2
+    },
+    {
+      "contract": "633130",
+      "functions": [],
       "conds": [
-        {"arg_eq": {"index": 2, "value": {"i128": "170141183460469231731687303715884105727"}}},
-        {"arg_eq": {"index": 1, "value": {"other": "616263"}}}
-      ]
-    }
+        {"arg_eq": {"index": 1, "value": {"symbol": "6162"}}},
+        {"arg_i128_at_most": {"index": 1, "bound": "-170141183460469231731687303715884105728"}}
+      ],
+      "signers": [
+        {"external": {"verifier": "76", "key": "6b32"}},
+        {"delegated": {"address": "62"}},
+        {"delegated": {"address": "6162"}}
+      ],
+      "threshold": 0
+    },
+    {"contract": "63", "functions": ["66"], "conds": [], "signers": [], "threshold": 0}
   ],
-  "batch": [{"call": {"contract": "63", "function": "66", "args": []}}],
-  "expected": {"allows": [false], "allows_all": false},
+  "batch": [
+    {"call": {"contract": "633130", "function": "67", "args": []}},
+    {"call": {"contract": "63", "function": "66", "args": []}}
+  ],
+  "authenticated": [
+    {"external": {"verifier": "76", "key": "6b32"}},
+    {"external": {"verifier": "76", "key": "6b32"}},
+    {"external": {"verifier": "76", "key": "6b"}},
+    {"external": {"verifier": "76", "key": "6b32"}}
+  ],
+  "expected": {"allows": [false, true], "allows_all": false},
   "attenuations": [
     {
-      "steps": [
-        {"add_cond": {"index": 1, "cond": {"arg_i128_at_most": {"index": 0, "bound": "-1"}}}}
-      ],
+      "steps": [{"drop_rule": {"index": 2}}, {"drop_rule": {"index": 2}}],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [{"remove_functions": {"index": 2, "functions": ["66"]}}],
       "expected": {
         "ok": {
           "rules": [
-            {"contract": "633130", "functions": [], "conds": []},
             {
-              "contract": "63",
+              "contract": "633130",
               "functions": [],
-              "conds": [{"arg_i128_at_most": {"index": 0, "bound": "-1"}}]
+              "conds": [],
+              "signers": [
+                {"external": {"verifier": "76", "key": "6b"}},
+                {"external": {"verifier": "76", "key": "6b32"}}
+              ],
+              "threshold": 2
             },
             {
-              "contract": "63",
-              "functions": ["666f6f", "67", ""],
+              "contract": "633130",
+              "functions": [],
               "conds": [
+                {"arg_eq": {"index": 1, "value": {"symbol": "6162"}}},
                 {
-                  "arg_eq": {
-                    "index": 2,
-                    "value": {"i128": "170141183460469231731687303715884105727"}
+                  "arg_i128_at_most": {
+                    "index": 1,
+                    "bound": "-170141183460469231731687303715884105728"
                   }
-                },
-                {"arg_eq": {"index": 1, "value": {"other": "616263"}}}
-              ]
-            }
+                }
+              ],
+              "signers": [
+                {"external": {"verifier": "76", "key": "6b32"}},
+                {"delegated": {"address": "62"}},
+                {"delegated": {"address": "6162"}}
+              ],
+              "threshold": 0
+            },
+            {"contract": "63", "functions": [], "conds": [], "signers": [], "threshold": 0}
           ],
-          "allows": [false],
+          "allows": [false, false],
           "allows_all": false
         }
       }
     },
     {
-      "steps": [{"remove_functions": {"index": 3, "functions": []}}],
-      "expected": {"error": "no_such_rule"}
-    },
-    {
-      "steps": [{"drop_rule": {"index": 1}}],
+      "steps": [
+        {"add_cond": {"index": 1, "cond": {"arg_i128_at_most": {"index": 1, "bound": "-1"}}}}
+      ],
       "expected": {
         "ok": {
           "rules": [
-            {"contract": "633130", "functions": [], "conds": []},
             {
-              "contract": "63",
-              "functions": ["666f6f", "67", ""],
+              "contract": "633130",
+              "functions": [],
+              "conds": [],
+              "signers": [
+                {"external": {"verifier": "76", "key": "6b"}},
+                {"external": {"verifier": "76", "key": "6b32"}}
+              ],
+              "threshold": 2
+            },
+            {
+              "contract": "633130",
+              "functions": [],
               "conds": [
+                {"arg_eq": {"index": 1, "value": {"symbol": "6162"}}},
                 {
-                  "arg_eq": {
-                    "index": 2,
-                    "value": {"i128": "170141183460469231731687303715884105727"}
+                  "arg_i128_at_most": {
+                    "index": 1,
+                    "bound": "-170141183460469231731687303715884105728"
                   }
                 },
-                {"arg_eq": {"index": 1, "value": {"other": "616263"}}}
-              ]
-            }
+                {"arg_i128_at_most": {"index": 1, "bound": "-1"}}
+              ],
+              "signers": [
+                {"external": {"verifier": "76", "key": "6b32"}},
+                {"delegated": {"address": "62"}},
+                {"delegated": {"address": "6162"}}
+              ],
+              "threshold": 0
+            },
+            {"contract": "63", "functions": ["66"], "conds": [], "signers": [], "threshold": 0}
           ],
-          "allows": [false],
+          "allows": [false, true],
           "allows_all": false
         }
       }

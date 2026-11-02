@@ -19,10 +19,10 @@ rule sets:
 Each link of the chain is a theorem about rule sets, or about the code that
 builds, stores and checks them:
 
-- **Grant inside scope.** A delegated grant is reached from its scope by attenuation steps, so it allows only what the scope allows. Milestone 1 proves this for rule matching (`Derives.narrower`, `Derives.allows_all`). Budgets on the delegation tree come in M3.
+- **Grant inside scope.** A delegated grant is reached from its scope by attenuation steps, so it allows only what the scope allows, under any signers. Milestones 1 and 2 prove this for rule matching and signer requirements (`Derives.narrower`, `Derives.allows_all`). Spending caps come later in M2, and budgets on the delegation tree in M3.
 - **Scope inside the owner's authority.** A scoped document compiles to rules that reach none of the account, its recovery or the ZK adapter. That is M4.
 - **Recovery.** A completed recovery bumps a generation, and every scoped rule issued under an older generation then authorizes nothing. That is also M4.
-- **The code is the model.** The Rust that Perch's smart account, the grant signer, the agent host and the relay run is proven equal to the Lean model the theorems are about (M1 for rule matching and attenuation). Soroban's own behaviour enters through Lean models that are tested against the host (M5).
+- **The code is the model.** The Rust that Perch's smart account, the grant signer, the agent host and the relay run is proven equal to the Lean model the theorems are about (M1 for rule matching and attenuation, M2 for signers). Soroban's own behaviour enters through Lean models that are tested against the host (M5).
 
 ## Dependency direction
 
@@ -44,15 +44,16 @@ contract shells (Perch's account, the grant signer)
 `formal/RuleCore/Model/RuleSet.lean` is the readable model, generic in the
 context type:
 
-- a `Rule` has a `scope : Ctx → Bool` and a list of conditions `Ctx → Bool`;
-- `Rule.allows` is the scope and every condition;
+- a `Rule` has a `scope : Ctx → Bool` and a list of conditions `Ctx → Bool`, plus the signers and threshold of [Milestone 2](#milestone-2-signers);
+- `Rule.allows` is the scope, every condition and the signer requirement;
 - `RuleSet.allows` holds when some rule allows the context;
 - `RuleSet.allowsAll` holds when every context is allowed;
-- `narrower rs' rs` says every context `rs'` allows, `rs` allows.
+- `narrower rs' rs` says every context `rs'` allows, `rs` allows, under the same authenticated signers.
 
-`Model/Attenuation.lean` defines the three steps and nothing else: drop a
-rule, add a condition to a rule, and restrict a rule's scope. Each names its
-rule by position and fails with `noSuchRule` out of range.
+`Model/Attenuation.lean` defines the steps and nothing else. Milestone 1's
+three are: drop a rule, add a condition to a rule, and restrict a rule's
+scope. Each names its rule by position and fails with `noSuchRule` out of
+range.
 
 `formal/RuleCore/Vocab/Chain.lean` is the concrete vocabulary:
 
@@ -71,8 +72,8 @@ creation.
 
 `crates/rule-eval` implements the chain vocabulary:
 
-- `allows(rules, context)` and `allows_all(rules, contexts)` evaluate a rule set;
-- `drop_rule`, `add_cond` and `remove_functions` are the attenuation steps. Each reads a slice of rules and returns a new `Vec<Rule>` or `AttenuationError::NoSuchRule`.
+- `allows(rules, context, authenticated)` and `allows_all(rules, contexts, authenticated)` evaluate a rule set;
+- `drop_rule`, `add_cond` and `remove_functions` are Milestone 1's attenuation steps. Each reads a slice of rules and returns a new `Vec<Rule>` or `AttenuationError::NoSuchRule`.
 
 The code is written in a subset of Rust that Charon and Aeneas translate to
 total Lean functions:
@@ -106,8 +107,75 @@ evidence, and `tools/check-claims` fails CI when evidence is missing.
 ### How later milestones extend it
 
 - **New conditions** are new constructors of `Cond`, each matched by `cond_holds`, with its meaning in `Chain.Cond.holds` and its denotation in `Equiv/Denote.lean`. The generic theorems do not change, because a chain condition denotes a generic one.
-- **New rule fields** (signers, caps) extend `Rule` and `Chain.Rule`. Keeping `Rule.denote` a generic rule keeps every attenuation theorem.
+- **New rule fields** (caps) extend `Rule` and `Chain.Rule`, as signers do in Milestone 2. Keeping `Rule.denote` a generic rule keeps every attenuation theorem.
 - **Stateful checks** (spending, budgets) stay pure in `rule-eval`. The function takes the state as data and returns the new state or an error, and the shell does the storage.
+
+## Milestone 2: signers
+
+A rule names the signers that may authorize its calls and how many of them
+must. The design is the same in Rust (`crates/rule-eval/src/signer.rs`), the
+chain vocabulary (`Chain.Signer`) and the generic model (`Rule.signed`).
+
+### Signers and the requirement
+
+- A signer is `Delegated(address)` or `External(verifier, key)`, OpenZeppelin's two smart-account signer kinds: an address that authorizes for itself, or a key checked by a verifier contract. Addresses are their `ScAddress` XDR. Signers compare exactly, constructor first: `Delegated(x)` never equals `External(x, ...)`, and bytes compare with no prefix or extension match.
+- A `Rule` has `signers`, a list of signers, and `threshold`, a `u32`.
+- Evaluation takes the authorization's authenticated signers, one list for the whole batch: `allows(rules, context, authenticated)` and `allows_all(rules, contexts, authenticated)`. Authenticating the signatures is the shell's job. `rule-eval` receives the signers that passed.
+- The signer requirement holds when at least `threshold` distinct rule signers appear in `authenticated`. Each rule signer counts once, at its first position in the rule's list, so a signer repeated in either list never counts twice. In the model the count is `(signers.eraseDups.filter (· ∈ auth)).length`, since `eraseDups` keeps first occurrences.
+- Threshold 0 is no requirement. "All signers must sign" is a threshold equal to the number of distinct signers. A threshold above that number is never met, so the rule allows nothing.
+- The requirement is one more conjunct of `Rule.allows`, after the scope and the conditions.
+
+### Attenuation
+
+There are five attenuation steps and nothing else: the three of Milestone 1 and these two.
+
+- `remove_signers(rules, i, signers)` removes every occurrence of each listed signer from rule `i`'s signers. The threshold is unchanged, so the requirement only gets harder to meet.
+- `raise_threshold(rules, i, k)` sets rule `i`'s threshold to `k`. It refuses with `AttenuationError::ThresholdLowered` when `k` is below the current threshold.
+
+Both refuse an index out of range with `NoSuchRule`, and never panic. The
+index is checked first, so `raise_threshold` on a missing rule is
+`NoSuchRule` whatever `k`.
+
+### Theorems
+
+- `narrower` quantifies over authenticated signer lists as well as contexts, and every Milestone 1 theorem holds under that definition.
+- `removeSigners_narrower` and `raiseThreshold_narrower`: each signer step yields a narrower rule set. `Derives.narrower` covers chains of all five steps.
+- `allows_of_subset`, `allowsAll_of_subset`: authenticating more signers never turns an allow into a refusal.
+- `allows_congr`, `allowsAll_congr`, `allows_eraseDups`, `allows_congr_signers`: the verdict depends only on which signers are in each list, so repeats and order in either list change nothing.
+- `signed_of_threshold_zero`, `signed_iff_of_threshold_eq`, `allows_false_of_lt`: threshold 0, all signers, and a threshold above the signers (on the translation: `rule_allows_threshold_zero`, `signers_met_all_iff`, `rule_allows_false_of_lt`).
+- `Signer.delegated_ne_external`, `signer_eq_iff`, `signer_eq_delegated_external`: signers compare exactly.
+
+Each property holds on the model, the chain vocabulary and the translation of
+`rule-eval` (`RuleCore.Extracted`).
+
+### In the restricted subset
+
+`signers_met(signers, threshold, authenticated)` compares `threshold as usize`
+with a count. The count loop walks the rule's signers once. At position `i` it
+asks `signer_in_first(signers[i], signers, i)`, a scan of the signers before
+`i`, and `signer_in(signers[i], authenticated)`, and adds one when the first
+answer is no and the second is yes. The count grows at most once per position,
+so it stays at most `i` and its increment cannot overflow. `raise_threshold`
+reads the rule through `rules.get(index)`. In Lean, `loop_count` gives what a
+counting loop returns, and `countFrom_first` equates counting at first
+occurrences with `eraseDups`.
+
+### OpenZeppelin's rules, as input for M4
+
+OpenZeppelin's smart account (`packages/accounts` of
+[OpenZeppelin/stellar-contracts](https://github.com/OpenZeppelin/stellar-contracts/tree/ddc327eb92d63709436da3a8455f641c2d5476c5/packages/accounts/src),
+read at commit `ddc327eb`) checks signers in two ways:
+
+- **A context rule without policies requires all of its signers.** `get_validated_context_by_id` filters the rule's signers to those present among the authenticated ones and refuses unless every one is (`rule_signers.len() != matched_signers.len()`). Here that is a threshold equal to the number of distinct signers.
+- **A rule with a `simple_threshold` policy requires `k` of them.** Its `enforce` checks `authenticated_signers.len() >= threshold` over the same matched signers. Here that is a threshold of `k`. OpenZeppelin refuses to install a threshold of 0 or one above the rule's signer count; this repository accepts both, as no requirement and as a rule that allows nothing.
+
+The mapping is not exact in every respect. These differences are recorded for
+M4 and not decided here:
+
+- OpenZeppelin's caller names one rule per context (`context_rule_ids`). Here a context is allowed when some rule allows it.
+- OpenZeppelin has rule kinds this model does not have: a `Default` context type that matches any contract, contract-creation rules, and `valid_until` expiry.
+- OpenZeppelin finds duplicate external signers through the verifier's canonical key (`batch_canonicalize_key`). Here two external signers are the same signer only when their bytes are equal.
+- The `weighted_threshold` policy gives signers weights, and `spending_limit` caps amounts. There is no counterpart to weights here; spending caps are the other half of M2.
 
 ## Later milestones
 
@@ -115,14 +183,14 @@ These are design notes for work that is not built. Where the brief leaves a
 choice open, it is listed under [Open questions](#open-questions) and not
 decided here.
 
-### M2: signers and caps
+### M2: spending caps
 
-A rule gains its signers and per-rule spending caps with rolling windows,
-matching Perch's `periodLedgers`.
+A rule gains per-rule spending caps with rolling windows, matching Perch's
+`periodLedgers`. Signers, the other half of M2, are built
+([Milestone 2: signers](#milestone-2-signers)).
 
-- **Signers.** A rule names the signers that may use it. Evaluation also takes the signers that authorized the call, and the rule's signer requirement on them is one more conjunct in `Rule.allows`. An attenuation step that removes signers, or makes the requirement stricter, narrows by the same argument as removing functions.
 - **Caps.** A cap bounds what one rule may spend within a window measured in ledgers. Checking a cap reads the rule's spend record and the current ledger and returns either the new record or a refusal. The function is pure, and the shell loads and stores the record. "Add a cap" or "lower a cap" are attenuation steps, and each must be proven to narrow over every history of spends, not just over one context.
-- **Theorems.** The M1 theorems carry over unchanged for rule matching. New theorems state that a capped rule never lets spending within any window exceed its cap, and that each new step narrows. How the window's time enters these proofs is open.
+- **Theorems.** The theorems on rule matching and signers carry over unchanged. New theorems state that a capped rule never lets spending within any window exceed its cap, and that each new step narrows. How the window's time enters these proofs is open.
 
 ### M3: the budget tree
 

@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "arg-eq-u64",
   "description": "argEq on a u64: equal value, another value, the same number as an i128, and the maximum.",
   "rules": [
@@ -9,7 +9,9 @@
       "conds": [
         {"arg_eq": {"index": 0, "value": {"u64": "7"}}},
         {"arg_eq": {"index": 1, "value": {"u64": "18446744073709551615"}}}
-      ]
+      ],
+      "signers": [],
+      "threshold": 0
     }
   ],
   "batch": [
@@ -49,6 +51,7 @@
       }
     }
   ],
+  "authenticated": [],
   "expected": {"allows": [true, false, false, false, false], "allows_all": false},
   "attenuations": []
 }

@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "missing-arguments",
   "description": "Conditions on argument 2: calls with zero, one and two arguments are refused; three or more are read.",
   "rules": [
@@ -9,7 +9,9 @@
       "conds": [
         {"arg_eq": {"index": 0, "value": {"address": "616c696365"}}},
         {"arg_i128_at_most": {"index": 2, "bound": "100"}}
-      ]
+      ],
+      "signers": [],
+      "threshold": 0
     }
   ],
   "batch": [
@@ -50,6 +52,7 @@
       }
     }
   ],
+  "authenticated": [],
   "expected": {"allows": [false, false, false, true, true, false], "allows_all": false},
   "attenuations": []
 }

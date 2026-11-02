@@ -7,7 +7,7 @@ signer) can run the same vectors as a differential test.
 
 | Path | Contents |
 | --- | --- |
-| `vectors/*.json` | One vector per file: a rule set, a batch of contexts, attenuation step lists, and the results the Lean model computes for them. |
+| `vectors/*.json` | One vector per file: a rule set, a batch of contexts, the authenticated signers, attenuation step lists, and the results the Lean model computes for them. |
 | `generator/` | The Lake package that writes the vectors: the case specifications and the JSON encoding. |
 | `runner/` | The Rust crate `rule-eval-conformance`, which loads every vector and checks `rule-eval` against it. |
 
@@ -37,11 +37,13 @@ CONFORMANCE_VECTORS=/tmp/vectors cargo test -p rule-eval-conformance
 
 The randomized cases use SplitMix64, written out in `Conformance/Random.lean`,
 so a seed produces the same vectors on every Lean release. Case `k` of a seed
-is drawn from its own stream. Rule sets, contexts and steps come from small
-universes of contract ids, function names, payloads and integers that include
-each other's prefixes and extensions and the `i128`, `u64` and `u32` extremes;
-calls are mostly built from a rule of the set with arguments that usually
-satisfy its conditions, so allowed and refused contexts both occur.
+is drawn from its own stream. Rule sets, contexts, signers and steps come from
+small universes of contract ids, function names, payloads, integers and
+signers that include each other's prefixes and extensions, the `i128`, `u64`
+and `u32` extremes, and delegated and external signers with equal bytes; calls
+are mostly built from a rule of the set with arguments that usually satisfy its
+conditions, and the authenticated signers usually include some of the rules'
+signers, so allowed and refused contexts both occur.
 
 ## Running them against rule-eval
 
@@ -52,8 +54,9 @@ cargo test -p rule-eval-conformance
 The runner is a workspace member, so `cargo test --workspace` in
 `.github/workflows/rust.yml` runs it on the pinned nightly and on stable. Its
 tests check that `rule-eval` reproduces every result of every vector, that the
-vectors still cover every value constructor, condition, step kind and outcome,
-and that a vector with a changed expectation is reported. `rule-eval` itself
+vectors still cover every value constructor, condition, signer kind, threshold
+case, step kind and outcome, and that a vector with a changed expectation is
+reported. `rule-eval` itself
 keeps no dependencies; the runner depends on it, `serde` and `serde_json`.
 
 `.github/workflows/conformance.yml` rebuilds the generator, regenerates the
@@ -70,11 +73,12 @@ readers should not depend on it.
 
 ```json
 {
-  "format": 1,
+  "format": 2,
   "name": "batch-mixed",
   "description": "A batch of allowed and refused calls is refused as a whole.",
   "rules": [Rule, ...],
   "batch": [Context, ...],
+  "authenticated": [Signer, ...],
   "expected": {"allows": [true, false, ...], "allows_all": false},
   "attenuations": [
     {"steps": [Step, ...], "expected": Outcome},
@@ -85,13 +89,14 @@ readers should not depend on it.
 
 | Field | Meaning |
 | --- | --- |
-| `format` | The version of this format, `1`. A change a reader of version 1 cannot read raises it. |
+| `format` | The version of this format, `2`. A change a reader of the current version cannot read raises it. |
 | `name` | The file name without `.json`. |
 | `description` | What the vector exercises, for a reader; carries no data. |
 | `rules` | The rule set, in order. |
 | `batch` | The contexts of one authorization tree, in order. |
-| `expected.allows` | The rule set's verdict on each context of `batch`, in the same order. |
-| `expected.allows_all` | The rule set's verdict on the whole batch. |
+| `authenticated` | The signers the authorization covering `batch` authenticated, one list for every context. |
+| `expected.allows` | The rule set's verdict on each context of `batch` under `authenticated`, in the same order. |
+| `expected.allows_all` | The rule set's verdict on the whole batch under `authenticated`. |
 | `attenuations` | Step lists applied to `rules`; each is independent of the others and starts from `rules`. |
 
 ### Encodings
@@ -104,8 +109,8 @@ readers should not depend on it.
   doubles lose nothing. Bounds run from `-170141183460469231731687303715884105728`
   to `170141183460469231731687303715884105727` and from `0` to
   `18446744073709551615`.
-* An **index** (argument index or rule index) is a JSON number from `0` to
-  `4294967295`, a `u32`.
+* An **index** (argument index or rule index) or a **threshold** is a JSON
+  number from `0` to `4294967295`, a `u32`.
 
 ### Values
 
@@ -134,6 +139,19 @@ are: `{"bytes": "6162"}` is not `{"other": "6162"}`.
 A call names a contract, a function and its arguments, indexed from `0`. A
 creation is refused by every rule set.
 
+### Signers
+
+```json
+{"delegated": {"address": "..."}}
+{"external": {"verifier": "...", "key": "..."}}
+```
+
+A `delegated` signer is an address that authorizes for itself, as its
+`ScAddress` XDR. An `external` signer is a key checked by a verifier contract:
+the verifier's address, as its `ScAddress` XDR, and the key's bytes. Signers
+compare exactly, constructor first: `{"delegated": {"address": "6162"}}` is not
+`{"external": {"verifier": "6162", "key": ""}}`.
+
 ### Conditions
 
 ```json
@@ -152,13 +170,18 @@ makes either condition false, as does an argument of another constructor.
 ### Rules
 
 ```json
-{"contract": "746f6b656e", "functions": ["7472616e73666572", ...], "conds": [Condition, ...]}
+{"contract": "746f6b656e", "functions": ["7472616e73666572", ...], "conds": [Condition, ...],
+ "signers": [Signer, ...], "threshold": 2}
 ```
 
 A rule allows a call when the call's contract equals `contract`, its function
-equals one of `functions`, and every condition in `conds` holds on its
-arguments. A rule with an empty `functions` list allows nothing; one with an
-empty `conds` list puts no constraint on arguments. A rule set allows a context
+equals one of `functions`, every condition in `conds` holds on its arguments,
+and at least `threshold` distinct signers of `signers` are in the vector's
+`authenticated` list. Each signer counts once: a signer listed twice in
+`signers`, or authenticated twice, counts as one. A rule with an empty
+`functions` list allows nothing; one with an empty `conds` list puts no
+constraint on arguments; one with threshold `0` puts none on signers; one whose
+threshold is above its number of distinct signers allows nothing. A rule set allows a context
 when some rule allows it, and allows a batch when it allows every context in
 it, so every rule set allows the empty batch. A batch collected from a Soroban
 authorization tree always holds the root context; a caller that builds batches
@@ -170,6 +193,8 @@ another way must refuse an empty one itself.
 {"drop_rule": {"index": 1}}
 {"add_cond": {"index": 0, "cond": Condition}}
 {"remove_functions": {"index": 0, "functions": ["617070726f7665", ...]}}
+{"remove_signers": {"index": 0, "signers": [Signer, ...]}}
+{"raise_threshold": {"index": 0, "threshold": 3}}
 ```
 
 * `drop_rule` removes rule `index`, keeping the others in order.
@@ -177,21 +202,29 @@ another way must refuse an empty one itself.
 * `remove_functions` removes every occurrence of every listed name from the
   function list of rule `index`, keeping the remaining names in order. Names
   not in the list are ignored.
+* `remove_signers` removes every occurrence of every listed signer from the
+  signers of rule `index`, keeping the remaining signers in order and the
+  threshold as it was. Signers not in the list are ignored.
+* `raise_threshold` sets the threshold of rule `index` to `threshold`. It is
+  refused with `threshold_lowered` when `threshold` is below the rule's
+  current threshold.
 
 A step whose `index` is not below the number of rules is refused with
-`no_such_rule`. A step list is applied in order, each step to the previous
-step's result, and stops at the first refused step.
+`no_such_rule`, before any other check. A step list is applied in order, each
+step to the previous step's result, and stops at the first refused step.
 
 ### Outcomes
 
 ```json
 {"ok": {"rules": [Rule, ...], "allows": [true, ...], "allows_all": false}}
 {"error": "no_such_rule"}
+{"error": "threshold_lowered"}
 ```
 
 `ok` holds the rule set after every step, compared rule by rule, field by field
-and in order, and its verdicts on the vector's `batch`, as in `expected`.
-`error` says a step was refused; `no_such_rule` is the only error.
+and in order, and its verdicts on the vector's `batch` under its
+`authenticated` signers, as in `expected`. `error` says a step was refused, and
+why.
 
 ## The named cases
 
@@ -210,5 +243,12 @@ and in order, and its verdicts on the vector's `batch`, as in `expected`.
 | `attenuate-drop-rule`, `attenuate-add-cond`, `attenuate-remove-functions` | Each step at every index of a three-rule set, and refused at the length, at `2^31` and at `2^32 - 1`. |
 | `attenuate-empty-rule-set` | Every step on the empty rule set is refused. |
 | `attenuate-chains` | Step lists: the empty list, indices that shift after a drop, and a list refused part-way through. |
+| `signers-threshold-none`, `signers-threshold-one`, `signers-threshold-two`, `signers-threshold-all` | Thresholds 0, 1, 2, all three signers and above, with none, one, two and all of the signers authenticated. |
+| `signers-repeated-in-rule`, `signers-repeated-in-authenticated` | A signer listed twice in a rule, or authenticated twice, counts once. |
+| `signers-delegated-versus-external`, `signers-external-versus-delegated` | Delegated and external signers whose bytes are equal, split between verifier and key in every way, are different signers. |
+| `signers-missing` | Signers outside the rule, prefixes and extensions of a rule signer's bytes, and a rule with no signers and threshold 1. |
+| `signers-batch-one-missing`, `signers-batch-all-present` | One authenticated list covers a whole batch whose calls need different signers. |
+| `attenuate-remove-signers`, `attenuate-raise-threshold` | Each signer step at each index, with exact matching, an emptied list, thresholds at, above and below the current one, and refusals at the length, `2^31` and `2^32 - 1`. |
+| `attenuate-signer-chains` | Step lists of all five kinds, including one refused with `threshold_lowered` part-way through. |
 
 `random-000.json` to `random-099.json` are the randomized cases.

@@ -1,10 +1,16 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "empty-function-list",
   "description": "A rule with an empty function list allows nothing; a rule listing the empty name allows only the empty name.",
   "rules": [
-    {"contract": "6e6f6e65", "functions": [], "conds": []},
-    {"contract": "656d7074792d6e616d65", "functions": [""], "conds": []}
+    {"contract": "6e6f6e65", "functions": [], "conds": [], "signers": [], "threshold": 0},
+    {
+      "contract": "656d7074792d6e616d65",
+      "functions": [""],
+      "conds": [],
+      "signers": [],
+      "threshold": 0
+    }
   ],
   "batch": [
     {"call": {"contract": "6e6f6e65", "function": "", "args": []}},
@@ -12,6 +18,7 @@
     {"call": {"contract": "656d7074792d6e616d65", "function": "", "args": []}},
     {"call": {"contract": "656d7074792d6e616d65", "function": "7472616e73666572", "args": []}}
   ],
+  "authenticated": [],
   "expected": {"allows": [false, false, true, false], "allows_all": false},
   "attenuations": []
 }

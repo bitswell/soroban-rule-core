@@ -3,13 +3,15 @@ import Conformance.Cases
 /-!
 # Randomized cases
 
-A seeded generator of vector specifications. Rule sets, contexts and
+A seeded generator of vector specifications. Rule sets, contexts, signers and
 attenuation steps are drawn from small universes of contract ids, function
-names, payloads and integers that include each other's prefixes and
-extensions and the integer extremes, so random contexts often hit a rule and
-random comparisons often meet the edge cases. Calls are mostly built from a
-rule in the set, with arguments that usually satisfy that rule's conditions,
-so that the vectors mix allowed and refused contexts.
+names, payloads, integers and signers that include each other's prefixes and
+extensions, the integer extremes, and delegated and external signers with equal
+bytes, so random contexts often hit a rule and random comparisons often meet
+the edge cases. Calls are mostly built from a rule in the set, with arguments
+that usually satisfy that rule's conditions, and the authenticated signers
+usually include some of the rules' signers, so that the vectors mix allowed and
+refused contexts.
 
 The generator is SplitMix64, written out here so that a seed always produces
 the same vectors whatever the Lean release. Case `k` of seed `seed` is drawn
@@ -48,7 +50,9 @@ def below (n : Nat) : Gen Nat := do
 non-empty. -/
 instance : Inhabited Val := ⟨.bool false⟩
 instance : Inhabited Cond := ⟨.argEq 0 (.bool false)⟩
-instance : Inhabited Rule := ⟨{ contract := [], functions := [], conds := [] }⟩
+instance : Inhabited Rule :=
+  ⟨{ contract := [], functions := [], conds := [], signers := [], threshold := 0 }⟩
+instance : Inhabited Signer := ⟨.delegated []⟩
 
 def pick {α : Type} [Inhabited α] (xs : List α) : Gen α := do
   return xs.getD (← below xs.length) default
@@ -67,6 +71,12 @@ def u64s : List UInt64 := [0, 1, 7, 100, u64Max]
 read an argument a call has. -/
 def argIndices : List UInt32 := [0, 0, 0, 0, 1, 1, 1, 2, 2, 3, u32Half, u32Max]
 
+/-- Signers: two delegated, two external, one external whose verifier holds a
+delegated signer's address, and a delegated address that extends another. -/
+def signers : List Signer := [
+  .delegated (s "a"), .delegated (s "b"), .external (s "v") (s "k"), .external (s "v") (s "k2"),
+  .external (s "a") [], .delegated (s "ab")]
+
 def val : Gen Val := do
   match ← below 7 with
   | 0 => return .i128 (← pick i128s)
@@ -82,11 +92,19 @@ def cond : Gen Cond := do
   if (← below 2) = 0 then return .argEq i (← val)
   else return .argI128AtMost i (← pick i128s)
 
+/-- A threshold for a rule listing `n` signers: half the time 0, otherwise
+anything from 0 to one more than `n`. -/
+def threshold (n : Nat) : Gen UInt32 := do
+  if (← below 2) = 0 then return 0
+  return UInt32.ofNat (← below (n + 2))
+
 def rule : Gen Rule := do
   let contract ← pick contracts
   let functions ← listOf (← pick [0, 1, 1, 1, 2, 2, 3, 3]) (pick functions)
   let conds ← listOf (← below 3) cond
-  return { contract, functions, conds }
+  let ss ← listOf (← pick [0, 0, 1, 1, 2, 3]) (pick signers)
+  let threshold ← threshold ss.length
+  return { contract, functions, conds, signers := ss, threshold }
 
 def ruleSet : Gen RuleSet := do
   listOf (← pick [0, 1, 2, 2, 3, 4]) rule
@@ -136,14 +154,28 @@ def ruleIndex (rs : RuleSet) : Gen UInt32 := do
   | 1 => pick [u32Half, u32Max]
   | _ => return UInt32.ofNat (← below rs.length)
 
+/-- The signers the batch's authorization authenticated: usually some of the
+rules' signers, plus random ones, sometimes repeated. -/
+def authenticated (rs : RuleSet) : Gen (List Signer) := do
+  let own := rs.flatMap (·.signers)
+  let fromRules ← listOf (← below (own.length + 1)) (pick own)
+  let extra ← listOf (← pick [0, 0, 1, 2]) (pick signers)
+  return fromRules ++ extra
+
 def step (rs : RuleSet) : Gen Attenuation := do
   let i ← ruleIndex rs
-  match ← below 3 with
+  match ← below 5 with
   | 0 => return .dropRule i
   | 1 => return .addCond i (← cond)
-  | _ =>
+  | 2 =>
     let names := functions ++ rs.flatMap (·.functions)
     return .removeFunctions i (← listOf (← below 3) (pick names))
+  | 3 =>
+    let pool := signers ++ rs.flatMap (·.signers)
+    return .removeSigners i (← listOf (← below 3) (pick pool))
+  | _ =>
+    let current := (rs[i.toNat]?.map (·.threshold.toNat)).getD 0
+    return .raiseThreshold i (UInt32.ofNat (current + (← below 3) - 1))
 
 /-- `n` as a decimal string of at least `w` digits. -/
 def pad (w n : Nat) : String :=
@@ -154,11 +186,12 @@ def case (seed : UInt64) (k : Nat) : Case :=
   let gen : Gen Case := do
     let rules ← ruleSet
     let batch ← listOf (← pick [0, 1, 1, 2, 2, 3, 4, 5]) (context rules)
+    let authenticated ← authenticated rules
     let attenuations ← listOf 3 do listOf ((← below 2) + 1) (step rules)
     return {
       name := s!"random-{pad 3 k}"
       description := s!"Randomized case {k} of seed {seed}."
-      rules, batch, attenuations }
+      rules, batch, authenticated, attenuations }
   (gen.run ⟨seed + UInt64.ofNat k⟩).1
 
 def cases (seed : UInt64) (count : Nat) : List Case :=

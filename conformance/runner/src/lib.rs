@@ -1,21 +1,21 @@
 //! Checks `rule-eval` against the conformance vectors.
 //!
 //! A vector (see `conformance/README.md`) holds a rule set, a batch of
-//! contexts, attenuation step lists, and the results the Lean model computes
-//! for them. [`check`] decodes a vector into `rule-eval`'s types, evaluates it
+//! contexts, the signers the batch's authorization authenticated, attenuation
+//! step lists, and the results the Lean model computes for them. [`check`] decodes a vector into `rule-eval`'s types, evaluates it
 //! with `rule-eval`, and reports the first result that differs.
 
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use rule_eval::{
-    AttenuationError, Cond, Context, Rule, Val, add_cond, allows, allows_all, drop_rule,
-    remove_functions, val_eq,
+    AttenuationError, Cond, Context, Rule, Signer, Val, add_cond, allows, allows_all, drop_rule,
+    raise_threshold, remove_functions, remove_signers, signer_eq, val_eq,
 };
 use serde::Deserialize;
 
 /// The vector format version this runner reads.
-pub const FORMAT: u32 = 1;
+pub const FORMAT: u32 = 2;
 
 /// One vector file.
 #[derive(Deserialize)]
@@ -26,6 +26,7 @@ pub struct Vector {
     pub description: String,
     pub rules: Vec<JsonRule>,
     pub batch: Vec<JsonContext>,
+    pub authenticated: Vec<JsonSigner>,
     pub expected: Verdicts,
     pub attenuations: Vec<AttenuationCase>,
 }
@@ -64,6 +65,7 @@ pub enum Outcome {
 #[serde(rename_all = "snake_case")]
 pub enum JsonError {
     NoSuchRule,
+    ThresholdLowered,
 }
 
 #[derive(Deserialize)]
@@ -72,6 +74,15 @@ pub struct JsonRule {
     pub contract: String,
     pub functions: Vec<String>,
     pub conds: Vec<JsonCond>,
+    pub signers: Vec<JsonSigner>,
+    pub threshold: u32,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub enum JsonSigner {
+    Delegated { address: String },
+    External { verifier: String, key: String },
 }
 
 #[derive(Deserialize)]
@@ -116,9 +127,25 @@ pub enum JsonVal {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub enum JsonStep {
-    DropRule { index: u32 },
-    AddCond { index: u32, cond: JsonCond },
-    RemoveFunctions { index: u32, functions: Vec<String> },
+    DropRule {
+        index: u32,
+    },
+    AddCond {
+        index: u32,
+        cond: JsonCond,
+    },
+    RemoveFunctions {
+        index: u32,
+        functions: Vec<String>,
+    },
+    RemoveSigners {
+        index: u32,
+        signers: Vec<JsonSigner>,
+    },
+    RaiseThreshold {
+        index: u32,
+        threshold: u32,
+    },
 }
 
 /// An attenuation step in `rule-eval`'s types.
@@ -126,6 +153,8 @@ pub enum Step {
     DropRule(u32),
     AddCond(u32, Cond),
     RemoveFunctions(u32, Vec<Vec<u8>>),
+    RemoveSigners(u32, Vec<Signer>),
+    RaiseThreshold(u32, u32),
 }
 
 // ---------------------------------------------------------------------------
@@ -251,6 +280,25 @@ pub fn decode_cond(c: &JsonCond) -> Result<Cond, String> {
 
 /// # Errors
 ///
+/// If a byte string is not lowercase hex.
+pub fn decode_signer(s: &JsonSigner) -> Result<Signer, String> {
+    Ok(match s {
+        JsonSigner::Delegated { address } => Signer::Delegated(decode_hex(address)?),
+        JsonSigner::External { verifier, key } => {
+            Signer::External(decode_hex(verifier)?, decode_hex(key)?)
+        }
+    })
+}
+
+/// # Errors
+///
+/// As [`decode_signer`].
+pub fn decode_signers(list: &[JsonSigner]) -> Result<Vec<Signer>, String> {
+    list.iter().map(decode_signer).collect()
+}
+
+/// # Errors
+///
 /// As [`decode_val`].
 pub fn decode_rules(rules: &[JsonRule]) -> Result<Vec<Rule>, String> {
     rules
@@ -260,6 +308,8 @@ pub fn decode_rules(rules: &[JsonRule]) -> Result<Vec<Rule>, String> {
                 contract: decode_hex(&r.contract)?,
                 functions: decode_hex_list(&r.functions)?,
                 conds: r.conds.iter().map(decode_cond).collect::<Result<_, _>>()?,
+                signers: decode_signers(&r.signers)?,
+                threshold: r.threshold,
             })
         })
         .collect()
@@ -279,6 +329,10 @@ pub fn decode_step(s: &JsonStep) -> Result<Step, String> {
         JsonStep::RemoveFunctions { index, functions } => {
             Step::RemoveFunctions(*index, decode_hex_list(functions)?)
         }
+        JsonStep::RemoveSigners { index, signers } => {
+            Step::RemoveSigners(*index, decode_signers(signers)?)
+        }
+        JsonStep::RaiseThreshold { index, threshold } => Step::RaiseThreshold(*index, *threshold),
     })
 }
 
@@ -298,6 +352,8 @@ pub fn attenuate_all(rules: Vec<Rule>, steps: &[Step]) -> Result<Vec<Rule>, Atte
             Step::DropRule(i) => drop_rule(&current, *i)?,
             Step::AddCond(i, cond) => add_cond(&current, *i, cond)?,
             Step::RemoveFunctions(i, fs) => remove_functions(&current, *i, fs)?,
+            Step::RemoveSigners(i, ss) => remove_signers(&current, *i, ss)?,
+            Step::RaiseThreshold(i, k) => raise_threshold(&current, *i, *k)?,
         };
     }
     Ok(current)
@@ -312,7 +368,8 @@ fn cond_eq(p: &Cond, q: &Cond) -> bool {
 }
 
 /// Structural equality: same contract, same function list in the same order,
-/// same conditions in the same order.
+/// same conditions in the same order, same signers in the same order, same
+/// threshold.
 #[must_use]
 pub fn rules_eq(xs: &[Rule], ys: &[Rule]) -> bool {
     xs.len() == ys.len()
@@ -321,6 +378,12 @@ pub fn rules_eq(xs: &[Rule], ys: &[Rule]) -> bool {
                 && x.functions == y.functions
                 && x.conds.len() == y.conds.len()
                 && x.conds.iter().zip(&y.conds).all(|(p, q)| cond_eq(p, q))
+                && x.signers.len() == y.signers.len()
+                && x.signers
+                    .iter()
+                    .zip(&y.signers)
+                    .all(|(p, q)| signer_eq(p, q))
+                && x.threshold == y.threshold
         })
 }
 
@@ -328,6 +391,7 @@ fn check_verdicts(
     what: &str,
     rules: &[Rule],
     batch: &[Context],
+    authenticated: &[Signer],
     expected_allows: &[bool],
     expected_allows_all: bool,
 ) -> Result<(), String> {
@@ -339,14 +403,14 @@ fn check_verdicts(
         ));
     }
     for (k, (context, &expected)) in batch.iter().zip(expected_allows).enumerate() {
-        let got = allows(rules, context);
+        let got = allows(rules, context, authenticated);
         if got != expected {
             return Err(format!(
                 "{what}: allows(batch[{k}]) is {got}, expected {expected}"
             ));
         }
     }
-    let got = allows_all(rules, batch);
+    let got = allows_all(rules, batch, authenticated);
     if got != expected_allows_all {
         return Err(format!(
             "{what}: allows_all is {got}, expected {expected_allows_all}"
@@ -374,10 +438,12 @@ pub fn check(vector: &Vector) -> Result<(), String> {
         .iter()
         .map(decode_context)
         .collect::<Result<Vec<_>, _>>()?;
+    let authenticated = decode_signers(&vector.authenticated)?;
     check_verdicts(
         "rules",
         &rules,
         &batch,
+        &authenticated,
         &vector.expected.allows,
         vector.expected.allows_all,
     )?;
@@ -401,15 +467,28 @@ pub fn check(vector: &Vector) -> Result<(), String> {
                 if !rules_eq(&got, &decode_rules(expected)?) {
                     return Err(format!("{what}: the resulting rule set differs"));
                 }
-                check_verdicts(&what, &got, &batch, allows, *allows_all)?;
+                check_verdicts(&what, &got, &batch, &authenticated, allows, *allows_all)?;
             }
-            (Err(AttenuationError::NoSuchRule), Outcome::Error(JsonError::NoSuchRule)) => {}
+            (Err(AttenuationError::NoSuchRule), Outcome::Error(JsonError::NoSuchRule))
+            | (
+                Err(AttenuationError::ThresholdLowered),
+                Outcome::Error(JsonError::ThresholdLowered),
+            ) => {}
             (Ok(_), Outcome::Error(_)) => {
                 return Err(format!("{what}: the steps were taken, expected a refusal"));
             }
-            (Err(AttenuationError::NoSuchRule), Outcome::Ok { .. }) => {
+            (Err(e), expected) => {
+                let got = match e {
+                    AttenuationError::NoSuchRule => "NoSuchRule",
+                    AttenuationError::ThresholdLowered => "ThresholdLowered",
+                };
+                let want = match expected {
+                    Outcome::Ok { .. } => "a result",
+                    Outcome::Error(JsonError::NoSuchRule) => "no_such_rule",
+                    Outcome::Error(JsonError::ThresholdLowered) => "threshold_lowered",
+                };
                 return Err(format!(
-                    "{what}: a step was refused with NoSuchRule, expected a result"
+                    "{what}: a step was refused with {got}, expected {want}"
                 ));
             }
         }

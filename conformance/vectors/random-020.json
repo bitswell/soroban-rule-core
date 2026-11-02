@@ -1,34 +1,38 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "random-020",
   "description": "Randomized case 20 of seed 20261102.",
   "rules": [
-    {"contract": "6331", "functions": [], "conds": []},
+    {"contract": "6331", "functions": [], "conds": [], "signers": [], "threshold": 0},
     {
-      "contract": "6331",
-      "functions": ["", "66", "666f"],
+      "contract": "",
+      "functions": ["666f"],
       "conds": [
         {"arg_i128_at_most": {"index": 2, "bound": "-1"}},
         {"arg_eq": {"index": 0, "value": {"symbol": "61"}}}
-      ]
+      ],
+      "signers": [],
+      "threshold": 0
     }
   ],
   "batch": [],
+  "authenticated": [{"delegated": {"address": "61"}}, {"delegated": {"address": "61"}}],
   "expected": {"allows": [], "allows_all": true},
   "attenuations": [
     {
-      "steps": [{"remove_functions": {"index": 0, "functions": []}}],
+      "steps": [{"drop_rule": {"index": 0}}],
       "expected": {
         "ok": {
           "rules": [
-            {"contract": "6331", "functions": [], "conds": []},
             {
-              "contract": "6331",
-              "functions": ["", "66", "666f"],
+              "contract": "",
+              "functions": ["666f"],
               "conds": [
                 {"arg_i128_at_most": {"index": 2, "bound": "-1"}},
                 {"arg_eq": {"index": 0, "value": {"symbol": "61"}}}
-              ]
+              ],
+              "signers": [],
+              "threshold": 0
             }
           ],
           "allows": [],
@@ -37,43 +41,11 @@
       }
     },
     {
-      "steps": [
-        {"add_cond": {"index": 0, "cond": {"arg_i128_at_most": {"index": 0, "bound": "1"}}}}
-      ],
-      "expected": {
-        "ok": {
-          "rules": [
-            {
-              "contract": "6331",
-              "functions": [],
-              "conds": [{"arg_i128_at_most": {"index": 0, "bound": "1"}}]
-            },
-            {
-              "contract": "6331",
-              "functions": ["", "66", "666f"],
-              "conds": [
-                {"arg_i128_at_most": {"index": 2, "bound": "-1"}},
-                {"arg_eq": {"index": 0, "value": {"symbol": "61"}}}
-              ]
-            }
-          ],
-          "allows": [],
-          "allows_all": true
-        }
-      }
+      "steps": [{"drop_rule": {"index": 1}}, {"drop_rule": {"index": 0}}],
+      "expected": {"ok": {"rules": [], "allows": [], "allows_all": true}}
     },
     {
-      "steps": [
-        {"drop_rule": {"index": 2}},
-        {
-          "add_cond": {
-            "index": 0,
-            "cond": {
-              "arg_i128_at_most": {"index": 0, "bound": "170141183460469231731687303715884105727"}
-            }
-          }
-        }
-      ],
+      "steps": [{"raise_threshold": {"index": 4294967295, "threshold": 0}}],
       "expected": {"error": "no_such_rule"}
     }
   ]

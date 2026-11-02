@@ -1,7 +1,8 @@
 /-!
 # Rule sets
 
-The readable model of rule evaluation, generic in the context type `Ctx`.
+The readable model of rule evaluation, generic in the context type `Ctx` and
+the signer type `Sig`.
 
 A context is one thing an authorization covers; in the chain vocabulary
 (`RuleCore.Vocab.Chain`) it is a contract call or a contract creation. A rule
@@ -10,41 +11,69 @@ and a list of conditions. Each condition is a predicate on the context it is
 evaluated against, so a condition belongs to its rule and only ever reads the
 arguments of a call that rule's scope matched.
 
-A rule allows a context when its scope matches and every condition holds. A
-rule set allows a context when some rule allows it, and allows a batch (every
-context of a Soroban authorization tree) when it allows every context in it.
-`rs'` is narrower than `rs` when every context `rs'` allows, `rs` allows too.
+A rule also names its signers and a threshold. An authorization carries the
+signers it authenticated, one list for every context it covers, and a rule's
+signer requirement holds when at least `threshold` distinct signers of the
+rule are among them. The count takes the rule's signers without repeats
+(`eraseDups`, which keeps each signer at its first position), so a signer
+listed twice in the rule, or authenticated twice, counts once. A threshold of
+0 is no requirement.
+
+A rule allows a context when its scope matches, every condition holds and its
+signer requirement holds. A rule set allows a context when some rule allows
+it, and allows a batch (every context of a Soroban authorization tree) when it
+allows every context in it. `rs'` is narrower than `rs` when every context
+`rs'` allows under some authenticated signers, `rs` allows under the same
+signers.
 -/
 
 namespace RuleCore
 
-variable {Ctx : Type}
+variable {Ctx Sig : Type}
 
-structure Rule (Ctx : Type) where
+structure Rule (Ctx Sig : Type) where
   scope : Ctx → Bool          -- contract and function match
   conds : List (Ctx → Bool)   -- conditions on this call's arguments
+  signers : List Sig          -- the signers that count towards the threshold
+  threshold : Nat             -- how many distinct signers must be authenticated
 
-def Rule.allows (r : Rule Ctx) (c : Ctx) : Bool :=
-  r.scope c && r.conds.all (· c)
+def RuleSet (Ctx Sig : Type) := List (Rule Ctx Sig)
 
-def RuleSet (Ctx : Type) := List (Rule Ctx)
+section
 
-def RuleSet.allows (rs : RuleSet Ctx) (c : Ctx) : Bool :=
-  rs.any (·.allows c)
+variable [DecidableEq Sig]
 
-def RuleSet.allowsAll (rs : RuleSet Ctx) (cs : List Ctx) : Bool :=
-  cs.all rs.allows
+/-- The rule's distinct signers that are among the authenticated `auth`. -/
+def Rule.present (r : Rule Ctx Sig) (auth : List Sig) : List Sig :=
+  r.signers.eraseDups.filter (· ∈ auth)
 
-def RuleSet.narrower (rs' rs : RuleSet Ctx) : Prop :=
-  ∀ c, rs'.allows c = true → rs.allows c = true
+/-- The rule's signer requirement: at least `threshold` of its distinct
+signers are authenticated. -/
+def Rule.signed (r : Rule Ctx Sig) (auth : List Sig) : Bool :=
+  decide (r.threshold ≤ (r.present auth).length)
+
+def Rule.allows (r : Rule Ctx Sig) (c : Ctx) (auth : List Sig) : Bool :=
+  r.scope c && r.conds.all (· c) && r.signed auth
+
+def RuleSet.allows (rs : RuleSet Ctx Sig) (c : Ctx) (auth : List Sig) : Bool :=
+  rs.any (·.allows c auth)
+
+def RuleSet.allowsAll (rs : RuleSet Ctx Sig) (cs : List Ctx) (auth : List Sig) : Bool :=
+  cs.all (rs.allows · auth)
+
+def RuleSet.narrower (rs' rs : RuleSet Ctx Sig) : Prop :=
+  ∀ c auth, rs'.allows c auth = true → rs.allows c auth = true
+
+end
 
 /-- The rules of a rule set, as a list. `RuleSet` is a plain definition, so
 list notation such as `r ∈ rs.rules` and `rs.rules[i]?` goes through this. -/
-def RuleSet.rules (rs : RuleSet Ctx) : List (Rule Ctx) := rs
+def RuleSet.rules (rs : RuleSet Ctx Sig) : List (Rule Ctx Sig) := rs
 
 /-- The rule set whose rules are `l`. -/
-def RuleSet.ofRules (l : List (Rule Ctx)) : RuleSet Ctx := l
+def RuleSet.ofRules (l : List (Rule Ctx Sig)) : RuleSet Ctx Sig := l
 
-@[simp] theorem RuleSet.rules_ofRules (l : List (Rule Ctx)) : (RuleSet.ofRules l).rules = l := rfl
+@[simp] theorem RuleSet.rules_ofRules (l : List (Rule Ctx Sig)) :
+    (RuleSet.ofRules l).rules = l := rfl
 
 end RuleCore

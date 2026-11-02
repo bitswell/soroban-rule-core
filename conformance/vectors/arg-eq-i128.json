@@ -1,12 +1,14 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "arg-eq-i128",
   "description": "argEq on an i128: equal value, other values, the same number as a u64, and the extremes.",
   "rules": [
     {
       "contract": "746f6b656e",
       "functions": ["7472616e73666572"],
-      "conds": [{"arg_eq": {"index": 0, "value": {"i128": "100"}}}]
+      "conds": [{"arg_eq": {"index": 0, "value": {"i128": "100"}}}],
+      "signers": [],
+      "threshold": 0
     }
   ],
   "batch": [
@@ -29,6 +31,7 @@
       }
     }
   ],
+  "authenticated": [],
   "expected": {"allows": [true, false, false, false, false, false], "allows_all": false},
   "attenuations": []
 }

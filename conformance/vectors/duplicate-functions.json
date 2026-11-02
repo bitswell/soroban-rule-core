@@ -1,12 +1,14 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "duplicate-functions",
   "description": "A function listed twice is matched like one listed once.",
   "rules": [
     {
       "contract": "746f6b656e",
       "functions": ["7472616e73666572", "7472616e73666572", "617070726f7665"],
-      "conds": []
+      "conds": [],
+      "signers": [],
+      "threshold": 0
     }
   ],
   "batch": [
@@ -14,6 +16,7 @@
     {"call": {"contract": "746f6b656e", "function": "617070726f7665", "args": []}},
     {"call": {"contract": "746f6b656e", "function": "6275726e", "args": []}}
   ],
+  "authenticated": [],
   "expected": {"allows": [true, true, false], "allows_all": false},
   "attenuations": []
 }

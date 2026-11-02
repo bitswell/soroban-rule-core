@@ -1,22 +1,28 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "index-edges",
   "description": "Argument indices at the u32 edges: 0 on empty arguments, 2^31 and 2^32 - 1 are always missing.",
   "rules": [
     {
       "contract": "7a65726f",
       "functions": ["66"],
-      "conds": [{"arg_eq": {"index": 0, "value": {"bool": true}}}]
+      "conds": [{"arg_eq": {"index": 0, "value": {"bool": true}}}],
+      "signers": [],
+      "threshold": 0
     },
     {
       "contract": "68616c66",
       "functions": ["66"],
-      "conds": [{"arg_eq": {"index": 2147483648, "value": {"bool": true}}}]
+      "conds": [{"arg_eq": {"index": 2147483648, "value": {"bool": true}}}],
+      "signers": [],
+      "threshold": 0
     },
     {
       "contract": "6d6178",
       "functions": ["66"],
-      "conds": [{"arg_eq": {"index": 4294967295, "value": {"bool": true}}}]
+      "conds": [{"arg_eq": {"index": 4294967295, "value": {"bool": true}}}],
+      "signers": [],
+      "threshold": 0
     },
     {
       "contract": "6d6178",
@@ -28,7 +34,9 @@
             "bound": "170141183460469231731687303715884105727"
           }
         }
-      ]
+      ],
+      "signers": [],
+      "threshold": 0
     }
   ],
   "batch": [
@@ -39,6 +47,7 @@
     {"call": {"contract": "6d6178", "function": "67", "args": [{"i128": "0"}]}},
     {"call": {"contract": "6d6178", "function": "67", "args": []}}
   ],
+  "authenticated": [],
   "expected": {"allows": [false, true, false, false, false, false], "allows_all": false},
   "attenuations": []
 }

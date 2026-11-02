@@ -10,6 +10,27 @@ Evaluation:
 * `Rule.allows_call_iff`, `Rule.allows_iff`, `RuleSet.allows_iff`,
   `RuleSet.allowsAll_iff`: what each verdict means in the vocabulary's terms.
 
+Signers:
+
+* `Rule.signed_iff`, `Rule.mem_present`: the signer requirement holds exactly
+  when at least `threshold` distinct rule signers are authenticated, a signer
+  counting only when exactly that signer is.
+* `Signer.delegated_ne_external`, `Signer.delegated_eq_iff`,
+  `Signer.external_eq_iff`, `Signer.delegated_append_ne`: signers compare
+  exactly, constructor first, with no prefix or extension match.
+* `Rule.signed_of_threshold_zero`, `Rule.allows_of_threshold_zero`: threshold
+  0 is no signer requirement.
+* `Rule.signed_iff_of_threshold_eq`: a threshold equal to the number of
+  distinct signers requires all of them.
+* `Rule.allows_false_of_lt`: a threshold above the number of distinct signers
+  allows nothing.
+* `Rule.allows_of_subset`, `RuleSet.allows_of_subset`,
+  `RuleSet.allowsAll_of_subset`: authenticating more signers never turns an
+  allow into a refusal.
+* `RuleSet.allows_congr`, `RuleSet.allowsAll_congr`, `RuleSet.allows_eraseDups`,
+  `Rule.allows_congr_signers`, `Rule.allows_eraseDups_signers`: repeats and
+  order in either signer list do not change the verdict.
+
 Contract creation:
 
 * `Rule.allows_create`, `RuleSet.allows_create`: no rule and no rule set
@@ -40,56 +61,68 @@ Attenuation:
 
 * `RuleSet.rules_denote`: a rule set denotes the list of its rules' denotations.
 * `Rule.denote_addCond`, `Rule.denote_removeFunctions`,
-  `RuleSet.denote_modifyRule`, `RuleSet.denote_dropRule`,
-  `RuleSet.denote_addCond`, `RuleSet.denote_removeFunctions`,
-  `RuleSet.denote_attenuate`: each chain step denotes the generic step of the
-  same kind.
+  `Rule.denote_removeSigners`, `RuleSet.denote_modifyRule`,
+  `RuleSet.denote_dropRule`, `RuleSet.denote_addCond`,
+  `RuleSet.denote_removeFunctions`, `RuleSet.denote_removeSigners`,
+  `RuleSet.denote_raiseThreshold`, `RuleSet.denote_attenuate`: each chain step
+  denotes the generic step of the same kind.
 * `RuleSet.dropRule_narrower`, `RuleSet.addCond_narrower`,
-  `RuleSet.removeFunctions_narrower`, `RuleSet.attenuate_narrower`: each step
+  `RuleSet.removeFunctions_narrower`, `RuleSet.removeSigners_narrower`,
+  `RuleSet.raiseThreshold_narrower`, `RuleSet.attenuate_narrower`: each step
   yields a narrower rule set.
 * `RuleSet.narrower_refl`, `RuleSet.narrower_trans`: `narrower` is a preorder.
 * `RuleSet.Derives.narrower`, `RuleSet.attenuateAll_derives`,
   `RuleSet.attenuateAll_narrower`: any chain of steps stays inside its root.
 * `RuleSet.allowsAll_of_narrower`: a narrower rule set allows a batch only if
   its ancestor does.
-* `Rule.mem_removeFunctions`: removing `fs` keeps exactly the functions not in
-  `fs`.
+* `Rule.mem_removeFunctions`, `Rule.mem_removeSigners`: removing `fs` or `ss`
+  keeps exactly the functions or signers not in it.
 * `RuleSet.dropRule_eq_error_iff`, `RuleSet.addCond_eq_error_iff`,
-  `RuleSet.removeFunctions_eq_error_iff`, `RuleSet.modifyRule_eq_error_iff`: a
-  step is refused with `noSuchRule` exactly when its index is not below the
+  `RuleSet.removeFunctions_eq_error_iff`, `RuleSet.removeSigners_eq_error_iff`,
+  `RuleSet.raiseThreshold_eq_noSuchRule_iff`, `RuleSet.modifyRule_eq_error_iff`:
+  a step is refused with `noSuchRule` exactly when its index is not below the
   number of rules.
+* `RuleSet.raiseThreshold_eq_thresholdLowered_iff`: `raiseThreshold` is refused
+  with `thresholdLowered` exactly when the rule exists and the new threshold is
+  below its current one.
 -/
 
 namespace RuleCore.Chain
 
 /-! ## Evaluation -/
 
-theorem Rule.allows_call_iff (r : Rule) (contract function : Bytes) (args : List Val) :
-    r.allows (.call contract function args) = true ↔
-      contract = r.contract ∧ function ∈ r.functions ∧
-        ∀ cond ∈ r.conds, cond.holds args = true := by
-  simp [Rule.allows, Rule.denote, RuleCore.Rule.allows, Rule.scope, Cond.denote, and_assoc]
+theorem Rule.signed_iff (r : Rule) (auth : List Signer) :
+    r.signed auth = true ↔ r.threshold.toNat ≤ (r.signers.eraseDups.filter (· ∈ auth)).length :=
+  RuleCore.Rule.signed_iff r.denote auth
 
-theorem Rule.allows_iff (r : Rule) (c : Context) :
-    r.allows c = true ↔
+theorem Rule.allows_call_iff (r : Rule) (contract function : Bytes) (args : List Val)
+    (auth : List Signer) :
+    r.allows (.call contract function args) auth = true ↔
+      contract = r.contract ∧ function ∈ r.functions ∧
+        (∀ cond ∈ r.conds, cond.holds args = true) ∧ r.signed auth = true := by
+  simp [Rule.allows, Rule.signed, Rule.denote, RuleCore.Rule.allows, Rule.scope, Cond.denote,
+    and_assoc]
+
+theorem Rule.allows_iff (r : Rule) (c : Context) (auth : List Signer) :
+    r.allows c auth = true ↔
       ∃ function args, c = .call r.contract function args ∧ function ∈ r.functions ∧
-        ∀ cond ∈ r.conds, cond.holds args = true := by
+        (∀ cond ∈ r.conds, cond.holds args = true) ∧ r.signed auth = true := by
   cases c with
   | call contract function args =>
     rw [Rule.allows_call_iff]
     constructor
-    · rintro ⟨rfl, hf, hc⟩
-      exact ⟨function, args, rfl, hf, hc⟩
-    · rintro ⟨function', args', h, hf, hc⟩
+    · rintro ⟨rfl, hf, hc, hs⟩
+      exact ⟨function, args, rfl, hf, hc, hs⟩
+    · rintro ⟨function', args', h, hf, hc, hs⟩
       cases h
-      exact ⟨rfl, hf, hc⟩
+      exact ⟨rfl, hf, hc, hs⟩
   | create wasmHash =>
     simp [Rule.allows, Rule.denote, RuleCore.Rule.allows, Rule.scope]
 
 @[simp] theorem RuleSet.rules_denote (rs : RuleSet) : rs.denote.rules = rs.map Rule.denote := rfl
 
-theorem RuleSet.allows_iff (rs : RuleSet) (c : Context) :
-    rs.allows c = true ↔ ∃ r ∈ rs, r.allows c = true := by
+theorem RuleSet.allows_iff (rs : RuleSet) (c : Context) (auth : List Signer) :
+    rs.allows c auth = true ↔ ∃ r ∈ rs, r.allows c auth = true := by
   rw [RuleSet.allows, RuleCore.RuleSet.allows_iff, RuleSet.rules_denote]
   constructor
   · rintro ⟨_, hm, h⟩
@@ -98,29 +131,122 @@ theorem RuleSet.allows_iff (rs : RuleSet) (c : Context) :
   · rintro ⟨r, hr, h⟩
     exact ⟨r.denote, List.mem_map_of_mem hr, h⟩
 
-theorem RuleSet.allowsAll_iff (rs : RuleSet) (cs : List Context) :
-    rs.allowsAll cs = true ↔ ∀ c ∈ cs, rs.allows c = true :=
-  RuleCore.RuleSet.allowsAll_iff _ _
+theorem RuleSet.allowsAll_iff (rs : RuleSet) (cs : List Context) (auth : List Signer) :
+    rs.allowsAll cs auth = true ↔ ∀ c ∈ cs, rs.allows c auth = true :=
+  RuleCore.RuleSet.allowsAll_iff _ _ _
+
+/-! ## Signers -/
+
+/-- A rule signer counts towards the threshold only when exactly that signer
+is authenticated. -/
+theorem Rule.mem_present (r : Rule) (auth : List Signer) (s : Signer) :
+    s ∈ r.denote.present auth ↔ s ∈ r.signers ∧ s ∈ auth :=
+  RuleCore.Rule.mem_present r.denote auth s
+
+/-- A delegated signer is never an external one, even with the same bytes. -/
+theorem Signer.delegated_ne_external (a verifier key : Bytes) :
+    Signer.delegated a ≠ .external verifier key :=
+  fun h => by cases h
+
+theorem Signer.delegated_eq_iff (a b : Bytes) : Signer.delegated a = .delegated b ↔ a = b :=
+  Signer.delegated.injEq a b ▸ Iff.rfl
+
+theorem Signer.external_eq_iff (v k w l : Bytes) :
+    Signer.external v k = .external w l ↔ v = w ∧ k = l :=
+  Signer.external.injEq v k w l ▸ Iff.rfl
+
+/-- No prefix match: a delegated signer is not one whose address extends its
+own. -/
+theorem Signer.delegated_append_ne (a : Bytes) {ext : Bytes} (h : ext ≠ []) :
+    Signer.delegated (a ++ ext) ≠ .delegated a :=
+  fun e => Bytes.append_ne_self h ((Signer.delegated_eq_iff _ _).mp e)
+
+theorem Rule.signed_of_threshold_zero {r : Rule} (h : r.threshold = 0) (auth : List Signer) :
+    r.signed auth = true :=
+  RuleCore.Rule.signed_of_threshold_zero (r := r.denote) (by simp [Rule.denote, h]) auth
+
+/-- With threshold 0 the verdict does not depend on the authenticated
+signers. -/
+theorem Rule.allows_of_threshold_zero {r : Rule} (h : r.threshold = 0) (c : Context)
+    (auth auth' : List Signer) : r.allows c auth = r.allows c auth' := by
+  have h0 : r.denote.threshold = 0 := by simp [Rule.denote, h]
+  simp only [Rule.allows, RuleCore.Rule.allows_of_threshold_zero h0]
+
+/-- A threshold equal to the number of distinct signers is met exactly when
+every signer of the rule is authenticated. -/
+theorem Rule.signed_iff_of_threshold_eq {r : Rule}
+    (h : r.threshold.toNat = r.signers.eraseDups.length) (auth : List Signer) :
+    r.signed auth = true ↔ ∀ s ∈ r.signers, s ∈ auth :=
+  RuleCore.Rule.signed_iff_of_threshold_eq (r := r.denote) h auth
+
+/-- A rule whose threshold is above its number of distinct signers allows
+nothing. -/
+theorem Rule.allows_false_of_lt {r : Rule} (h : r.signers.eraseDups.length < r.threshold.toNat)
+    (c : Context) (auth : List Signer) : r.allows c auth = false :=
+  RuleCore.Rule.allows_false_of_lt (r := r.denote) h c auth
+
+theorem Rule.allows_of_subset (r : Rule) (c : Context) {auth auth' : List Signer}
+    (h : auth ⊆ auth') : r.allows c auth = true → r.allows c auth' = true :=
+  RuleCore.Rule.allows_of_subset r.denote c h
+
+/-- Authenticating more signers never turns an allow into a refusal. -/
+theorem RuleSet.allows_of_subset (rs : RuleSet) (c : Context) {auth auth' : List Signer}
+    (h : auth ⊆ auth') : rs.allows c auth = true → rs.allows c auth' = true :=
+  RuleCore.RuleSet.allows_of_subset rs.denote c h
+
+theorem RuleSet.allowsAll_of_subset (rs : RuleSet) (cs : List Context)
+    {auth auth' : List Signer} (h : auth ⊆ auth') :
+    rs.allowsAll cs auth = true → rs.allowsAll cs auth' = true :=
+  RuleCore.RuleSet.allowsAll_of_subset rs.denote cs h
+
+/-- The verdict depends only on which signers are authenticated, not on their
+order or repeats. -/
+theorem RuleSet.allows_congr (rs : RuleSet) (c : Context) {auth auth' : List Signer}
+    (h : ∀ s, s ∈ auth ↔ s ∈ auth') : rs.allows c auth = rs.allows c auth' :=
+  RuleCore.RuleSet.allows_congr rs.denote c h
+
+theorem RuleSet.allowsAll_congr (rs : RuleSet) (cs : List Context) {auth auth' : List Signer}
+    (h : ∀ s, s ∈ auth ↔ s ∈ auth') : rs.allowsAll cs auth = rs.allowsAll cs auth' :=
+  RuleCore.RuleSet.allowsAll_congr rs.denote cs h
+
+theorem RuleSet.allows_eraseDups (rs : RuleSet) (c : Context) (auth : List Signer) :
+    rs.allows c auth.eraseDups = rs.allows c auth :=
+  RuleCore.RuleSet.allows_eraseDups rs.denote c auth
+
+/-- The verdict depends only on which signers a rule lists, not on their order
+or repeats. -/
+theorem Rule.allows_congr_signers (r : Rule) {ss : List Signer}
+    (h : ∀ s, s ∈ ss ↔ s ∈ r.signers) (c : Context) (auth : List Signer) :
+    { r with signers := ss }.allows c auth = r.allows c auth := by
+  show RuleCore.Rule.allows (Rule.denote { r with signers := ss }) c auth = r.denote.allows c auth
+  exact RuleCore.Rule.allows_congr_signers (r := Rule.denote ({ r with signers := ss } : Rule))
+    (r' := r.denote) rfl rfl h rfl c auth
+
+theorem Rule.allows_eraseDups_signers (r : Rule) (c : Context) (auth : List Signer) :
+    { r with signers := r.signers.eraseDups }.allows c auth = r.allows c auth :=
+  r.allows_congr_signers (fun _ => List.mem_eraseDups) c auth
 
 /-! ## Contract creation -/
 
-@[simp] theorem Rule.allows_create (r : Rule) (wasmHash : Bytes) :
-    r.allows (.create wasmHash) = false := rfl
+@[simp] theorem Rule.allows_create (r : Rule) (wasmHash : Bytes) (auth : List Signer) :
+    r.allows (.create wasmHash) auth = false := rfl
 
-/-- No rule set allows a contract creation. -/
-@[simp] theorem RuleSet.allows_create (rs : RuleSet) (wasmHash : Bytes) :
-    rs.allows (.create wasmHash) = false := by
-  cases h : rs.allows (.create wasmHash)
+/-- No rule set allows a contract creation, whatever signers are
+authenticated. -/
+@[simp] theorem RuleSet.allows_create (rs : RuleSet) (wasmHash : Bytes) (auth : List Signer) :
+    rs.allows (.create wasmHash) auth = false := by
+  cases h : rs.allows (.create wasmHash) auth
   · rfl
-  · obtain ⟨r, _, hr⟩ := (RuleSet.allows_iff _ _).mp h
+  · obtain ⟨r, _, hr⟩ := (RuleSet.allows_iff _ _ _).mp h
     simp at hr
 
 /-- A batch containing a contract creation is denied. -/
 theorem RuleSet.allowsAll_false_of_create_mem (rs : RuleSet) {cs : List Context}
-    {wasmHash : Bytes} (h : .create wasmHash ∈ cs) : rs.allowsAll cs = false := by
-  cases hall : rs.allowsAll cs
+    {wasmHash : Bytes} (h : .create wasmHash ∈ cs) (auth : List Signer) :
+    rs.allowsAll cs auth = false := by
+  cases hall : rs.allowsAll cs auth
   · rfl
-  · have := (RuleSet.allowsAll_iff _ _).mp hall _ h
+  · have := (RuleSet.allowsAll_iff _ _ _).mp hall _ h
     simp at this
 
 /-! ## Arguments -/
@@ -184,33 +310,33 @@ theorem Cond.argEq_bytes_false_of_other {i : UInt32} {b xdr : Bytes} {args : Lis
 /-- A rule allows only calls to exactly its contract and exactly one of its
 functions. -/
 theorem Rule.contract_eq_of_allows {r : Rule} {contract function : Bytes} {args : List Val}
-    (h : r.allows (.call contract function args) = true) :
+    {auth : List Signer} (h : r.allows (.call contract function args) auth = true) :
     contract = r.contract ∧ function ∈ r.functions :=
-  let ⟨hc, hf, _⟩ := (Rule.allows_call_iff r contract function args).mp h
+  let ⟨hc, hf, _⟩ := (Rule.allows_call_iff r contract function args auth).mp h
   ⟨hc, hf⟩
 
 /-- A rule with an empty function list allows nothing. -/
-theorem Rule.allows_false_of_functions_nil {r : Rule} (h : r.functions = []) (c : Context) :
-    r.allows c = false := by
-  cases ha : r.allows c
+theorem Rule.allows_false_of_functions_nil {r : Rule} (h : r.functions = []) (c : Context)
+    (auth : List Signer) : r.allows c auth = false := by
+  cases ha : r.allows c auth
   · rfl
-  · obtain ⟨_, _, _, hf, _⟩ := (Rule.allows_iff r c).mp ha
+  · obtain ⟨_, _, _, hf, _⟩ := (Rule.allows_iff r c auth).mp ha
     simp [h] at hf
 
 /-- No prefix match: a call to a proper extension of the rule's contract id is
 denied. -/
 theorem Rule.allows_extension_false (r : Rule) {ext : Bytes} (h : ext ≠ [])
-    (function : Bytes) (args : List Val) :
-    r.allows (.call (r.contract ++ ext) function args) = false := by
-  cases ha : r.allows (.call (r.contract ++ ext) function args)
+    (function : Bytes) (args : List Val) (auth : List Signer) :
+    r.allows (.call (r.contract ++ ext) function args) auth = false := by
+  cases ha : r.allows (.call (r.contract ++ ext) function args) auth
   · rfl
   · exact absurd (Rule.contract_eq_of_allows ha).1 (Bytes.append_ne_self h)
 
 /-- A call to a proper prefix of the rule's contract id is denied. -/
 theorem Rule.allows_prefix_false (r : Rule) {contract ext : Bytes}
-    (hp : contract ++ ext = r.contract) (h : ext ≠ []) (function : Bytes) (args : List Val) :
-    r.allows (.call contract function args) = false := by
-  cases ha : r.allows (.call contract function args)
+    (hp : contract ++ ext = r.contract) (h : ext ≠ []) (function : Bytes) (args : List Val)
+    (auth : List Signer) : r.allows (.call contract function args) auth = false := by
+  cases ha : r.allows (.call contract function args) auth
   · rfl
   · have hc := (Rule.contract_eq_of_allows ha).1
     rw [hc] at hp
@@ -238,15 +364,23 @@ theorem Rule.mem_removeFunctions (r : Rule) (fs : List Bytes) (f : Bytes) :
 theorem Rule.denote_removeFunctions (r : Rule) (fs : List Bytes) :
     (r.removeFunctions fs).denote = r.denote.restrictScope (notCalling fs) := by
   simp only [Rule.denote, RuleCore.Rule.restrictScope, RuleCore.Rule.mk.injEq]
-  refine ⟨?_, rfl⟩
+  refine ⟨?_, rfl, rfl, rfl⟩
   funext c
   cases c with
   | call contract function args =>
     simp [Rule.scope, notCalling, Rule.removeFunctions, Bool.and_assoc]
   | create wasmHash => rfl
 
+theorem Rule.mem_removeSigners (r : Rule) (ss : List Signer) (s : Signer) :
+    s ∈ (r.removeSigners ss).signers ↔ s ∈ r.signers ∧ s ∉ ss := by
+  simp [Rule.removeSigners]
+
+theorem Rule.denote_removeSigners (r : Rule) (ss : List Signer) :
+    (r.removeSigners ss).denote = r.denote.removeSigners ss := rfl
+
 theorem RuleSet.denote_modifyRule (rs : RuleSet) (i : Nat) (f : Rule → Rule)
-    (g : RuleCore.Rule Context → RuleCore.Rule Context) (hfg : ∀ r, (f r).denote = g r.denote) :
+    (g : RuleCore.Rule Context Signer → RuleCore.Rule Context Signer)
+    (hfg : ∀ r, (f r).denote = g r.denote) :
     (rs.modifyRule i f).map RuleSet.denote = rs.denote.modifyRule i g := by
   unfold RuleSet.modifyRule RuleCore.RuleSet.modifyRule
   simp only [RuleSet.rules_denote, List.getElem?_map]
@@ -272,12 +406,33 @@ theorem RuleSet.denote_removeFunctions (rs : RuleSet) (i : UInt32) (fs : List By
       rs.denote.restrictScope i.toNat (notCalling fs) :=
   RuleSet.denote_modifyRule rs i.toNat _ _ (fun r => Rule.denote_removeFunctions r fs)
 
+theorem RuleSet.denote_removeSigners (rs : RuleSet) (i : UInt32) (ss : List Signer) :
+    (rs.removeSigners i ss).map RuleSet.denote = rs.denote.removeSigners i.toNat ss :=
+  RuleSet.denote_modifyRule rs i.toNat _ _ (fun r => Rule.denote_removeSigners r ss)
+
+theorem RuleSet.denote_raiseThreshold (rs : RuleSet) (i k : UInt32) :
+    (rs.raiseThreshold i k).map RuleSet.denote = rs.denote.raiseThreshold i.toNat k.toNat := by
+  unfold RuleSet.raiseThreshold RuleCore.RuleSet.raiseThreshold
+  simp only [RuleSet.rules_denote, List.getElem?_map]
+  cases h : rs[i.toNat]? with
+  | none => rfl
+  | some r =>
+    have hlt : (k < r.threshold) = (k.toNat < r.denote.threshold) := by
+      simp [Rule.denote, UInt32.lt_iff_toNat_lt]
+    simp only [Option.map_some, hlt]
+    split
+    · rfl
+    · simp only [Except.map, RuleSet.denote, List.map_set, Rule.denote]
+      rfl
+
 theorem RuleSet.denote_attenuate (rs : RuleSet) (a : Attenuation) :
     (rs.attenuate a).map RuleSet.denote = rs.denote.attenuate a.denote := by
   cases a with
   | dropRule i => exact RuleSet.denote_dropRule rs i
   | addCond i cond => exact RuleSet.denote_addCond rs i cond
   | removeFunctions i fs => exact RuleSet.denote_removeFunctions rs i fs
+  | removeSigners i ss => exact RuleSet.denote_removeSigners rs i ss
+  | raiseThreshold i k => exact RuleSet.denote_raiseThreshold rs i k
 
 /-! ## Attenuation: narrowing -/
 
@@ -305,6 +460,14 @@ theorem RuleSet.addCond_narrower {rs rs' : RuleSet} {i : UInt32} {cond : Cond}
 theorem RuleSet.removeFunctions_narrower {rs rs' : RuleSet} {i : UInt32} {fs : List Bytes}
     (h : rs.removeFunctions i fs = .ok rs') : rs'.narrower rs :=
   RuleSet.attenuate_narrower (a := .removeFunctions i fs) h
+
+theorem RuleSet.removeSigners_narrower {rs rs' : RuleSet} {i : UInt32} {ss : List Signer}
+    (h : rs.removeSigners i ss = .ok rs') : rs'.narrower rs :=
+  RuleSet.attenuate_narrower (a := .removeSigners i ss) h
+
+theorem RuleSet.raiseThreshold_narrower {rs rs' : RuleSet} {i k : UInt32}
+    (h : rs.raiseThreshold i k = .ok rs') : rs'.narrower rs :=
+  RuleSet.attenuate_narrower (a := .raiseThreshold i k) h
 
 /-- Every rule set derived from a root by attenuation steps stays inside the
 root. -/
@@ -342,8 +505,9 @@ theorem RuleSet.attenuateAll_narrower {root rs : RuleSet} {steps : List Attenuat
 
 /-- A narrower rule set allows a batch only if its ancestor does. -/
 theorem RuleSet.allowsAll_of_narrower {rs' rs : RuleSet} (h : rs'.narrower rs)
-    (cs : List Context) : rs'.allowsAll cs = true → rs.allowsAll cs = true :=
-  RuleCore.RuleSet.allowsAll_of_narrower h cs
+    (cs : List Context) (auth : List Signer) :
+    rs'.allowsAll cs auth = true → rs.allowsAll cs auth = true :=
+  RuleCore.RuleSet.allowsAll_of_narrower h cs auth
 
 /-! ## Attenuation: failure -/
 
@@ -368,5 +532,34 @@ theorem RuleSet.addCond_eq_error_iff (rs : RuleSet) (i : UInt32) (cond : Cond) :
 theorem RuleSet.removeFunctions_eq_error_iff (rs : RuleSet) (i : UInt32) (fs : List Bytes) :
     rs.removeFunctions i fs = .error .noSuchRule ↔ rs.length ≤ i.toNat :=
   RuleSet.modifyRule_eq_error_iff rs i.toNat _
+
+theorem RuleSet.removeSigners_eq_error_iff (rs : RuleSet) (i : UInt32) (ss : List Signer) :
+    rs.removeSigners i ss = .error .noSuchRule ↔ rs.length ≤ i.toNat :=
+  RuleSet.modifyRule_eq_error_iff rs i.toNat _
+
+theorem RuleSet.raiseThreshold_eq_noSuchRule_iff (rs : RuleSet) (i k : UInt32) :
+    rs.raiseThreshold i k = .error .noSuchRule ↔ rs.length ≤ i.toNat := by
+  unfold RuleSet.raiseThreshold
+  split <;> rename_i h
+  · have hi := (List.getElem?_eq_some_iff.mp h).1
+    constructor
+    · intro he
+      split at he <;> cases he
+    · intro hle
+      exact absurd hi (Nat.not_lt.mpr hle)
+  · simp only [true_iff]
+    exact List.getElem?_eq_none_iff.mp h
+
+/-- `raiseThreshold` refuses to lower a threshold, and refuses nothing else
+with `thresholdLowered`. -/
+theorem RuleSet.raiseThreshold_eq_thresholdLowered_iff (rs : RuleSet) (i k : UInt32) :
+    rs.raiseThreshold i k = .error .thresholdLowered ↔
+      ∃ r, rs[i.toNat]? = some r ∧ k < r.threshold := by
+  unfold RuleSet.raiseThreshold
+  split <;> rename_i h
+  · split <;> rename_i hk
+    · simp [h, hk]
+    · simp [h, hk]
+  · simp [h]
 
 end RuleCore.Chain

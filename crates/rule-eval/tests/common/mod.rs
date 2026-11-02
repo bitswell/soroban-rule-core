@@ -2,7 +2,7 @@
 //! by the integration tests.
 #![allow(dead_code)]
 
-use rule_eval::{Cond, Context, Rule, Val};
+use rule_eval::{Cond, Context, Rule, Signer, Val};
 
 pub fn b(s: &str) -> Vec<u8> {
     s.as_bytes().to_vec()
@@ -20,12 +20,33 @@ pub fn create(hash: &str) -> Context {
     Context::Create { wasm_hash: b(hash) }
 }
 
+/// A rule with no signer requirement.
 pub fn rule(contract: &str, functions: &[&str], conds: Vec<Cond>) -> Rule {
+    signed_rule(contract, functions, conds, Vec::new(), 0)
+}
+
+pub fn signed_rule(
+    contract: &str,
+    functions: &[&str],
+    conds: Vec<Cond>,
+    signers: Vec<Signer>,
+    threshold: u32,
+) -> Rule {
     Rule {
         contract: b(contract),
         functions: functions.iter().map(|f| b(f)).collect(),
         conds,
+        signers,
+        threshold,
     }
+}
+
+pub fn delegated(address: &str) -> Signer {
+    Signer::Delegated(b(address))
+}
+
+pub fn external(verifier: &str, key: &str) -> Signer {
+    Signer::External(b(verifier), b(key))
 }
 
 /// Structural equality on rules, for checking what an attenuation step built.
@@ -34,6 +55,12 @@ pub fn rule_eq(x: &Rule, y: &Rule) -> bool {
         && x.functions == y.functions
         && x.conds.len() == y.conds.len()
         && x.conds.iter().zip(&y.conds).all(|(p, q)| cond_eq(p, q))
+        && x.signers.len() == y.signers.len()
+        && x.signers
+            .iter()
+            .zip(&y.signers)
+            .all(|(p, q)| ref_signer_eq(p, q))
+        && x.threshold == y.threshold
 }
 
 pub fn rules_eq(xs: &[Rule], ys: &[Rule]) -> bool {
@@ -51,6 +78,38 @@ pub fn cond_eq(p: &Cond, q: &Cond) -> bool {
 // ---------------------------------------------------------------------------
 // Small universes. Values are built fresh from an index each time, since the
 // evaluator's types implement no traits.
+
+pub const SIGNERS: usize = 5;
+
+/// The `k`-th signer of a universe holding both constructors, an external
+/// signer whose verifier holds another signer's address bytes, and an address
+/// that extends another.
+pub fn signer(k: usize) -> Signer {
+    match k {
+        0 => delegated("a"),
+        1 => delegated("b"),
+        2 => external("v", "k"),
+        3 => external("a", ""),
+        4 => delegated("ab"),
+        _ => unreachable!(),
+    }
+}
+
+/// Every authenticated list over the signer universe: each subset, in order,
+/// and each subset with its first signer repeated at the end.
+pub fn authenticated_lists() -> Vec<Vec<Signer>> {
+    let mut out = Vec::new();
+    for mask in 0..(1usize << SIGNERS) {
+        let members: Vec<usize> = (0..SIGNERS).filter(|k| mask & (1 << k) != 0).collect();
+        out.push(members.iter().map(|&k| signer(k)).collect());
+        if let Some(&first) = members.first() {
+            let mut repeated: Vec<Signer> = members.iter().map(|&k| signer(k)).collect();
+            repeated.push(signer(first));
+            out.push(repeated);
+        }
+    }
+    out
+}
 
 pub const CONTRACTS: [&str; 2] = ["c1", "c2"];
 pub const FUNCTIONS: [&str; 2] = ["f", "g"];
@@ -138,6 +197,8 @@ impl RuleSpec {
                 .map(|k| b(FUNCTIONS[k]))
                 .collect(),
             conds: self.conds.iter().flatten().map(|&k| cond(k)).collect(),
+            signers: Vec::new(),
+            threshold: 0,
         }
     }
 }
@@ -219,7 +280,31 @@ pub fn ref_cond_holds(c: &Cond, args: &[Val]) -> bool {
     }
 }
 
-pub fn ref_rule_allows(r: &Rule, c: &Context) -> bool {
+pub fn ref_signer_eq(a: &Signer, x: &Signer) -> bool {
+    match (a, x) {
+        (Signer::Delegated(p), Signer::Delegated(q)) => p == q,
+        (Signer::External(v, k), Signer::External(w, l)) => v == w && k == l,
+        _ => false,
+    }
+}
+
+/// Whether at least `threshold` distinct signers of `signers` are among
+/// `authenticated`.
+pub fn ref_signers_met(signers: &[Signer], threshold: u32, authenticated: &[Signer]) -> bool {
+    let mut distinct: Vec<&Signer> = Vec::new();
+    for s in signers {
+        if !distinct.iter().any(|d| ref_signer_eq(d, s)) {
+            distinct.push(s);
+        }
+    }
+    let present = distinct
+        .iter()
+        .filter(|d| authenticated.iter().any(|a| ref_signer_eq(a, d)))
+        .count();
+    present >= threshold as usize
+}
+
+pub fn ref_rule_allows(r: &Rule, c: &Context, authenticated: &[Signer]) -> bool {
     match c {
         Context::Call {
             contract,
@@ -229,13 +314,14 @@ pub fn ref_rule_allows(r: &Rule, c: &Context) -> bool {
             *contract == r.contract
                 && r.functions.contains(function)
                 && r.conds.iter().all(|k| ref_cond_holds(k, args))
+                && ref_signers_met(&r.signers, r.threshold, authenticated)
         }
         Context::Create { .. } => false,
     }
 }
 
-pub fn ref_allows(rs: &[Rule], c: &Context) -> bool {
-    rs.iter().any(|r| ref_rule_allows(r, c))
+pub fn ref_allows(rs: &[Rule], c: &Context, authenticated: &[Signer]) -> bool {
+    rs.iter().any(|r| ref_rule_allows(r, c, authenticated))
 }
 
 // ---------------------------------------------------------------------------
@@ -277,11 +363,20 @@ pub fn copy_cond(c: &Cond) -> Cond {
     }
 }
 
+pub fn copy_signer(s: &Signer) -> Signer {
+    match s {
+        Signer::Delegated(x) => Signer::Delegated(x.clone()),
+        Signer::External(v, k) => Signer::External(v.clone(), k.clone()),
+    }
+}
+
 pub fn copy_rule(r: &Rule) -> Rule {
     Rule {
         contract: r.contract.clone(),
         functions: r.functions.clone(),
         conds: r.conds.iter().map(copy_cond).collect(),
+        signers: r.signers.iter().map(copy_signer).collect(),
+        threshold: r.threshold,
     }
 }
 
@@ -305,5 +400,20 @@ pub fn ref_add_cond(rs: &[Rule], i: usize, c: &Cond) -> Vec<Rule> {
 pub fn ref_remove_functions(rs: &[Rule], i: usize, fs: &[Vec<u8>]) -> Vec<Rule> {
     let mut out: Vec<Rule> = rs.iter().map(copy_rule).collect();
     out[i].functions.retain(|f| !fs.contains(f));
+    out
+}
+
+pub fn ref_remove_signers(rs: &[Rule], i: usize, ss: &[Signer]) -> Vec<Rule> {
+    let mut out: Vec<Rule> = rs.iter().map(copy_rule).collect();
+    out[i]
+        .signers
+        .retain(|s| !ss.iter().any(|x| ref_signer_eq(x, s)));
+    out
+}
+
+/// For a threshold at least the rule's own.
+pub fn ref_raise_threshold(rs: &[Rule], i: usize, threshold: u32) -> Vec<Rule> {
+    let mut out: Vec<Rule> = rs.iter().map(copy_rule).collect();
+    out[i].threshold = threshold;
     out
 }

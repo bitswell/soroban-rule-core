@@ -1,8 +1,16 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "rule-without-conditions",
   "description": "A rule with no conditions allows its calls whatever their arguments.",
-  "rules": [{"contract": "746f6b656e", "functions": ["7472616e73666572"], "conds": []}],
+  "rules": [
+    {
+      "contract": "746f6b656e",
+      "functions": ["7472616e73666572"],
+      "conds": [],
+      "signers": [],
+      "threshold": 0
+    }
+  ],
   "batch": [
     {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": []}},
     {
@@ -24,6 +32,7 @@
       }
     }
   ],
+  "authenticated": [],
   "expected": {"allows": [true, true, true], "allows_all": true},
   "attenuations": []
 }

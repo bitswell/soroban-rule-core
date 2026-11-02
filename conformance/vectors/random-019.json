@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "random-019",
   "description": "Randomized case 19 of seed 20261102.",
   "rules": [],
@@ -7,46 +7,34 @@
     {
       "call": {
         "contract": "6331",
-        "function": "",
-        "args": [
-          {"bytes": "6162"},
-          {"i128": "-170141183460469231731687303715884105727"},
-          {"i128": "7"}
-        ]
+        "function": "67",
+        "args": [{"i128": "170141183460469231731687303715884105727"}, {"bool": true}, {"i128": "0"}]
       }
     },
+    {"call": {"contract": "6332", "function": "666f", "args": []}},
+    {"call": {"contract": "6332", "function": "", "args": []}},
+    {"call": {"contract": "63", "function": "67", "args": [{"other": ""}, {"u64": "7"}]}},
     {
       "call": {
         "contract": "6332",
-        "function": "",
-        "args": [
-          {"i128": "-170141183460469231731687303715884105727"},
-          {"i128": "-170141183460469231731687303715884105727"}
-        ]
+        "function": "66",
+        "args": [{"symbol": "00ff"}, {"i128": "1"}, {"i128": "-1"}, {"bool": true}]
       }
-    },
-    {"create": {"wasm_hash": "6331"}},
-    {"call": {"contract": "633130", "function": "666f6f", "args": [{"bytes": "6162"}]}},
-    {"call": {"contract": "63", "function": "67", "args": [{"address": ""}, {"address": "6162"}]}}
+    }
   ],
+  "authenticated": [],
   "expected": {"allows": [false, false, false, false, false], "allows_all": false},
   "attenuations": [
     {
-      "steps": [
-        {"drop_rule": {"index": 0}},
-        {"remove_functions": {"index": 0, "functions": ["666f", "67"]}}
-      ],
+      "steps": [{"raise_threshold": {"index": 0, "threshold": 1}}, {"drop_rule": {"index": 0}}],
       "expected": {"error": "no_such_rule"}
     },
     {
-      "steps": [
-        {"add_cond": {"index": 0, "cond": {"arg_eq": {"index": 3, "value": {"i128": "7"}}}}},
-        {"remove_functions": {"index": 0, "functions": []}}
-      ],
+      "steps": [{"raise_threshold": {"index": 0, "threshold": 0}}],
       "expected": {"error": "no_such_rule"}
     },
     {
-      "steps": [{"remove_functions": {"index": 0, "functions": [""]}}],
+      "steps": [{"remove_signers": {"index": 0, "signers": [{"delegated": {"address": "6162"}}]}}],
       "expected": {"error": "no_such_rule"}
     }
   ]
