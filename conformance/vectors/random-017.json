@@ -1,0 +1,89 @@
+{
+  "format": 1,
+  "name": "random-017",
+  "description": "Randomized case 17 of seed 20261102.",
+  "rules": [
+    {
+      "contract": "",
+      "functions": ["66"],
+      "conds": [{"arg_eq": {"index": 2147483648, "value": {"i128": "1"}}}]
+    }
+  ],
+  "batch": [],
+  "expected": {"allows": [], "allows_all": true},
+  "attenuations": [
+    {
+      "steps": [
+        {
+          "add_cond": {
+            "index": 0,
+            "cond": {
+              "arg_i128_at_most": {"index": 0, "bound": "-170141183460469231731687303715884105728"}
+            }
+          }
+        },
+        {"add_cond": {"index": 0, "cond": {"arg_i128_at_most": {"index": 3, "bound": "1"}}}}
+      ],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "",
+              "functions": ["66"],
+              "conds": [
+                {"arg_eq": {"index": 2147483648, "value": {"i128": "1"}}},
+                {
+                  "arg_i128_at_most": {
+                    "index": 0,
+                    "bound": "-170141183460469231731687303715884105728"
+                  }
+                },
+                {"arg_i128_at_most": {"index": 3, "bound": "1"}}
+              ]
+            }
+          ],
+          "allows": [],
+          "allows_all": true
+        }
+      }
+    },
+    {
+      "steps": [
+        {"remove_functions": {"index": 0, "functions": ["66", "67"]}},
+        {"add_cond": {"index": 0, "cond": {"arg_eq": {"index": 0, "value": {"other": "61"}}}}}
+      ],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "",
+              "functions": [],
+              "conds": [
+                {"arg_eq": {"index": 2147483648, "value": {"i128": "1"}}},
+                {"arg_eq": {"index": 0, "value": {"other": "61"}}}
+              ]
+            }
+          ],
+          "allows": [],
+          "allows_all": true
+        }
+      }
+    },
+    {
+      "steps": [{"remove_functions": {"index": 0, "functions": ["66", "666f"]}}],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "",
+              "functions": [],
+              "conds": [{"arg_eq": {"index": 2147483648, "value": {"i128": "1"}}}]
+            }
+          ],
+          "allows": [],
+          "allows_all": true
+        }
+      }
+    }
+  ]
+}

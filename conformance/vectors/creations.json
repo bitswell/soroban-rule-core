@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "name": "creations",
+  "description": "No rule allows a creation, even one whose wasm hash equals a rule's contract id.",
+  "rules": [
+    {"contract": "746f6b656e", "functions": ["7472616e73666572"], "conds": []},
+    {"contract": "", "functions": [""], "conds": []}
+  ],
+  "batch": [
+    {"create": {"wasm_hash": "746f6b656e"}},
+    {"create": {"wasm_hash": ""}},
+    {"create": {"wasm_hash": "7472616e73666572"}}
+  ],
+  "expected": {"allows": [false, false, false], "allows_all": false},
+  "attenuations": []
+}

@@ -1,0 +1,75 @@
+{
+  "format": 1,
+  "name": "random-090",
+  "description": "Randomized case 90 of seed 20261102.",
+  "rules": [
+    {
+      "contract": "6332",
+      "functions": ["666f6f", "666f"],
+      "conds": [{"arg_i128_at_most": {"index": 0, "bound": "0"}}]
+    },
+    {"contract": "6332", "functions": ["67"], "conds": []}
+  ],
+  "batch": [
+    {
+      "call": {
+        "contract": "6332",
+        "function": "666f",
+        "args": [{"i128": "-170141183460469231731687303715884105727"}]
+      }
+    },
+    {"call": {"contract": "6332", "function": "67", "args": []}},
+    {"call": {"contract": "633130", "function": "666f", "args": [{"i128": "0"}]}}
+  ],
+  "expected": {"allows": [true, true, false], "allows_all": false},
+  "attenuations": [
+    {
+      "steps": [{"remove_functions": {"index": 1, "functions": []}}, {"drop_rule": {"index": 1}}],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "6332",
+              "functions": ["666f6f", "666f"],
+              "conds": [{"arg_i128_at_most": {"index": 0, "bound": "0"}}]
+            }
+          ],
+          "allows": [true, false, false],
+          "allows_all": false
+        }
+      }
+    },
+    {
+      "steps": [{"drop_rule": {"index": 1}}],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "6332",
+              "functions": ["666f6f", "666f"],
+              "conds": [{"arg_i128_at_most": {"index": 0, "bound": "0"}}]
+            }
+          ],
+          "allows": [true, false, false],
+          "allows_all": false
+        }
+      }
+    },
+    {
+      "steps": [{"drop_rule": {"index": 1}}],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "6332",
+              "functions": ["666f6f", "666f"],
+              "conds": [{"arg_i128_at_most": {"index": 0, "bound": "0"}}]
+            }
+          ],
+          "allows": [true, false, false],
+          "allows_all": false
+        }
+      }
+    }
+  ]
+}

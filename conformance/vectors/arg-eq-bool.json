@@ -1,0 +1,20 @@
+{
+  "format": 1,
+  "name": "arg-eq-bool",
+  "description": "argEq on a bool: equal value, the other value, and integers holding one.",
+  "rules": [
+    {
+      "contract": "746f6b656e",
+      "functions": ["7472616e73666572"],
+      "conds": [{"arg_eq": {"index": 0, "value": {"bool": true}}}]
+    }
+  ],
+  "batch": [
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": [{"bool": true}]}},
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": [{"bool": false}]}},
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": [{"u64": "1"}]}},
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": [{"i128": "1"}]}}
+  ],
+  "expected": {"allows": [true, false, false, false], "allows_all": false},
+  "attenuations": []
+}

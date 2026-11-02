@@ -1,0 +1,32 @@
+{
+  "format": 1,
+  "name": "batch-all-allowed",
+  "description": "A batch whose every call is allowed is allowed.",
+  "rules": [
+    {
+      "contract": "746f6b656e",
+      "functions": ["7472616e73666572"],
+      "conds": [{"arg_i128_at_most": {"index": 2, "bound": "100"}}]
+    },
+    {"contract": "646578", "functions": ["73776170"], "conds": []}
+  ],
+  "batch": [
+    {"call": {"contract": "646578", "function": "73776170", "args": []}},
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7472616e73666572",
+        "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "10"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7472616e73666572",
+        "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "100"}]
+      }
+    }
+  ],
+  "expected": {"allows": [true, true, true], "allows_all": true},
+  "attenuations": []
+}

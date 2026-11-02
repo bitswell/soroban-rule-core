@@ -1,0 +1,70 @@
+{
+  "format": 1,
+  "name": "arg-eq-bytes",
+  "description": "argEq on bytes: the same bytes, a prefix, an extension, another case, and the same bytes under every other byte-string constructor.",
+  "rules": [
+    {
+      "contract": "746f6b656e",
+      "functions": ["7472616e73666572"],
+      "conds": [{"arg_eq": {"index": 0, "value": {"bytes": "6162"}}}]
+    }
+  ],
+  "batch": [
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7472616e73666572",
+        "args": [{"bytes": "6162"}]
+      }
+    },
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": [{"bytes": "61"}]}},
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7472616e73666572",
+        "args": [{"bytes": "616263"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7472616e73666572",
+        "args": [{"bytes": "6142"}]
+      }
+    },
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": [{"bytes": ""}]}},
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7472616e73666572",
+        "args": [{"bytes": "6162"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7472616e73666572",
+        "args": [{"address": "6162"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7472616e73666572",
+        "args": [{"symbol": "6162"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7472616e73666572",
+        "args": [{"other": "6162"}]
+      }
+    }
+  ],
+  "expected": {
+    "allows": [true, false, false, false, false, true, false, false, false],
+    "allows_all": false
+  },
+  "attenuations": []
+}

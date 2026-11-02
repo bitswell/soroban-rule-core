@@ -1,0 +1,28 @@
+{
+  "format": 1,
+  "name": "random-057",
+  "description": "Randomized case 57 of seed 20261102.",
+  "rules": [],
+  "batch": [],
+  "expected": {"allows": [], "allows_all": true},
+  "attenuations": [
+    {
+      "steps": [
+        {"add_cond": {"index": 0, "cond": {"arg_i128_at_most": {"index": 0, "bound": "0"}}}},
+        {"drop_rule": {"index": 0}}
+      ],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [
+        {"add_cond": {"index": 0, "cond": {"arg_i128_at_most": {"index": 0, "bound": "-1"}}}},
+        {"add_cond": {"index": 0, "cond": {"arg_eq": {"index": 0, "value": {"symbol": "616263"}}}}}
+      ],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [{"remove_functions": {"index": 0, "functions": ["66", ""]}}],
+      "expected": {"error": "no_such_rule"}
+    }
+  ]
+}

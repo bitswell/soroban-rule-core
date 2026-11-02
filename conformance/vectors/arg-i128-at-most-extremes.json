@@ -1,0 +1,67 @@
+{
+  "format": 1,
+  "name": "arg-i128-at-most-extremes",
+  "description": "Bounds at the i128 extremes and at -1: the comparison is signed.",
+  "rules": [
+    {
+      "contract": "6d696e",
+      "functions": ["66"],
+      "conds": [
+        {"arg_i128_at_most": {"index": 0, "bound": "-170141183460469231731687303715884105728"}}
+      ]
+    },
+    {
+      "contract": "6d6178",
+      "functions": ["66"],
+      "conds": [
+        {"arg_i128_at_most": {"index": 0, "bound": "170141183460469231731687303715884105727"}}
+      ]
+    },
+    {
+      "contract": "6e6567",
+      "functions": ["66"],
+      "conds": [{"arg_i128_at_most": {"index": 0, "bound": "-1"}}]
+    }
+  ],
+  "batch": [
+    {
+      "call": {
+        "contract": "6d696e",
+        "function": "66",
+        "args": [{"i128": "-170141183460469231731687303715884105728"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "6d696e",
+        "function": "66",
+        "args": [{"i128": "-170141183460469231731687303715884105727"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "6d6178",
+        "function": "66",
+        "args": [{"i128": "170141183460469231731687303715884105727"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "6d6178",
+        "function": "66",
+        "args": [{"i128": "-170141183460469231731687303715884105728"}]
+      }
+    },
+    {"call": {"contract": "6e6567", "function": "66", "args": [{"i128": "-1"}]}},
+    {"call": {"contract": "6e6567", "function": "66", "args": [{"i128": "0"}]}},
+    {
+      "call": {
+        "contract": "6e6567",
+        "function": "66",
+        "args": [{"i128": "170141183460469231731687303715884105727"}]
+      }
+    }
+  ],
+  "expected": {"allows": [true, false, true, true, true, false, false], "allows_all": false},
+  "attenuations": []
+}

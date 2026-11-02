@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "name": "random-048",
+  "description": "Randomized case 48 of seed 20261102.",
+  "rules": [],
+  "batch": [{"call": {"contract": "6331", "function": "67", "args": [{"bytes": "00ff"}]}}],
+  "expected": {"allows": [false], "allows_all": false},
+  "attenuations": [
+    {
+      "steps": [{"remove_functions": {"index": 0, "functions": ["666f"]}}],
+      "expected": {"error": "no_such_rule"}
+    },
+    {"steps": [{"drop_rule": {"index": 0}}], "expected": {"error": "no_such_rule"}},
+    {
+      "steps": [
+        {"add_cond": {"index": 0, "cond": {"arg_i128_at_most": {"index": 3, "bound": "0"}}}}
+      ],
+      "expected": {"error": "no_such_rule"}
+    }
+  ]
+}

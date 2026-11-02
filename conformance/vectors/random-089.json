@@ -1,0 +1,44 @@
+{
+  "format": 1,
+  "name": "random-089",
+  "description": "Randomized case 89 of seed 20261102.",
+  "rules": [{"contract": "633130", "functions": [""], "conds": []}],
+  "batch": [],
+  "expected": {"allows": [], "allows_all": true},
+  "attenuations": [
+    {
+      "steps": [
+        {"add_cond": {"index": 0, "cond": {"arg_eq": {"index": 0, "value": {"symbol": "61"}}}}}
+      ],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "633130",
+              "functions": [""],
+              "conds": [{"arg_eq": {"index": 0, "value": {"symbol": "61"}}}]
+            }
+          ],
+          "allows": [],
+          "allows_all": true
+        }
+      }
+    },
+    {
+      "steps": [{"drop_rule": {"index": 0}}, {"drop_rule": {"index": 2147483648}}],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [
+        {"drop_rule": {"index": 0}},
+        {
+          "add_cond": {
+            "index": 2147483648,
+            "cond": {"arg_eq": {"index": 1, "value": {"bytes": "62"}}}
+          }
+        }
+      ],
+      "expected": {"error": "no_such_rule"}
+    }
+  ]
+}

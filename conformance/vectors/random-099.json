@@ -1,0 +1,82 @@
+{
+  "format": 1,
+  "name": "random-099",
+  "description": "Randomized case 99 of seed 20261102.",
+  "rules": [
+    {"contract": "633130", "functions": [], "conds": []},
+    {"contract": "63", "functions": [], "conds": []},
+    {
+      "contract": "63",
+      "functions": ["666f6f", "67", ""],
+      "conds": [
+        {"arg_eq": {"index": 2, "value": {"i128": "170141183460469231731687303715884105727"}}},
+        {"arg_eq": {"index": 1, "value": {"other": "616263"}}}
+      ]
+    }
+  ],
+  "batch": [{"call": {"contract": "63", "function": "66", "args": []}}],
+  "expected": {"allows": [false], "allows_all": false},
+  "attenuations": [
+    {
+      "steps": [
+        {"add_cond": {"index": 1, "cond": {"arg_i128_at_most": {"index": 0, "bound": "-1"}}}}
+      ],
+      "expected": {
+        "ok": {
+          "rules": [
+            {"contract": "633130", "functions": [], "conds": []},
+            {
+              "contract": "63",
+              "functions": [],
+              "conds": [{"arg_i128_at_most": {"index": 0, "bound": "-1"}}]
+            },
+            {
+              "contract": "63",
+              "functions": ["666f6f", "67", ""],
+              "conds": [
+                {
+                  "arg_eq": {
+                    "index": 2,
+                    "value": {"i128": "170141183460469231731687303715884105727"}
+                  }
+                },
+                {"arg_eq": {"index": 1, "value": {"other": "616263"}}}
+              ]
+            }
+          ],
+          "allows": [false],
+          "allows_all": false
+        }
+      }
+    },
+    {
+      "steps": [{"remove_functions": {"index": 3, "functions": []}}],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [{"drop_rule": {"index": 1}}],
+      "expected": {
+        "ok": {
+          "rules": [
+            {"contract": "633130", "functions": [], "conds": []},
+            {
+              "contract": "63",
+              "functions": ["666f6f", "67", ""],
+              "conds": [
+                {
+                  "arg_eq": {
+                    "index": 2,
+                    "value": {"i128": "170141183460469231731687303715884105727"}
+                  }
+                },
+                {"arg_eq": {"index": 1, "value": {"other": "616263"}}}
+              ]
+            }
+          ],
+          "allows": [false],
+          "allows_all": false
+        }
+      }
+    }
+  ]
+}

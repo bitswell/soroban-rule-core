@@ -1,0 +1,110 @@
+{
+  "format": 1,
+  "name": "random-092",
+  "description": "Randomized case 92 of seed 20261102.",
+  "rules": [
+    {"contract": "6332", "functions": [], "conds": []},
+    {
+      "contract": "6331",
+      "functions": [],
+      "conds": [
+        {"arg_i128_at_most": {"index": 1, "bound": "170141183460469231731687303715884105727"}}
+      ]
+    }
+  ],
+  "batch": [
+    {
+      "call": {
+        "contract": "6331",
+        "function": "666f",
+        "args": [
+          {"i128": "-170141183460469231731687303715884105727"},
+          {"i128": "-170141183460469231731687303715884105727"}
+        ]
+      }
+    },
+    {
+      "call": {
+        "contract": "6332",
+        "function": "",
+        "args": [{"bytes": "616263"}, {"i128": "-170141183460469231731687303715884105728"}]
+      }
+    },
+    {"call": {"contract": "633130", "function": "", "args": []}},
+    {"call": {"contract": "6331", "function": "66", "args": [{"bytes": "616263"}, {"i128": "0"}]}},
+    {"call": {"contract": "6332", "function": "", "args": []}}
+  ],
+  "expected": {"allows": [false, false, false, false, false], "allows_all": false},
+  "attenuations": [
+    {
+      "steps": [
+        {
+          "add_cond": {
+            "index": 2147483648,
+            "cond": {
+              "arg_i128_at_most": {"index": 0, "bound": "170141183460469231731687303715884105727"}
+            }
+          }
+        }
+      ],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [
+        {"add_cond": {"index": 1, "cond": {"arg_i128_at_most": {"index": 0, "bound": "-1"}}}}
+      ],
+      "expected": {
+        "ok": {
+          "rules": [
+            {"contract": "6332", "functions": [], "conds": []},
+            {
+              "contract": "6331",
+              "functions": [],
+              "conds": [
+                {
+                  "arg_i128_at_most": {
+                    "index": 1,
+                    "bound": "170141183460469231731687303715884105727"
+                  }
+                },
+                {"arg_i128_at_most": {"index": 0, "bound": "-1"}}
+              ]
+            }
+          ],
+          "allows": [false, false, false, false, false],
+          "allows_all": false
+        }
+      }
+    },
+    {
+      "steps": [
+        {"add_cond": {"index": 0, "cond": {"arg_i128_at_most": {"index": 0, "bound": "-1"}}}}
+      ],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "6332",
+              "functions": [],
+              "conds": [{"arg_i128_at_most": {"index": 0, "bound": "-1"}}]
+            },
+            {
+              "contract": "6331",
+              "functions": [],
+              "conds": [
+                {
+                  "arg_i128_at_most": {
+                    "index": 1,
+                    "bound": "170141183460469231731687303715884105727"
+                  }
+                }
+              ]
+            }
+          ],
+          "allows": [false, false, false, false, false],
+          "allows_all": false
+        }
+      }
+    }
+  ]
+}

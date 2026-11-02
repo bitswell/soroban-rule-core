@@ -1,0 +1,24 @@
+{
+  "format": 1,
+  "name": "random-068",
+  "description": "Randomized case 68 of seed 20261102.",
+  "rules": [],
+  "batch": [],
+  "expected": {"allows": [], "allows_all": true},
+  "attenuations": [
+    {
+      "steps": [{"remove_functions": {"index": 0, "functions": ["67"]}}],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [
+        {"add_cond": {"index": 0, "cond": {"arg_i128_at_most": {"index": 1, "bound": "7"}}}}
+      ],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [{"remove_functions": {"index": 0, "functions": ["", "66"]}}],
+      "expected": {"error": "no_such_rule"}
+    }
+  ]
+}

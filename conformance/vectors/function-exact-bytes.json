@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "name": "function-exact-bytes",
+  "description": "Function names compare exactly: a prefix, an extension, another case and the empty name are refused.",
+  "rules": [
+    {"contract": "746f6b656e", "functions": ["7472616e73666572", "617070726f7665"], "conds": []}
+  ],
+  "batch": [
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": []}},
+    {"call": {"contract": "746f6b656e", "function": "617070726f7665", "args": []}},
+    {"call": {"contract": "746f6b656e", "function": "7472616e736665", "args": []}},
+    {"call": {"contract": "746f6b656e", "function": "7472616e736665725f66726f6d", "args": []}},
+    {"call": {"contract": "746f6b656e", "function": "5472616e73666572", "args": []}},
+    {"call": {"contract": "746f6b656e", "function": "", "args": []}}
+  ],
+  "expected": {"allows": [true, true, false, false, false, false], "allows_all": false},
+  "attenuations": []
+}

@@ -1,0 +1,77 @@
+{
+  "format": 1,
+  "name": "random-012",
+  "description": "Randomized case 12 of seed 20261102.",
+  "rules": [
+    {
+      "contract": "633130",
+      "functions": ["67"],
+      "conds": [
+        {"arg_i128_at_most": {"index": 1, "bound": "0"}},
+        {"arg_i128_at_most": {"index": 3, "bound": "0"}}
+      ]
+    },
+    {"contract": "633130", "functions": ["66", "66"], "conds": []},
+    {"contract": "633130", "functions": ["67", "66", "666f"], "conds": []}
+  ],
+  "batch": [
+    {"create": {"wasm_hash": "62"}},
+    {
+      "call": {
+        "contract": "633130",
+        "function": "666f",
+        "args": [{"address": "62"}, {"symbol": "6162"}, {"u64": "1"}, {"i128": "-1"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "633130",
+        "function": "67",
+        "args": [{"bool": false}, {"i128": "0"}, {"other": ""}, {"i128": "0"}]
+      }
+    }
+  ],
+  "expected": {"allows": [false, true, true], "allows_all": false},
+  "attenuations": [
+    {
+      "steps": [{"remove_functions": {"index": 1, "functions": ["66", "66"]}}],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "633130",
+              "functions": ["67"],
+              "conds": [
+                {"arg_i128_at_most": {"index": 1, "bound": "0"}},
+                {"arg_i128_at_most": {"index": 3, "bound": "0"}}
+              ]
+            },
+            {"contract": "633130", "functions": [], "conds": []},
+            {"contract": "633130", "functions": ["67", "66", "666f"], "conds": []}
+          ],
+          "allows": [false, true, true],
+          "allows_all": false
+        }
+      }
+    },
+    {
+      "steps": [
+        {"drop_rule": {"index": 2}},
+        {
+          "add_cond": {
+            "index": 2,
+            "cond": {"arg_eq": {"index": 2147483648, "value": {"bytes": "62"}}}
+          }
+        }
+      ],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [
+        {"drop_rule": {"index": 0}},
+        {"remove_functions": {"index": 2147483648, "functions": ["67", "66"]}}
+      ],
+      "expected": {"error": "no_such_rule"}
+    }
+  ]
+}

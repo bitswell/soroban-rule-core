@@ -1,0 +1,83 @@
+{
+  "format": 1,
+  "name": "random-024",
+  "description": "Randomized case 24 of seed 20261102.",
+  "rules": [
+    {
+      "contract": "6332",
+      "functions": ["666f"],
+      "conds": [
+        {"arg_i128_at_most": {"index": 0, "bound": "170141183460469231731687303715884105726"}}
+      ]
+    },
+    {
+      "contract": "633130",
+      "functions": ["666f", "66", "666f6f"],
+      "conds": [{"arg_eq": {"index": 1, "value": {"bytes": ""}}}]
+    },
+    {
+      "contract": "633130",
+      "functions": ["666f", "666f"],
+      "conds": [{"arg_i128_at_most": {"index": 1, "bound": "7"}}]
+    }
+  ],
+  "batch": [
+    {"call": {"contract": "633130", "function": "666f", "args": []}},
+    {"call": {"contract": "633130", "function": "666f", "args": [{"other": "61"}, {"i128": "0"}]}},
+    {"call": {"contract": "633130", "function": "66", "args": [{"address": "62"}, {"symbol": ""}]}}
+  ],
+  "expected": {"allows": [false, true, false], "allows_all": false},
+  "attenuations": [
+    {
+      "steps": [
+        {"remove_functions": {"index": 1, "functions": ["66", "666f"]}},
+        {
+          "add_cond": {
+            "index": 4294967295,
+            "cond": {
+              "arg_i128_at_most": {"index": 0, "bound": "170141183460469231731687303715884105727"}
+            }
+          }
+        }
+      ],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [{"remove_functions": {"index": 3, "functions": []}}],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [{"remove_functions": {"index": 2, "functions": ["666f"]}}],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "6332",
+              "functions": ["666f"],
+              "conds": [
+                {
+                  "arg_i128_at_most": {
+                    "index": 0,
+                    "bound": "170141183460469231731687303715884105726"
+                  }
+                }
+              ]
+            },
+            {
+              "contract": "633130",
+              "functions": ["666f", "66", "666f6f"],
+              "conds": [{"arg_eq": {"index": 1, "value": {"bytes": ""}}}]
+            },
+            {
+              "contract": "633130",
+              "functions": [],
+              "conds": [{"arg_i128_at_most": {"index": 1, "bound": "7"}}]
+            }
+          ],
+          "allows": [false, false, false],
+          "allows_all": false
+        }
+      }
+    }
+  ]
+}

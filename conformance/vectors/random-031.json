@@ -1,0 +1,30 @@
+{
+  "format": 1,
+  "name": "random-031",
+  "description": "Randomized case 31 of seed 20261102.",
+  "rules": [{"contract": "", "functions": [], "conds": []}],
+  "batch": [],
+  "expected": {"allows": [], "allows_all": true},
+  "attenuations": [
+    {
+      "steps": [
+        {"add_cond": {"index": 0, "cond": {"arg_eq": {"index": 0, "value": {"address": ""}}}}},
+        {"drop_rule": {"index": 0}}
+      ],
+      "expected": {"ok": {"rules": [], "allows": [], "allows_all": true}}
+    },
+    {
+      "steps": [
+        {"remove_functions": {"index": 1, "functions": []}},
+        {"remove_functions": {"index": 0, "functions": ["67", "66"]}}
+      ],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [
+        {"add_cond": {"index": 1, "cond": {"arg_i128_at_most": {"index": 0, "bound": "7"}}}}
+      ],
+      "expected": {"error": "no_such_rule"}
+    }
+  ]
+}

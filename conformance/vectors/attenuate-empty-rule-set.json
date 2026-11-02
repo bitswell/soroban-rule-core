@@ -1,0 +1,26 @@
+{
+  "format": 1,
+  "name": "attenuate-empty-rule-set",
+  "description": "Every attenuation step on the empty rule set is refused.",
+  "rules": [],
+  "batch": [{"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": []}}],
+  "expected": {"allows": [false], "allows_all": false},
+  "attenuations": [
+    {"steps": [{"drop_rule": {"index": 0}}], "expected": {"error": "no_such_rule"}},
+    {
+      "steps": [
+        {
+          "add_cond": {
+            "index": 0,
+            "cond": {"arg_eq": {"index": 0, "value": {"address": "616c696365"}}}
+          }
+        }
+      ],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [{"remove_functions": {"index": 0, "functions": ["7472616e73666572"]}}],
+      "expected": {"error": "no_such_rule"}
+    }
+  ]
+}
