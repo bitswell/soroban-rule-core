@@ -4,6 +4,7 @@ use alloc::vec::Vec;
 
 use crate::bytes::{bytes_copy, bytes_eq, bytes_in, bytes_list_copy};
 use crate::context::Context;
+use crate::signer::{Signer, signers_copy, signers_met};
 use crate::val::{Val, val_copy, val_eq};
 
 /// A condition on the arguments of the call its rule matches. Argument
@@ -18,11 +19,17 @@ pub enum Cond {
 }
 
 /// A rule: calls to `contract` whose function is in `functions` and whose
-/// arguments satisfy every condition in `conds`.
+/// arguments satisfy every condition in `conds`, authorized by at least
+/// `threshold` distinct signers of `signers`.
 pub struct Rule {
     pub contract: Vec<u8>,
     pub functions: Vec<Vec<u8>>,
     pub conds: Vec<Cond>,
+    /// The signers whose authentication counts towards `threshold`.
+    pub signers: Vec<Signer>,
+    /// How many distinct signers of `signers` must be among the
+    /// authorization's authenticated signers. 0 puts no requirement on them.
+    pub threshold: u32,
 }
 
 /// Whether `cond` holds on the arguments `args`.
@@ -52,11 +59,13 @@ fn conds_hold(conds: &[Cond], args: &[Val]) -> bool {
     true
 }
 
-/// Whether `r` allows `ctx`: it is a call to the rule's contract, its function
-/// is in the rule's list, and every condition holds on its arguments. No rule
-/// allows a creation.
+/// Whether `r` allows `ctx` under the authorization's `authenticated`
+/// signers: it is a call to the rule's contract, its function is in the
+/// rule's list, every condition holds on its arguments, and at least the
+/// rule's threshold of its distinct signers are authenticated. No rule allows
+/// a creation.
 #[must_use]
-pub fn rule_allows(r: &Rule, ctx: &Context) -> bool {
+pub fn rule_allows(r: &Rule, ctx: &Context, authenticated: &[Signer]) -> bool {
     match ctx {
         Context::Call {
             contract,
@@ -66,6 +75,7 @@ pub fn rule_allows(r: &Rule, ctx: &Context) -> bool {
             bytes_eq(contract, &r.contract)
                 && bytes_in(function, &r.functions)
                 && conds_hold(&r.conds, args)
+                && signers_met(&r.signers, r.threshold, authenticated)
         }
         Context::Create { .. } => false,
     }
@@ -96,5 +106,7 @@ pub(crate) fn rule_copy(r: &Rule) -> Rule {
         contract: bytes_copy(&r.contract),
         functions: bytes_list_copy(&r.functions),
         conds: conds_copy(&r.conds),
+        signers: signers_copy(&r.signers),
+        threshold: r.threshold,
     }
 }

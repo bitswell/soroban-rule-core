@@ -9,7 +9,7 @@ Aeneas translates each `while i < s.len()` loop of `crates/rule-eval` to
 total by construction, so a theorem `loop body x = ok b` is a proof that the
 loop neither fails nor diverges.
 
-Every loop in the evaluator is one of three shapes over a list `l` (the
+Every loop in the evaluator is one of four shapes over a list `l` (the
 elements of the slice it walks):
 
 * `loop_any`: exit with `true` at the first element satisfying `p`, with
@@ -18,7 +18,11 @@ elements of the slice it walks):
   `true` at the end;
 * `loop_build`: push at most one value per element onto a vector `out` and
   exit with `out` at the end. `pushedFrom g l k` is what it pushes, where
-  `g k a` is the value pushed for the element `a` at position `k`, if any.
+  `g k a` is the value pushed for the element `a` at position `k`, if any;
+* `loop_count`: add one to a counter for each element satisfying `p` at its
+  position and exit with the counter at the end. `countFrom p l k` is what it
+  adds. The counter grows at most once per element, so it stays at most the
+  loop's position and its increment cannot overflow.
 
 Each takes, as hypotheses, what one round of the body returns, and concludes
 what the whole loop returns, by induction on the number of elements left.
@@ -53,6 +57,23 @@ theorem incr_eq {α : Type} (s : Slice α) (i : Usize) (h : i.val < s.length) :
   have := UScalar.add_spec (ty := .Usize) hmax
   revert this
   cases (i + 1#usize) with
+  | ret r => intro hr; exact ⟨r, rfl, by simpa using hr⟩
+  | vis e k => intro hr; simp at hr
+  | div => intro hr; simp at hr
+
+/-- A counter that is at most a position of a slice can be incremented: it is
+below `Usize.max`. -/
+theorem incr_eq_of_le {α : Type} (s : Slice α) (n i : Usize) (h : i.val < s.length)
+    (hn : n.val ≤ i.val) : ∃ m : Usize, n + 1#usize = ok m ∧ m.val = n.val + 1 := by
+  have hmax : n.val + (1#usize).val ≤ UScalar.max .Usize := by
+    have := s.property
+    simp only [Slice.length] at h
+    rw [UScalar.max_USize_eq]
+    simp
+    omega
+  have := UScalar.add_spec (ty := .Usize) hmax
+  revert this
+  cases (n + 1#usize) with
   | ret r => intro hr; exact ⟨r, rfl, by simpa using hr⟩
   | vis e k => intro hr; simp at hr
   | div => intro hr; simp at hr
@@ -201,6 +222,79 @@ theorem loop_build_fail {α β : Type} (l : List α) (n : Nat) (e : Error)
   · rw [heq out i (by omega) hout, bind_fail]
 termination_by n - i.val
 decreasing_by omega
+
+/-! ## Counting -/
+
+/-- How many elements of `l`, the first of them at position `k`, satisfy `p`
+at their position: `p j a` for the element `a` at position `j`. -/
+def countFrom {α : Type} (p : Nat → α → Bool) : List α → Nat → Nat
+  | [], _ => 0
+  | a :: l, k => (if p k a then 1 else 0) + countFrom p l (k + 1)
+
+/-- A loop that, at each position `i` below the length of `l`, adds one to its
+counter when `p i l[i]` holds, and exits with the counter at the end. -/
+theorem loop_count {α : Type} (l : List α) (p : Nat → α → Bool)
+    (body : Usize × Usize → Result (ControlFlow (Usize × Usize) Usize))
+    (hlt : ∀ (n i : Usize) (h : i.val < l.length), n.val ≤ i.val →
+      ∃ (n' j : Usize), j.val = i.val + 1 ∧
+        n'.val = n.val + (if p i.val l[i.val] then 1 else 0) ∧ body (n, i) = ok (cont (n', j)))
+    (hge : ∀ n i : Usize, l.length ≤ i.val → body (n, i) = ok (done n))
+    (n i : Usize) (hn : n.val ≤ i.val) :
+    ∃ n', loop body (n, i) = ok n' ∧ n'.val = n.val + countFrom p (l.drop i.val) i.val := by
+  rw [loop]
+  by_cases hi : i.val < l.length
+  · obtain ⟨n', j, hj, hval, hb⟩ := hlt n i hi hn
+    have hn' : n'.val ≤ j.val := by
+      have : (if p i.val l[i.val] then 1 else 0) ≤ 1 := by split <;> simp
+      omega
+    obtain ⟨n'', hloop, hval'⟩ := loop_count l p body hlt hge n' j hn'
+    refine ⟨n'', ?_, ?_⟩
+    · rw [hb, bind_ok]
+      exact hloop
+    · rw [hval', hval, hj, List.drop_eq_getElem_cons hi, countFrom, Nat.add_assoc]
+  · refine ⟨n, ?_, ?_⟩
+    · rw [hge n i (Nat.le_of_not_lt hi), bind_ok]
+    · rw [List.drop_of_length_le (Nat.le_of_not_lt hi)]
+      simp [countFrom]
+termination_by l.length - i.val
+decreasing_by omega
+
+theorem countFrom_map {α β : Type} (f : α → β) (p : Nat → β → Bool) :
+    ∀ (l : List α) (k : Nat), countFrom p (l.map f) k = countFrom (fun j a => p j (f a)) l k
+  | [], _ => rfl
+  | a :: l, k => by simp [countFrom, countFrom_map f p l (k + 1)]
+
+/-- Counting each element of `l` at its first position, when it satisfies `q`,
+counts the elements of `l.eraseDups` that satisfy `q`: from position `k` on,
+the count adds to what `l.take k` already holds. -/
+theorem countFrom_first_from {α : Type} [DecidableEq α] (l : List α) (q : α → Bool) (k : Nat)
+    (hk : k ≤ l.length) :
+    ((l.take k).eraseDups.filter q).length +
+        countFrom (fun j a => !decide (a ∈ l.take j) && q a) (l.drop k) k =
+      (l.eraseDups.filter q).length := by
+  by_cases hlt : k < l.length
+  · have ih := countFrom_first_from l q (k + 1) hlt
+    rw [List.drop_eq_getElem_cons hlt, countFrom, ← ih, List.take_add_one, List.getElem?_eq_getElem hlt,
+      Option.toList_some, List.eraseDups_append]
+    by_cases hm : l[k] ∈ l.take k
+    · have : [l[k]].removeAll (l.take k) = [] := by simp [List.removeAll, hm]
+      simp [this, hm]
+    · have : [l[k]].removeAll (l.take k) = [l[k]] := by simp [List.removeAll, hm]
+      have hs : [l[k]].eraseDups = [l[k]] := rfl
+      rw [this, hs, List.filter_append, List.length_append]
+      cases hq : q l[k]
+      · simp [hm, hq]
+      · simp [hm, hq]
+        omega
+  · have hk' : k = l.length := by omega
+    subst hk'
+    simp [countFrom]
+termination_by l.length - k
+
+theorem countFrom_first {α : Type} [DecidableEq α] (l : List α) (q : α → Bool) :
+    countFrom (fun j a => !decide (a ∈ l.take j) && q a) l 0 = (l.eraseDups.filter q).length := by
+  have := countFrom_first_from l q 0 (Nat.zero_le _)
+  simpa using this
 
 /-! ## What a building loop pushes -/
 

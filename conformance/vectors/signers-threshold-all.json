@@ -1,0 +1,76 @@
+{
+  "format": 2,
+  "name": "signers-threshold-all",
+  "description": "Thresholds 0, 1, 2, 3 (all three signers) and 4 (above the number of signers), with every signer, in another order authenticated.",
+  "rules": [
+    {
+      "contract": "7430",
+      "functions": ["7472616e73666572"],
+      "conds": [],
+      "signers": [
+        {"delegated": {"address": "616c696365"}},
+        {"delegated": {"address": "626f62"}},
+        {"external": {"verifier": "7665726966696572", "key": "6b6579"}}
+      ],
+      "threshold": 0
+    },
+    {
+      "contract": "7431",
+      "functions": ["7472616e73666572"],
+      "conds": [],
+      "signers": [
+        {"delegated": {"address": "616c696365"}},
+        {"delegated": {"address": "626f62"}},
+        {"external": {"verifier": "7665726966696572", "key": "6b6579"}}
+      ],
+      "threshold": 1
+    },
+    {
+      "contract": "7432",
+      "functions": ["7472616e73666572"],
+      "conds": [],
+      "signers": [
+        {"delegated": {"address": "616c696365"}},
+        {"delegated": {"address": "626f62"}},
+        {"external": {"verifier": "7665726966696572", "key": "6b6579"}}
+      ],
+      "threshold": 2
+    },
+    {
+      "contract": "7433",
+      "functions": ["7472616e73666572"],
+      "conds": [],
+      "signers": [
+        {"delegated": {"address": "616c696365"}},
+        {"delegated": {"address": "626f62"}},
+        {"external": {"verifier": "7665726966696572", "key": "6b6579"}}
+      ],
+      "threshold": 3
+    },
+    {
+      "contract": "7434",
+      "functions": ["7472616e73666572"],
+      "conds": [],
+      "signers": [
+        {"delegated": {"address": "616c696365"}},
+        {"delegated": {"address": "626f62"}},
+        {"external": {"verifier": "7665726966696572", "key": "6b6579"}}
+      ],
+      "threshold": 4
+    }
+  ],
+  "batch": [
+    {"call": {"contract": "7430", "function": "7472616e73666572", "args": []}},
+    {"call": {"contract": "7431", "function": "7472616e73666572", "args": []}},
+    {"call": {"contract": "7432", "function": "7472616e73666572", "args": []}},
+    {"call": {"contract": "7433", "function": "7472616e73666572", "args": []}},
+    {"call": {"contract": "7434", "function": "7472616e73666572", "args": []}}
+  ],
+  "authenticated": [
+    {"external": {"verifier": "7665726966696572", "key": "6b6579"}},
+    {"delegated": {"address": "616c696365"}},
+    {"delegated": {"address": "626f62"}}
+  ],
+  "expected": {"allows": [true, true, true, true, false], "allows_all": false},
+  "attenuations": []
+}

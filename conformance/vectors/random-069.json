@@ -1,19 +1,29 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "random-069",
   "description": "Randomized case 69 of seed 20261102.",
   "rules": [],
   "batch": [{"call": {"contract": "", "function": "", "args": []}}],
+  "authenticated": [{"external": {"verifier": "61", "key": ""}}],
   "expected": {"allows": [false], "allows_all": false},
   "attenuations": [
-    {"steps": [{"drop_rule": {"index": 2147483648}}], "expected": {"error": "no_such_rule"}},
-    {"steps": [{"drop_rule": {"index": 0}}], "expected": {"error": "no_such_rule"}},
+    {
+      "steps": [{"raise_threshold": {"index": 0, "threshold": 0}}],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [{"raise_threshold": {"index": 0, "threshold": 0}}],
+      "expected": {"error": "no_such_rule"}
+    },
     {
       "steps": [
+        {"drop_rule": {"index": 0}},
         {
           "add_cond": {
-            "index": 0,
-            "cond": {"arg_eq": {"index": 2, "value": {"u64": "18446744073709551615"}}}
+            "index": 4294967295,
+            "cond": {
+              "arg_i128_at_most": {"index": 1, "bound": "170141183460469231731687303715884105726"}
+            }
           }
         }
       ],

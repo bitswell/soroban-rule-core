@@ -5,7 +5,8 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use rule_eval_conformance::{
-    JsonCond, JsonContext, JsonStep, JsonVal, Outcome, Vector, check, decode_hex, load_dir,
+    JsonCond, JsonContext, JsonError, JsonRule, JsonSigner, JsonStep, JsonVal, Outcome, Vector,
+    check, decode_hex, load_dir,
 };
 
 /// `conformance/vectors`, or the directory `CONFORMANCE_VECTORS` names.
@@ -45,6 +46,65 @@ fn note_cond(seen: &mut BTreeSet<&'static str>, c: &JsonCond) {
     }
 }
 
+fn note_signers(seen: &mut BTreeSet<&'static str>, signers: &[JsonSigner]) {
+    for (k, x) in signers.iter().enumerate() {
+        seen.insert(match x {
+            JsonSigner::Delegated { .. } => "signer delegated",
+            JsonSigner::External { .. } => "signer external",
+        });
+        if signers[..k].iter().any(|y| same_signer(x, y)) {
+            seen.insert("repeated signer");
+        }
+    }
+}
+
+fn same_signer(x: &JsonSigner, y: &JsonSigner) -> bool {
+    match (x, y) {
+        (JsonSigner::Delegated { address: a }, JsonSigner::Delegated { address: b }) => a == b,
+        (
+            JsonSigner::External {
+                verifier: v,
+                key: k,
+            },
+            JsonSigner::External {
+                verifier: w,
+                key: l,
+            },
+        ) => v == w && k == l,
+        _ => false,
+    }
+}
+
+/// The number of distinct signers a rule lists.
+fn distinct_signers(r: &JsonRule) -> usize {
+    (0..r.signers.len())
+        .filter(|&k| !r.signers[..k].iter().any(|y| same_signer(&r.signers[k], y)))
+        .count()
+}
+
+fn note_rule(seen: &mut BTreeSet<&'static str>, r: &JsonRule) {
+    if r.functions.is_empty() {
+        seen.insert("empty function list");
+    }
+    for c in &r.conds {
+        note_cond(seen, c);
+    }
+    note_signers(seen, &r.signers);
+    let n = distinct_signers(r);
+    let t = r.threshold as usize;
+    seen.insert(if t == 0 {
+        "threshold 0"
+    } else if t == 1 {
+        "threshold 1"
+    } else if t < n {
+        "threshold between 1 and the number of signers"
+    } else if t == n {
+        "threshold all signers"
+    } else {
+        "threshold above the number of signers"
+    });
+}
+
 /// The vectors keep exercising each kind of input and result: removing the
 /// last vector that covers one fails this test.
 #[test]
@@ -61,13 +121,14 @@ fn vectors_cover_every_kind() {
             seen.insert("several rules");
         }
         for r in &v.rules {
-            if r.functions.is_empty() {
-                seen.insert("empty function list");
-            }
-            for c in &r.conds {
-                note_cond(&mut seen, c);
-            }
+            note_rule(&mut seen, r);
         }
+        seen.insert(if v.authenticated.is_empty() {
+            "no authenticated signer"
+        } else {
+            "authenticated signers"
+        });
+        note_signers(&mut seen, &v.authenticated);
         for (c, &allowed) in v.batch.iter().zip(&v.expected.allows) {
             seen.insert(if allowed { "allowed" } else { "refused" });
             match c {
@@ -101,11 +162,18 @@ fn vectors_cover_every_kind() {
                         seen.insert("step add_cond")
                     }
                     JsonStep::RemoveFunctions { .. } => seen.insert("step remove_functions"),
+                    JsonStep::RemoveSigners { signers, .. } => {
+                        note_signers(&mut seen, signers);
+                        seen.insert("step remove_signers")
+                    }
+                    JsonStep::RaiseThreshold { .. } => seen.insert("step raise_threshold"),
                 };
                 let index = match s {
                     JsonStep::DropRule { index }
                     | JsonStep::AddCond { index, .. }
-                    | JsonStep::RemoveFunctions { index, .. } => *index,
+                    | JsonStep::RemoveFunctions { index, .. }
+                    | JsonStep::RemoveSigners { index, .. }
+                    | JsonStep::RaiseThreshold { index, .. } => *index,
                 };
                 if index == u32::MAX {
                     seen.insert("rule index u32::MAX");
@@ -116,7 +184,8 @@ fn vectors_cover_every_kind() {
             }
             seen.insert(match a.expected {
                 Outcome::Ok { .. } => "outcome ok",
-                Outcome::Error(_) => "outcome no_such_rule",
+                Outcome::Error(JsonError::NoSuchRule) => "outcome no_such_rule",
+                Outcome::Error(JsonError::ThresholdLowered) => "outcome threshold_lowered",
             });
         }
     }
@@ -139,13 +208,26 @@ fn vectors_cover_every_kind() {
         "cond arg_eq",
         "cond arg_i128_at_most",
         "arg index u32::MAX",
+        "signer delegated",
+        "signer external",
+        "repeated signer",
+        "threshold 0",
+        "threshold 1",
+        "threshold between 1 and the number of signers",
+        "threshold all signers",
+        "threshold above the number of signers",
+        "no authenticated signer",
+        "authenticated signers",
         "step drop_rule",
         "step add_cond",
         "step remove_functions",
+        "step remove_signers",
+        "step raise_threshold",
         "step chain",
         "rule index u32::MAX",
         "outcome ok",
         "outcome no_such_rule",
+        "outcome threshold_lowered",
     ];
     let missing: Vec<&str> = want.into_iter().filter(|k| !seen.contains(k)).collect();
     assert!(missing.is_empty(), "no vector covers: {missing:?}");

@@ -1,0 +1,173 @@
+{
+  "format": 2,
+  "name": "attenuate-signer-chains",
+  "description": "Lists of all five step kinds: a threshold raised then a signer removed, a refusal for lowering part-way through, and a threshold raised past the remaining signers.",
+  "rules": [
+    {
+      "contract": "746f6b656e",
+      "functions": ["7472616e73666572"],
+      "conds": [],
+      "signers": [
+        {"delegated": {"address": "616c696365"}},
+        {"delegated": {"address": "626f62"}},
+        {"external": {"verifier": "7665726966696572", "key": "6b6579"}},
+        {"delegated": {"address": "616c696365"}}
+      ],
+      "threshold": 2
+    },
+    {
+      "contract": "706f6f6c",
+      "functions": ["6465706f736974"],
+      "conds": [],
+      "signers": [],
+      "threshold": 0
+    }
+  ],
+  "batch": [
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": []}},
+    {"call": {"contract": "706f6f6c", "function": "6465706f736974", "args": []}}
+  ],
+  "authenticated": [
+    {"delegated": {"address": "616c696365"}},
+    {"delegated": {"address": "626f62"}},
+    {"external": {"verifier": "7665726966696572", "key": "6b6579"}}
+  ],
+  "expected": {"allows": [true, true], "allows_all": true},
+  "attenuations": [
+    {
+      "steps": [
+        {"raise_threshold": {"index": 0, "threshold": 3}},
+        {
+          "remove_signers": {
+            "index": 0,
+            "signers": [{"external": {"verifier": "7665726966696572", "key": "6b6579"}}]
+          }
+        }
+      ],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "746f6b656e",
+              "functions": ["7472616e73666572"],
+              "conds": [],
+              "signers": [
+                {"delegated": {"address": "616c696365"}},
+                {"delegated": {"address": "626f62"}},
+                {"delegated": {"address": "616c696365"}}
+              ],
+              "threshold": 3
+            },
+            {
+              "contract": "706f6f6c",
+              "functions": ["6465706f736974"],
+              "conds": [],
+              "signers": [],
+              "threshold": 0
+            }
+          ],
+          "allows": [false, true],
+          "allows_all": false
+        }
+      }
+    },
+    {
+      "steps": [
+        {"remove_signers": {"index": 0, "signers": [{"delegated": {"address": "626f62"}}]}},
+        {"raise_threshold": {"index": 0, "threshold": 2}},
+        {
+          "add_cond": {
+            "index": 1,
+            "cond": {"arg_eq": {"index": 0, "value": {"address": "616c696365"}}}
+          }
+        }
+      ],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "746f6b656e",
+              "functions": ["7472616e73666572"],
+              "conds": [],
+              "signers": [
+                {"delegated": {"address": "616c696365"}},
+                {"external": {"verifier": "7665726966696572", "key": "6b6579"}},
+                {"delegated": {"address": "616c696365"}}
+              ],
+              "threshold": 2
+            },
+            {
+              "contract": "706f6f6c",
+              "functions": ["6465706f736974"],
+              "conds": [{"arg_eq": {"index": 0, "value": {"address": "616c696365"}}}],
+              "signers": [],
+              "threshold": 0
+            }
+          ],
+          "allows": [true, false],
+          "allows_all": false
+        }
+      }
+    },
+    {
+      "steps": [
+        {"raise_threshold": {"index": 0, "threshold": 3}},
+        {"raise_threshold": {"index": 0, "threshold": 2}},
+        {"drop_rule": {"index": 0}}
+      ],
+      "expected": {"error": "threshold_lowered"}
+    },
+    {
+      "steps": [
+        {"drop_rule": {"index": 0}},
+        {"raise_threshold": {"index": 0, "threshold": 1}},
+        {"remove_functions": {"index": 0, "functions": ["6465706f736974"]}}
+      ],
+      "expected": {
+        "ok": {
+          "rules": [
+            {"contract": "706f6f6c", "functions": [], "conds": [], "signers": [], "threshold": 1}
+          ],
+          "allows": [false, false],
+          "allows_all": false
+        }
+      }
+    },
+    {
+      "steps": [
+        {
+          "remove_signers": {
+            "index": 0,
+            "signers": [
+              {"delegated": {"address": "616c696365"}},
+              {"external": {"verifier": "7665726966696572", "key": "6b6579"}}
+            ]
+          }
+        },
+        {"raise_threshold": {"index": 0, "threshold": 2}}
+      ],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "746f6b656e",
+              "functions": ["7472616e73666572"],
+              "conds": [],
+              "signers": [{"delegated": {"address": "626f62"}}],
+              "threshold": 2
+            },
+            {
+              "contract": "706f6f6c",
+              "functions": ["6465706f736974"],
+              "conds": [],
+              "signers": [],
+              "threshold": 0
+            }
+          ],
+          "allows": [false, true],
+          "allows_all": false
+        }
+      }
+    }
+  ]
+}

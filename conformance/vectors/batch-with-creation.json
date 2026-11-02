@@ -1,15 +1,22 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "batch-with-creation",
   "description": "A batch of allowed calls with one creation is refused.",
   "rules": [
-    {"contract": "746f6b656e", "functions": ["7472616e73666572", "617070726f7665"], "conds": []}
+    {
+      "contract": "746f6b656e",
+      "functions": ["7472616e73666572", "617070726f7665"],
+      "conds": [],
+      "signers": [],
+      "threshold": 0
+    }
   ],
   "batch": [
     {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": []}},
     {"create": {"wasm_hash": "746f6b656e"}},
     {"call": {"contract": "746f6b656e", "function": "617070726f7665", "args": []}}
   ],
+  "authenticated": [],
   "expected": {"allows": [true, false, true], "allows_all": false},
   "attenuations": []
 }

@@ -14,10 +14,21 @@ the denoted inputs:
 * `val_eq_eq`: `val_eq a b` is equality of the denoted values;
 * `cond_holds_eq`: `cond_holds c args` is `Cond.holds` of the denotations;
 * `conds_hold_eq`: `conds_hold conds args` is whether every condition holds;
-* `rule_allows_eq`: `rule_allows r c` is `Rule.allows` of the denotations;
-* `allows_eq`: `allows rules c` is `RuleSet.allows` of the denotations;
-* `allows_all_eq`: `allows_all rules cs` is `RuleSet.allowsAll` of the
-  denotations: every context of a Soroban authorization tree.
+* `signer_eq_eq`: `signer_eq a b` is equality of the denoted signers;
+* `signer_in_eq`, `signer_in_first_eq`: `signer_in x list` is membership of
+  the denotation, and `signer_in_first x list before` membership in the
+  denotation's first `before` signers;
+* `signed_count_eq`: `signed_count signers authenticated` is the number of
+  distinct denoted signers that are authenticated;
+* `signers_met_eq`: `signers_met signers threshold authenticated` is the
+  model's signer requirement;
+* `rule_allows_eq`: `rule_allows r c authenticated` is `Rule.allows` of the
+  denotations;
+* `allows_eq`: `allows rules c authenticated` is `RuleSet.allows` of the
+  denotations;
+* `allows_all_eq`: `allows_all rules cs authenticated` is `RuleSet.allowsAll`
+  of the denotations: every context of a Soroban authorization tree, under the
+  signers that authenticated it.
 -/
 
 namespace RuleCore.Equiv
@@ -27,22 +38,25 @@ open Aeneas Aeneas.Std Result ControlFlow
 /-! ## The model's verdicts, unfolded -/
 
 theorem chain_rule_allows_call (r : Chain.Rule) (contract function : Bytes)
-    (args : List Chain.Val) :
-    r.allows (.call contract function args) =
+    (args : List Chain.Val) (auth : List Chain.Signer) :
+    r.allows (.call contract function args) auth =
       (decide (contract = r.contract) && decide (function ∈ r.functions) &&
-        r.conds.all (·.holds args)) := by
+        r.conds.all (·.holds args) &&
+        decide (r.threshold.toNat ≤ (r.signers.eraseDups.filter (· ∈ auth)).length)) := by
   simp [Chain.Rule.allows, Chain.Rule.denote, RuleCore.Rule.allows, Chain.Rule.scope,
-    Chain.Cond.denote, List.all_map, Function.comp_def]
+    Chain.Cond.denote, List.all_map, Function.comp_def, RuleCore.Rule.signed,
+    RuleCore.Rule.present]
+  rfl
 
-theorem chain_ruleSet_allows (rs : Chain.RuleSet) (c : Chain.Context) :
-    rs.allows c = rs.any (·.allows c) := by
+theorem chain_ruleSet_allows (rs : Chain.RuleSet) (c : Chain.Context) (auth : List Chain.Signer) :
+    rs.allows c auth = rs.any (·.allows c auth) := by
   simp only [Chain.RuleSet.allows, Chain.RuleSet.denote, RuleCore.RuleSet.allows,
     RuleCore.RuleSet.ofRules, Chain.Rule.allows]
   rw [List.any_map]
   rfl
 
-theorem chain_ruleSet_allowsAll (rs : Chain.RuleSet) (cs : List Chain.Context) :
-    rs.allowsAll cs = cs.all rs.allows := rfl
+theorem chain_ruleSet_allowsAll (rs : Chain.RuleSet) (cs : List Chain.Context)
+    (auth : List Chain.Signer) : rs.allowsAll cs auth = cs.all (rs.allows · auth) := rfl
 
 /-! ## Byte strings -/
 
@@ -178,10 +192,140 @@ theorem conds_hold_eq (conds : Slice rule_eval.rule.Cond) (args : Slice rule_eva
     have : ¬ i.val < conds.length := by simp only [Slice.length]; omega
     simp [rule_eval.rule.conds_hold_loop.body, this]
 
+/-! ## Signers -/
+
+theorem signer_eq_eq (a b : rule_eval.signer.Signer) :
+    rule_eval.signer.signer_eq a b = ok (decide (denoteSigner a = denoteSigner b)) := by
+  cases a with
+  | Delegated x =>
+    cases b <;> simp [rule_eval.signer.signer_eq, denoteSigner, bytes_eq_eq, denoteBytes_inj]
+  | External v k =>
+    cases b with
+    | Delegated y => simp [rule_eval.signer.signer_eq, denoteSigner]
+    | External w l =>
+      simp only [rule_eval.signer.signer_eq, bytes_eq_eq, vec_deref_val, bind_ok, denoteSigner,
+        Chain.Signer.external.injEq]
+      by_cases hv : v.val = w.val
+      · simp [hv, denoteBytes_inj]
+      · have : denoteBytes v ≠ denoteBytes w := fun h => hv (denoteBytes_inj.mp h)
+        simp [hv, this]
+
+/-- `signer_eq` with one side fixed is membership of the denotation. -/
+theorem any_signer_eq_mem (x : rule_eval.signer.Signer) (list : List rule_eval.signer.Signer) :
+    list.any (fun y => decide (denoteSigner x = denoteSigner y)) =
+      decide (denoteSigner x ∈ denoteSigners list) := by
+  rw [Bool.eq_iff_iff, List.any_eq_true, decide_eq_true_iff, denoteSigners, List.mem_map]
+  constructor
+  · rintro ⟨y, hy, he⟩
+    exact ⟨y, hy, (of_decide_eq_true he).symm⟩
+  · rintro ⟨y, hy, he⟩
+    exact ⟨y, hy, decide_eq_true he.symm⟩
+
+theorem signer_in_eq (x : rule_eval.signer.Signer) (list : Slice rule_eval.signer.Signer) :
+    rule_eval.signer.signer_in x list = ok (decide (denoteSigner x ∈ denoteSigners list.val)) := by
+  unfold rule_eval.signer.signer_in rule_eval.signer.signer_in_loop
+  rw [loop_any list.val (fun y => decide (denoteSigner x = denoteSigner y))]
+  · simp [any_signer_eq_mem]
+  · intro i hi
+    obtain ⟨j, hj, hj'⟩ := incr_eq list i hi
+    refine ⟨j, hj', ?_⟩
+    simp only [rule_eval.signer.signer_in_loop.body, slice_len_lt, hi, ↓reduceIte,
+      index_usize_eq _ _ hi, signer_eq_eq, bind_ok, hj]
+    cases decide (denoteSigner x = denoteSigner list.val[i.val]) <;> simp
+  · intro i hi
+    have : ¬ i.val < list.length := by simp only [Slice.length]; omega
+    simp [rule_eval.signer.signer_in_loop.body, this]
+
+theorem signer_in_first_eq (x : rule_eval.signer.Signer) (list : Slice rule_eval.signer.Signer)
+    (before : Usize) :
+    rule_eval.signer.signer_in_first x list before =
+      ok (decide (denoteSigner x ∈ (denoteSigners list.val).take before.val)) := by
+  unfold rule_eval.signer.signer_in_first rule_eval.signer.signer_in_first_loop
+  rw [loop_any (list.val.take before.val) (fun y => decide (denoteSigner x = denoteSigner y))]
+  · simp [any_signer_eq_mem, denoteSigners, List.map_take]
+    rfl
+  · intro i hi
+    simp only [List.length_take] at hi
+    have hi' : i.val < list.length := by simp only [Slice.length]; omega
+    have hb : ¬ before ≤ i := by
+      rw [UScalar.le_equiv]
+      omega
+    obtain ⟨j, hj, hj'⟩ := incr_eq list i hi'
+    refine ⟨j, hj', ?_⟩
+    simp only [rule_eval.signer.signer_in_first_loop.body, slice_len_lt, hi', ↓reduceIte,
+      ge_iff_le, hb, index_usize_eq _ _ hi', signer_eq_eq, bind_ok, hj, List.getElem_take]
+    cases decide (denoteSigner x = denoteSigner list.val[i.val]) <;> simp
+  · intro i hi
+    by_cases hl : i.val < list.length
+    · have hb : before ≤ i := by
+        rw [UScalar.le_equiv]
+        simp only [List.length_take] at hi
+        simp only [Slice.length] at hl
+        omega
+      simp [rule_eval.signer.signer_in_first_loop.body, hl, hb]
+    · simp [rule_eval.signer.signer_in_first_loop.body, hl]
+
+/-- Whether the signer at position `k` of `list` is counted: it is not among
+the signers before it, and it is authenticated. -/
+def countedAt (list authenticated : List rule_eval.signer.Signer) (k : Nat)
+    (s : rule_eval.signer.Signer) : Bool :=
+  !decide (denoteSigner s ∈ (denoteSigners list).take k) &&
+    decide (denoteSigner s ∈ denoteSigners authenticated)
+
+theorem signed_count_loop_eq (signers authenticated : Slice rule_eval.signer.Signer)
+    (n i : Usize) (hn : n.val ≤ i.val) :
+    ∃ n', rule_eval.signer.signed_count_loop signers authenticated n i = ok n' ∧
+      n'.val = n.val + countFrom (countedAt signers.val authenticated.val)
+        (signers.val.drop i.val) i.val := by
+  unfold rule_eval.signer.signed_count_loop
+  refine loop_count signers.val _ _ ?_ ?_ n i hn
+  · intro n i hi hn
+    obtain ⟨j, hj, hj'⟩ := incr_eq signers i hi
+    by_cases hf : denoteSigner signers.val[i.val] ∈ (denoteSigners signers.val).take i.val
+    · refine ⟨n, j, hj', by simp [countedAt, hf], ?_⟩
+      simp [rule_eval.signer.signed_count_loop.body, hi, index_usize_eq _ _ hi,
+        signer_in_first_eq, hf, hj]
+    · by_cases ha : denoteSigner signers.val[i.val] ∈ denoteSigners authenticated.val
+      · obtain ⟨m, hm, hm'⟩ := incr_eq_of_le signers n i hi hn
+        refine ⟨m, j, hj', by simp [countedAt, hf, ha, hm'], ?_⟩
+        simp [rule_eval.signer.signed_count_loop.body, hi, index_usize_eq _ _ hi,
+          signer_in_first_eq, hf, signer_in_eq, ha, hm, hj]
+      · refine ⟨n, j, hj', by simp [countedAt, hf, ha], ?_⟩
+        simp [rule_eval.signer.signed_count_loop.body, hi, index_usize_eq _ _ hi,
+          signer_in_first_eq, hf, signer_in_eq, ha, hj]
+  · intro n i hi
+    have : ¬ i.val < signers.length := by simp only [Slice.length]; omega
+    simp [rule_eval.signer.signed_count_loop.body, this]
+
+/-- `signed_count` is the number of distinct denoted signers that are
+authenticated. -/
+theorem signed_count_eq (signers authenticated : Slice rule_eval.signer.Signer) :
+    ∃ n, rule_eval.signer.signed_count signers authenticated = ok n ∧
+      n.val = ((denoteSigners signers.val).eraseDups.filter
+        (· ∈ denoteSigners authenticated.val)).length := by
+  obtain ⟨n, h, hv⟩ := signed_count_loop_eq signers authenticated 0#usize 0#usize (by simp)
+  refine ⟨n, h, ?_⟩
+  have h0 : (0#usize).val = 0 := by simp
+  rw [hv, ← countFrom_first, h0, Nat.zero_add, List.drop_zero, denoteSigners, countFrom_map]
+  rfl
+
+theorem signers_met_eq (signers : Slice rule_eval.signer.Signer) (threshold : Std.U32)
+    (authenticated : Slice rule_eval.signer.Signer) :
+    rule_eval.signer.signers_met signers threshold authenticated =
+      ok (decide (threshold.val ≤ ((denoteSigners signers.val).eraseDups.filter
+        (· ∈ denoteSigners authenticated.val)).length)) := by
+  obtain ⟨n, h, hv⟩ := signed_count_eq signers authenticated
+  simp only [rule_eval.signer.signers_met, lift, bind_ok, h]
+  congr 1
+  rw [← hv]
+  simp
+
 /-! ## Rules and rule sets -/
 
-theorem rule_allows_eq (r : rule_eval.rule.Rule) (c : rule_eval.context.Context) :
-    rule_eval.rule.rule_allows r c = ok ((denoteRule r).allows (denoteContext c)) := by
+theorem rule_allows_eq (r : rule_eval.rule.Rule) (c : rule_eval.context.Context)
+    (authenticated : Slice rule_eval.signer.Signer) :
+    rule_eval.rule.rule_allows r c authenticated =
+      ok ((denoteRule r).allows (denoteContext c) (denoteSigners authenticated.val)) := by
   cases c with
   | Create wasmHash => rfl
   | Call contract function args =>
@@ -193,38 +337,55 @@ theorem rule_allows_eq (r : rule_eval.rule.Rule) (c : rule_eval.context.Context)
         any_bytes_eq_mem, Bool.true_and]
       cases decide (bytesOf function.val ∈ r.functions.val.map denoteBytes)
       · simp
-      · simp [conds_hold_eq, List.all_map, Function.comp_def]
+      · simp only [↓reduceIte, conds_hold_eq, bind_ok, Bool.true_and, List.all_map,
+          Function.comp_def]
+        by_cases hconds : ∀ x ∈ r.conds.val, (denoteCond x).holds (args.val.map denoteVal) = true
+        · have hall : (r.conds.val.all fun c => (denoteCond c).holds (args.val.map denoteVal)) =
+              true := List.all_eq_true.mpr hconds
+          simp only [vec_deref_val, hall, ↓reduceIte, Bool.true_and, signers_met_eq,
+            denoteU32_toNat]
+          rfl
+        · have hall : (r.conds.val.all fun c => (denoteCond c).holds (args.val.map denoteVal)) =
+              false := by simpa using hconds
+          simp [hall]
     · have : bytesOf contract.val ≠ bytesOf r.contract.val := fun h => hc (bytesOf_inj.mp h)
       simp [hc, this]
 
-theorem allows_eq (rules : Slice rule_eval.rule.Rule) (c : rule_eval.context.Context) :
-    rule_eval.rule_set.allows rules c = ok ((denoteRules rules.val).allows (denoteContext c)) := by
+theorem allows_eq (rules : Slice rule_eval.rule.Rule) (c : rule_eval.context.Context)
+    (authenticated : Slice rule_eval.signer.Signer) :
+    rule_eval.rule_set.allows rules c authenticated =
+      ok ((denoteRules rules.val).allows (denoteContext c) (denoteSigners authenticated.val)) := by
   unfold rule_eval.rule_set.allows rule_eval.rule_set.allows_loop
-  rw [loop_any rules.val (fun r => (denoteRule r).allows (denoteContext c))]
+  rw [loop_any rules.val
+    (fun r => (denoteRule r).allows (denoteContext c) (denoteSigners authenticated.val))]
   · simp [chain_ruleSet_allows, denoteRules, List.any_map, Function.comp_def]
   · intro i hi
     obtain ⟨j, hj, hj'⟩ := incr_eq rules i hi
     refine ⟨j, hj', ?_⟩
     simp only [rule_eval.rule_set.allows_loop.body, slice_len_lt, hi, ↓reduceIte,
       index_usize_eq _ _ hi, rule_allows_eq, bind_ok, hj]
-    cases (denoteRule rules.val[i.val]).allows (denoteContext c) <;> simp
+    cases (denoteRule rules.val[i.val]).allows (denoteContext c) (denoteSigners authenticated.val) <;>
+      simp
   · intro i hi
     have : ¬ i.val < rules.length := by simp only [Slice.length]; omega
     simp [rule_eval.rule_set.allows_loop.body, this]
 
 theorem allows_all_eq (rules : Slice rule_eval.rule.Rule)
-    (cs : Slice rule_eval.context.Context) :
-    rule_eval.rule_set.allows_all rules cs =
-      ok ((denoteRules rules.val).allowsAll (cs.val.map denoteContext)) := by
+    (cs : Slice rule_eval.context.Context) (authenticated : Slice rule_eval.signer.Signer) :
+    rule_eval.rule_set.allows_all rules cs authenticated =
+      ok ((denoteRules rules.val).allowsAll (cs.val.map denoteContext)
+        (denoteSigners authenticated.val)) := by
   unfold rule_eval.rule_set.allows_all rule_eval.rule_set.allows_all_loop
-  rw [loop_all cs.val (fun c => (denoteRules rules.val).allows (denoteContext c))]
+  rw [loop_all cs.val
+    (fun c => (denoteRules rules.val).allows (denoteContext c) (denoteSigners authenticated.val))]
   · simp [chain_ruleSet_allowsAll, List.all_map, Function.comp_def]
   · intro i hi
     obtain ⟨j, hj, hj'⟩ := incr_eq cs i hi
     refine ⟨j, hj', ?_⟩
     simp only [rule_eval.rule_set.allows_all_loop.body, slice_len_lt, hi, ↓reduceIte,
       index_usize_eq _ _ hi, allows_eq, bind_ok, hj]
-    cases (denoteRules rules.val).allows (denoteContext cs.val[i.val]) <;> simp
+    cases (denoteRules rules.val).allows (denoteContext cs.val[i.val])
+      (denoteSigners authenticated.val) <;> simp
   · intro i hi
     have : ¬ i.val < cs.length := by simp only [Slice.length]; omega
     simp [rule_eval.rule_set.allows_all_loop.body, this]

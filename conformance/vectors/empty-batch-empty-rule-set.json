@@ -1,9 +1,10 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "empty-batch-empty-rule-set",
   "description": "The empty rule set allows the empty batch.",
   "rules": [],
   "batch": [],
+  "authenticated": [],
   "expected": {"allows": [], "allows_all": true},
   "attenuations": []
 }

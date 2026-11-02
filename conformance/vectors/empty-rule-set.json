@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "empty-rule-set",
   "description": "The empty rule set refuses every call.",
   "rules": [],
@@ -7,6 +7,7 @@
     {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": []}},
     {"call": {"contract": "", "function": "", "args": []}}
   ],
+  "authenticated": [],
   "expected": {"allows": [false, false], "allows_all": false},
   "attenuations": []
 }

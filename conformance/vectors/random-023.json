@@ -1,72 +1,94 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "random-023",
   "description": "Randomized case 23 of seed 20261102.",
   "rules": [
     {
       "contract": "6331",
       "functions": [],
-      "conds": [{"arg_i128_at_most": {"index": 1, "bound": "100"}}]
+      "conds": [{"arg_i128_at_most": {"index": 1, "bound": "100"}}],
+      "signers": [],
+      "threshold": 1
     },
-    {"contract": "6332", "functions": ["", "67", "666f"], "conds": []}
+    {
+      "contract": "6332",
+      "functions": ["666f"],
+      "conds": [
+        {"arg_i128_at_most": {"index": 1, "bound": "170141183460469231731687303715884105727"}}
+      ],
+      "signers": [{"external": {"verifier": "76", "key": "6b32"}}],
+      "threshold": 2
+    }
   ],
   "batch": [
-    {"call": {"contract": "6332", "function": "", "args": []}},
-    {"call": {"contract": "6332", "function": "666f", "args": []}}
-  ],
-  "expected": {"allows": [true, true], "allows_all": true},
-  "attenuations": [
     {
-      "steps": [{"drop_rule": {"index": 1}}],
-      "expected": {
-        "ok": {
-          "rules": [
-            {
-              "contract": "6331",
-              "functions": [],
-              "conds": [{"arg_i128_at_most": {"index": 1, "bound": "100"}}]
-            }
-          ],
-          "allows": [false, false],
-          "allows_all": false
-        }
+      "call": {
+        "contract": "6332",
+        "function": "666f",
+        "args": [{"symbol": "616263"}, {"i128": "-170141183460469231731687303715884105727"}]
       }
     },
     {
-      "steps": [
-        {"add_cond": {"index": 0, "cond": {"arg_eq": {"index": 0, "value": {"symbol": "616263"}}}}}
-      ],
-      "expected": {
-        "ok": {
-          "rules": [
-            {
-              "contract": "6331",
-              "functions": [],
-              "conds": [
-                {"arg_i128_at_most": {"index": 1, "bound": "100"}},
-                {"arg_eq": {"index": 0, "value": {"symbol": "616263"}}}
-              ]
-            },
-            {"contract": "6332", "functions": ["", "67", "666f"], "conds": []}
-          ],
-          "allows": [true, true],
-          "allows_all": true
-        }
+      "call": {
+        "contract": "63",
+        "function": "666f",
+        "args": [{"bytes": "61"}, {"i128": "170141183460469231731687303715884105726"}]
       }
+    },
+    {"create": {"wasm_hash": "62"}}
+  ],
+  "authenticated": [],
+  "expected": {"allows": [false, false, false], "allows_all": false},
+  "attenuations": [
+    {
+      "steps": [{"raise_threshold": {"index": 1, "threshold": 1}}],
+      "expected": {"error": "threshold_lowered"}
+    },
+    {
+      "steps": [{"raise_threshold": {"index": 2, "threshold": 1}}, {"drop_rule": {"index": 0}}],
+      "expected": {"error": "no_such_rule"}
     },
     {
       "steps": [
         {
-          "add_cond": {
-            "index": 1,
-            "cond": {
-              "arg_i128_at_most": {"index": 2, "bound": "-170141183460469231731687303715884105727"}
-            }
+          "remove_signers": {
+            "index": 0,
+            "signers": [
+              {"delegated": {"address": "62"}},
+              {"external": {"verifier": "61", "key": ""}}
+            ]
           }
-        },
-        {"remove_functions": {"index": 2, "functions": ["", "67"]}}
+        }
       ],
-      "expected": {"error": "no_such_rule"}
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "6331",
+              "functions": [],
+              "conds": [{"arg_i128_at_most": {"index": 1, "bound": "100"}}],
+              "signers": [],
+              "threshold": 1
+            },
+            {
+              "contract": "6332",
+              "functions": ["666f"],
+              "conds": [
+                {
+                  "arg_i128_at_most": {
+                    "index": 1,
+                    "bound": "170141183460469231731687303715884105727"
+                  }
+                }
+              ],
+              "signers": [{"external": {"verifier": "76", "key": "6b32"}}],
+              "threshold": 2
+            }
+          ],
+          "allows": [false, false, false],
+          "allows_all": false
+        }
+      }
     }
   ]
 }

@@ -1,23 +1,25 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "random-068",
   "description": "Randomized case 68 of seed 20261102.",
   "rules": [],
   "batch": [],
+  "authenticated": [{"delegated": {"address": "62"}}, {"external": {"verifier": "76", "key": "6b"}}],
   "expected": {"allows": [], "allows_all": true},
   "attenuations": [
     {
-      "steps": [{"remove_functions": {"index": 0, "functions": ["67"]}}],
+      "steps": [{"remove_functions": {"index": 0, "functions": []}}],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [{"raise_threshold": {"index": 0, "threshold": 0}}],
       "expected": {"error": "no_such_rule"}
     },
     {
       "steps": [
-        {"add_cond": {"index": 0, "cond": {"arg_i128_at_most": {"index": 1, "bound": "7"}}}}
+        {"raise_threshold": {"index": 0, "threshold": 1}},
+        {"remove_signers": {"index": 0, "signers": []}}
       ],
-      "expected": {"error": "no_such_rule"}
-    },
-    {
-      "steps": [{"remove_functions": {"index": 0, "functions": ["", "66"]}}],
       "expected": {"error": "no_such_rule"}
     }
   ]

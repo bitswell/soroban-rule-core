@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "random-060",
   "description": "Randomized case 60 of seed 20261102.",
   "rules": [
@@ -9,29 +9,33 @@
       "conds": [
         {"arg_i128_at_most": {"index": 0, "bound": "100"}},
         {"arg_eq": {"index": 0, "value": {"address": ""}}}
-      ]
+      ],
+      "signers": [],
+      "threshold": 0
     },
     {
-      "contract": "6331",
-      "functions": ["66", ""],
+      "contract": "63",
+      "functions": ["666f", "666f", ""],
       "conds": [
-        {"arg_i128_at_most": {"index": 2, "bound": "170141183460469231731687303715884105727"}},
-        {"arg_i128_at_most": {"index": 1, "bound": "170141183460469231731687303715884105726"}}
-      ]
+        {"arg_i128_at_most": {"index": 1, "bound": "170141183460469231731687303715884105726"}},
+        {"arg_eq": {"index": 0, "value": {"bytes": ""}}}
+      ],
+      "signers": [{"external": {"verifier": "61", "key": ""}}],
+      "threshold": 0
     },
-    {
-      "contract": "6331",
-      "functions": ["666f6f", "666f", "66"],
-      "conds": [{"arg_i128_at_most": {"index": 0, "bound": "-1"}}]
-    }
+    {"contract": "6332", "functions": [], "conds": [], "signers": [], "threshold": 1}
   ],
-  "batch": [],
-  "expected": {"allows": [], "allows_all": true},
+  "batch": [
+    {"call": {"contract": "6332", "function": "", "args": []}},
+    {"call": {"contract": "63", "function": "", "args": [{"bytes": ""}, {"i128": "100"}]}}
+  ],
+  "authenticated": [
+    {"external": {"verifier": "61", "key": ""}},
+    {"delegated": {"address": "62"}},
+    {"delegated": {"address": "62"}}
+  ],
+  "expected": {"allows": [false, true], "allows_all": false},
   "attenuations": [
-    {
-      "steps": [{"remove_functions": {"index": 3, "functions": []}}],
-      "expected": {"error": "no_such_rule"}
-    },
     {
       "steps": [{"drop_rule": {"index": 2}}],
       "expected": {
@@ -43,34 +47,37 @@
               "conds": [
                 {"arg_i128_at_most": {"index": 0, "bound": "100"}},
                 {"arg_eq": {"index": 0, "value": {"address": ""}}}
-              ]
+              ],
+              "signers": [],
+              "threshold": 0
             },
             {
-              "contract": "6331",
-              "functions": ["66", ""],
+              "contract": "63",
+              "functions": ["666f", "666f", ""],
               "conds": [
-                {
-                  "arg_i128_at_most": {
-                    "index": 2,
-                    "bound": "170141183460469231731687303715884105727"
-                  }
-                },
                 {
                   "arg_i128_at_most": {
                     "index": 1,
                     "bound": "170141183460469231731687303715884105726"
                   }
-                }
-              ]
+                },
+                {"arg_eq": {"index": 0, "value": {"bytes": ""}}}
+              ],
+              "signers": [{"external": {"verifier": "61", "key": ""}}],
+              "threshold": 0
             }
           ],
-          "allows": [],
-          "allows_all": true
+          "allows": [false, true],
+          "allows_all": false
         }
       }
     },
     {
-      "steps": [{"drop_rule": {"index": 1}}],
+      "steps": [{"raise_threshold": {"index": 3, "threshold": 1}}],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [{"remove_functions": {"index": 2, "functions": []}}],
       "expected": {
         "ok": {
           "rules": [
@@ -80,16 +87,29 @@
               "conds": [
                 {"arg_i128_at_most": {"index": 0, "bound": "100"}},
                 {"arg_eq": {"index": 0, "value": {"address": ""}}}
-              ]
+              ],
+              "signers": [],
+              "threshold": 0
             },
             {
-              "contract": "6331",
-              "functions": ["666f6f", "666f", "66"],
-              "conds": [{"arg_i128_at_most": {"index": 0, "bound": "-1"}}]
-            }
+              "contract": "63",
+              "functions": ["666f", "666f", ""],
+              "conds": [
+                {
+                  "arg_i128_at_most": {
+                    "index": 1,
+                    "bound": "170141183460469231731687303715884105726"
+                  }
+                },
+                {"arg_eq": {"index": 0, "value": {"bytes": ""}}}
+              ],
+              "signers": [{"external": {"verifier": "61", "key": ""}}],
+              "threshold": 0
+            },
+            {"contract": "6332", "functions": [], "conds": [], "signers": [], "threshold": 1}
           ],
-          "allows": [],
-          "allows_all": true
+          "allows": [false, true],
+          "allows_all": false
         }
       }
     }

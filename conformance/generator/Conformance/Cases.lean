@@ -22,8 +22,14 @@ def call (contract function : String) (args : List Val) : Context :=
 def create (wasmHash : String) : Context :=
   .create (s wasmHash)
 
+/-- A rule with no signer requirement. -/
 def rule (contract : String) (functions : List String) (conds : List Cond) : Rule :=
-  { contract := s contract, functions := functions.map s, conds := conds }
+  { contract := s contract, functions := functions.map s, conds := conds, signers := [],
+    threshold := 0 }
+
+/-- A rule on `contract`'s `transfer` that needs `threshold` of `signers`. -/
+def signedRule (contract : String) (signers : List Signer) (threshold : UInt32) : Rule :=
+  { rule contract ["transfer"] [] with signers, threshold }
 
 def i128Min : I128 := BitVec.intMin 128
 def i128Max : I128 := BitVec.intMax 128
@@ -195,7 +201,7 @@ def contractExactBytes : Case where
   description := "Contract ids compare exactly: a prefix, an extension, another case and the empty id are refused, as are prefixes and extensions of a non-text id."
   rules := [
     rule token ["transfer"] [],
-    { contract := [0x00, 0xff], functions := [s "transfer"], conds := [] }]
+    { rule "" ["transfer"] [] with contract := [0x00, 0xff] }]
   batch := [
     call token "transfer" [],
     call "toke" "transfer" [],
@@ -377,7 +383,9 @@ def emptyRuleSetSteps : Case where
   attenuations := [
     [.dropRule 0],
     [.addCond 0 (.argEq 0 alice)],
-    [.removeFunctions 0 [s "transfer"]]]
+    [.removeFunctions 0 [s "transfer"]],
+    [.removeSigners 0 [.delegated (s "alice")]],
+    [.raiseThreshold 0 0]]
 
 def addCond : Case where
   name := "attenuate-add-cond"
@@ -426,6 +434,155 @@ def chains : Case where
     [.dropRule 2, .addCond 2 (.argEq 0 alice)],
     [.removeFunctions 0 [s "transfer"], .dropRule u32Max, .dropRule 0]]
 
+/-! ## Signers -/
+
+def sAlice : Signer := .delegated (s "alice")
+def sBob : Signer := .delegated (s "bob")
+/-- A key checked by a verifier contract. -/
+def sKey : Signer := .external (s "verifier") (s "key")
+
+/-- Five rules needing 0, 1, 2, 3 and 4 of the same three signers, one
+contract each, and a call to each. -/
+def thresholdRules : RuleSet :=
+  [0, 1, 2, 3, 4].map fun k => signedRule s!"t{k}" [sAlice, sBob, sKey] k
+
+def thresholdBatch : List Context :=
+  [0, 1, 2, 3, 4].map fun k => call s!"t{k}" "transfer" []
+
+def thresholdCase (name : String) (what : String) (auth : List Signer) : Case where
+  name := s!"signers-threshold-{name}"
+  description := s!"Thresholds 0, 1, 2, 3 (all three signers) and 4 (above the number of signers), with {what} authenticated."
+  rules := thresholdRules
+  batch := thresholdBatch
+  authenticated := auth
+
+def thresholdNone : Case := thresholdCase "none" "no signer" []
+def thresholdOne : Case := thresholdCase "one" "one of the signers" [sAlice]
+def thresholdTwo : Case := thresholdCase "two" "two of the signers" [sBob, sKey]
+def thresholdAll : Case := thresholdCase "all" "every signer, in another order" [sKey, sAlice, sBob]
+
+def ruleSignerRepeats : Case where
+  name := "signers-repeated-in-rule"
+  description := "A signer listed twice in a rule counts once: [alice, alice, bob] has two distinct signers, so threshold 3 is never met."
+  rules := [
+    signedRule "two" [sAlice, sAlice, sBob] 2,
+    signedRule "three" [sAlice, sAlice, sBob] 3,
+    signedRule "one" [sAlice, sAlice] 1]
+  batch := [call "two" "transfer" [], call "three" "transfer" [], call "one" "transfer" []]
+  authenticated := [sAlice, sBob, sAlice]
+
+def authenticatedRepeats : Case where
+  name := "signers-repeated-in-authenticated"
+  description := "A signer authenticated twice counts once."
+  rules := [signedRule "two" [sAlice, sBob] 2, signedRule "one" [sAlice, sBob] 1]
+  batch := [call "two" "transfer" [], call "one" "transfer" []]
+  authenticated := [sAlice, sAlice]
+
+/-- A delegated signer and external signers whose bytes equal its address,
+split between verifier and key in every way. -/
+def equalBytesRules : RuleSet := [
+  signedRule "delegated" [.delegated (s "ab")] 1,
+  signedRule "external" [.external (s "ab") []] 1,
+  signedRule "split" [.external (s "a") (s "b")] 1,
+  signedRule "key" [.external [] (s "ab")] 1]
+
+def equalBytesBatch : List Context :=
+  ["delegated", "external", "split", "key"].map fun c => call c "transfer" []
+
+def delegatedVersusExternal : Case where
+  name := "signers-delegated-versus-external"
+  description := "Signers compare constructor first: an authenticated delegated signer satisfies only the delegated rule, though the external rules' signers hold the same bytes."
+  rules := equalBytesRules
+  batch := equalBytesBatch
+  authenticated := [.delegated (s "ab")]
+
+def externalVersusDelegated : Case where
+  name := "signers-external-versus-delegated"
+  description := "An external signer equals only an external signer with the same verifier and the same key."
+  rules := equalBytesRules
+  batch := equalBytesBatch
+  authenticated := [.external (s "ab") []]
+
+def missingSigners : Case where
+  name := "signers-missing"
+  description := "Signers outside the rule, and signers whose bytes are a prefix or an extension of a rule signer's, do not count; a rule with no signers and threshold 1 allows nothing."
+  rules := [
+    signedRule "alice" [sAlice] 1,
+    signedRule "key" [sKey] 1,
+    signedRule "nobody" [] 1,
+    signedRule "free" [] 0]
+  batch := [call "alice" "transfer" [], call "key" "transfer" [], call "nobody" "transfer" [],
+    call "free" "transfer" []]
+  authenticated := [sBob, .delegated (s "alic"), .delegated (s "alice2"),
+    .external (s "verifier") (s "key2")]
+
+def signersBatch (name what : String) (auth : List Signer) : Case where
+  name := s!"signers-batch-{name}"
+  description := s!"One authenticated list covers the whole batch: a batch needing alice for token and bob for the vault, with {what}."
+  rules := [signedRule token [sAlice] 1, { signedRule "vault" [sBob] 1 with functions := [s "deposit"] }]
+  batch := [call token "transfer" [alice, bob, .i128 5], call "vault" "deposit" []]
+  authenticated := auth
+
+def batchOneMissing : Case := signersBatch "one-missing" "only alice authenticated" [sAlice]
+def batchAllPresent : Case := signersBatch "all-present" "both authenticated" [sBob, sAlice]
+
+/-- A two-of-three rule, a rule without signers, and a batch that tells them
+apart, for the signer attenuation cases. -/
+def signedRules : RuleSet := [
+  signedRule token [sAlice, sBob, sKey, sAlice] 2,
+  rule "pool" ["deposit"] []]
+
+def signedBatch : List Context := [call token "transfer" [], call "pool" "deposit" []]
+
+def removeSigners : Case where
+  name := "attenuate-remove-signers"
+  description := "removeSigners removes every occurrence of each listed signer, keeps the threshold and the order, matches signers exactly, can empty the list, and is refused at the length, 2^31 and 2^32 - 1."
+  rules := signedRules
+  batch := signedBatch
+  authenticated := [sAlice, sKey]
+  attenuations := [
+    [.removeSigners 0 [sAlice]],
+    [.removeSigners 0 [sBob]],
+    [.removeSigners 0 []],
+    [.removeSigners 0 [.external (s "alice") [], .delegated (s "verifier"), .delegated (s "alic")]],
+    [.removeSigners 0 [sAlice, sBob, sKey]],
+    [.removeSigners 1 [sAlice]],
+    [.removeSigners 2 [sAlice]],
+    [.removeSigners u32Half [sAlice]],
+    [.removeSigners u32Max [sAlice]]]
+
+def raiseThreshold : Case where
+  name := "attenuate-raise-threshold"
+  description := "raiseThreshold to the same threshold, a higher one, the number of distinct signers, above it and 2^32 - 1; lowering is refused with threshold_lowered; an index out of range is refused with no_such_rule whatever the threshold."
+  rules := signedRules
+  batch := signedBatch
+  authenticated := [sAlice, sKey]
+  attenuations := [
+    [.raiseThreshold 0 2],
+    [.raiseThreshold 0 3],
+    [.raiseThreshold 0 4],
+    [.raiseThreshold 0 u32Max],
+    [.raiseThreshold 0 1],
+    [.raiseThreshold 0 0],
+    [.raiseThreshold 1 0],
+    [.raiseThreshold 1 1],
+    [.raiseThreshold 2 5],
+    [.raiseThreshold 2 0],
+    [.raiseThreshold u32Max 0]]
+
+def signerChains : Case where
+  name := "attenuate-signer-chains"
+  description := "Lists of all five step kinds: a threshold raised then a signer removed, a refusal for lowering part-way through, and a threshold raised past the remaining signers."
+  rules := signedRules
+  batch := signedBatch
+  authenticated := [sAlice, sBob, sKey]
+  attenuations := [
+    [.raiseThreshold 0 3, .removeSigners 0 [sKey]],
+    [.removeSigners 0 [sBob], .raiseThreshold 0 2, .addCond 1 (.argEq 0 alice)],
+    [.raiseThreshold 0 3, .raiseThreshold 0 2, .dropRule 0],
+    [.dropRule 0, .raiseThreshold 0 1, .removeFunctions 0 [s "deposit"]],
+    [.removeSigners 0 [sAlice, sKey], .raiseThreshold 0 2]]
+
 def all : List Case := [
   argEqI128, argEqU64, argEqBool, argEqBytes, argEqAddress, argEqSymbol, argEqOther,
   argEqEmptyPayload, argEqRawBytes, argI128AtMost, argI128AtMostExtremes, missingArguments,
@@ -434,6 +591,9 @@ def all : List Case := [
   creations, creationEmptyRuleSet, batchWithCreation,
   multiRuleOneMatches, conditionsBelongToTheirRule, overlappingRules, batchMixed,
   batchAllAllowed, emptyBatch, emptyBatchEmptyRuleSet, emptyRuleSet,
-  dropRule, emptyRuleSetSteps, addCond, removeFunctions, chains]
+  dropRule, emptyRuleSetSteps, addCond, removeFunctions, chains,
+  thresholdNone, thresholdOne, thresholdTwo, thresholdAll, ruleSignerRepeats, authenticatedRepeats,
+  delegatedVersusExternal, externalVersusDelegated, missingSigners, batchOneMissing,
+  batchAllPresent, removeSigners, raiseThreshold, signerChains]
 
 end Conformance.Cases

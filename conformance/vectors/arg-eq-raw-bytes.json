@@ -1,12 +1,14 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "arg-eq-raw-bytes",
   "description": "Payloads are raw bytes, not text: a zero byte, a high byte, and their prefixes and extensions.",
   "rules": [
     {
       "contract": "746f6b656e",
       "functions": ["7472616e73666572"],
-      "conds": [{"arg_eq": {"index": 0, "value": {"other": "00ff"}}}]
+      "conds": [{"arg_eq": {"index": 0, "value": {"other": "00ff"}}}],
+      "signers": [],
+      "threshold": 0
     }
   ],
   "batch": [
@@ -40,6 +42,7 @@
       }
     }
   ],
+  "authenticated": [],
   "expected": {"allows": [true, false, false, false, false], "allows_all": false},
   "attenuations": []
 }

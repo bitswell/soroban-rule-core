@@ -1,12 +1,14 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "arg-eq-other",
   "description": "argEq on an other value's XDR: the same bytes, a prefix, an extension, another case, and the same bytes under every other byte-string constructor.",
   "rules": [
     {
       "contract": "746f6b656e",
       "functions": ["7472616e73666572"],
-      "conds": [{"arg_eq": {"index": 0, "value": {"other": "6162"}}}]
+      "conds": [{"arg_eq": {"index": 0, "value": {"other": "6162"}}}],
+      "signers": [],
+      "threshold": 0
     }
   ],
   "batch": [
@@ -62,6 +64,7 @@
       }
     }
   ],
+  "authenticated": [],
   "expected": {
     "allows": [true, false, false, false, false, false, false, false, true],
     "allows_all": false

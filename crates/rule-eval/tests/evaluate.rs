@@ -126,26 +126,36 @@ fn out_of_range_condition_indices_are_false() {
 #[test]
 fn a_rule_matches_its_contract_and_functions_exactly() {
     let r = rule("token", &["transfer", "approve"], Vec::new());
-    assert!(rule_allows(&r, &call("token", "transfer", Vec::new())));
+    assert!(rule_allows(&r, &call("token", "transfer", Vec::new()), &[]));
     assert!(rule_allows(
         &r,
-        &call("token", "approve", vec![Val::Bool(true)])
+        &call("token", "approve", vec![Val::Bool(true)]),
+        &[]
     ));
-    assert!(!rule_allows(&r, &call("token", "burn", Vec::new())));
-    assert!(!rule_allows(&r, &call("tokens", "transfer", Vec::new())));
-    assert!(!rule_allows(&r, &call("toke", "transfer", Vec::new())));
-    assert!(!rule_allows(&r, &call("token", "transfe", Vec::new())));
+    assert!(!rule_allows(&r, &call("token", "burn", Vec::new()), &[]));
     assert!(!rule_allows(
         &r,
-        &call("token", "transfer_from", Vec::new())
+        &call("tokens", "transfer", Vec::new()),
+        &[]
+    ));
+    assert!(!rule_allows(&r, &call("toke", "transfer", Vec::new()), &[]));
+    assert!(!rule_allows(&r, &call("token", "transfe", Vec::new()), &[]));
+    assert!(!rule_allows(
+        &r,
+        &call("token", "transfer_from", Vec::new()),
+        &[]
     ));
 }
 
 #[test]
 fn a_rule_without_functions_allows_nothing() {
     let r = rule("token", &[], Vec::new());
-    assert!(!rule_allows(&r, &call("token", "transfer", Vec::new())));
-    assert!(!rule_allows(&r, &call("token", "", Vec::new())));
+    assert!(!rule_allows(
+        &r,
+        &call("token", "transfer", Vec::new()),
+        &[]
+    ));
+    assert!(!rule_allows(&r, &call("token", "", Vec::new()), &[]));
 }
 
 #[test]
@@ -167,15 +177,18 @@ fn a_rule_needs_every_condition() {
     };
     assert!(rule_allows(
         &r,
-        &call("token", "transfer", args("alice", 100))
+        &call("token", "transfer", args("alice", 100)),
+        &[]
     ));
     assert!(!rule_allows(
         &r,
-        &call("token", "transfer", args("alice", 101))
+        &call("token", "transfer", args("alice", 101)),
+        &[]
     ));
     assert!(!rule_allows(
         &r,
-        &call("token", "transfer", args("carol", 1))
+        &call("token", "transfer", args("carol", 1)),
+        &[]
     ));
 }
 
@@ -188,14 +201,14 @@ fn no_rule_allows_a_creation() {
     for hash in ["", "c1", "f"] {
         let c = create(hash);
         for r in &rs {
-            assert!(!rule_allows(r, &c));
+            assert!(!rule_allows(r, &c, &[]));
         }
-        assert!(!allows(&rs, &c));
+        assert!(!allows(&rs, &c, &[]));
     }
     for specs in rule_sets() {
         let rs = build(&specs);
-        assert!(!allows(&rs, &create("c1")));
-        assert!(!allows(&rs, &create("")));
+        assert!(!allows(&rs, &create("c1"), &[]));
+        assert!(!allows(&rs, &create(""), &[]));
     }
 }
 
@@ -228,13 +241,13 @@ fn a_cap_reads_only_the_call_its_rule_matches() {
         )
     };
 
-    assert!(allows(&rs, &big_deposit()));
-    assert!(allows_all(&rs, &[small_transfer(), big_deposit()]));
-    assert!(!allows(&rs, &big_transfer));
-    assert!(!allows_all(&rs, &[big_transfer, big_deposit()]));
+    assert!(allows(&rs, &big_deposit(), &[]));
+    assert!(allows_all(&rs, &[small_transfer(), big_deposit()], &[]));
+    assert!(!allows(&rs, &big_transfer, &[]));
+    assert!(!allows_all(&rs, &[big_transfer, big_deposit()], &[]));
     // The cap's rule does not match the vault call, so the vault call is
     // allowed by its own rule only.
-    assert!(!rule_allows(&rs[0], &big_deposit()));
+    assert!(!rule_allows(&rs[0], &big_deposit(), &[]));
 }
 
 #[test]
@@ -243,17 +256,17 @@ fn a_rule_set_allows_when_some_rule_does() {
         rule("c1", &["f"], vec![Cond::ArgEq(0, Val::Bool(true))]),
         rule("c1", &["f"], vec![Cond::ArgEq(0, Val::Bool(false))]),
     ];
-    assert!(allows(&rs, &call("c1", "f", vec![Val::Bool(true)])));
-    assert!(allows(&rs, &call("c1", "f", vec![Val::Bool(false)])));
-    assert!(!allows(&rs, &call("c1", "f", vec![Val::U64(0)])));
-    assert!(!allows(&[], &call("c1", "f", Vec::new())));
+    assert!(allows(&rs, &call("c1", "f", vec![Val::Bool(true)]), &[]));
+    assert!(allows(&rs, &call("c1", "f", vec![Val::Bool(false)]), &[]));
+    assert!(!allows(&rs, &call("c1", "f", vec![Val::U64(0)]), &[]));
+    assert!(!allows(&[], &call("c1", "f", Vec::new()), &[]));
 }
 
 #[test]
 fn allows_all_on_empty_batches_and_empty_rule_sets() {
-    assert!(allows_all(&[], &[]));
-    assert!(allows_all(&[rule("c1", &["f"], Vec::new())], &[]));
-    assert!(!allows_all(&[], &[call("c1", "f", Vec::new())]));
+    assert!(allows_all(&[], &[], &[]));
+    assert!(allows_all(&[rule("c1", &["f"], Vec::new())], &[], &[]));
+    assert!(!allows_all(&[], &[call("c1", "f", Vec::new())], &[]));
 }
 
 #[test]
@@ -262,7 +275,7 @@ fn allows_agrees_with_the_reference_reading() {
     for specs in rule_sets() {
         let rs = build(&specs);
         for c in &contexts {
-            assert_eq!(allows(&rs, c), ref_allows(&rs, c), "{specs:?}");
+            assert_eq!(allows(&rs, c, &[]), ref_allows(&rs, c, &[]), "{specs:?}");
         }
     }
 }
@@ -284,10 +297,10 @@ fn allows_all_is_the_conjunction_of_allows() {
     for specs in rule_sets() {
         let rs = build(&specs);
         for batch in &batches {
-            let each = batch.iter().all(|c| allows(&rs, c));
-            assert_eq!(allows_all(&rs, batch), each, "{specs:?}");
+            let each = batch.iter().all(|c| allows(&rs, c, &[]));
+            assert_eq!(allows_all(&rs, batch, &[]), each, "{specs:?}");
         }
-        let each = whole.iter().all(|c| allows(&rs, c));
-        assert_eq!(allows_all(&rs, &whole), each, "{specs:?}");
+        let each = whole.iter().all(|c| allows(&rs, c, &[]));
+        assert_eq!(allows_all(&rs, &whole, &[]), each, "{specs:?}");
     }
 }

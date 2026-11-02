@@ -18,7 +18,10 @@ binary or the WebAssembly against the Lean translation.
 
 `overflow-checks = true` in the `release` and `contract` profiles makes
 overflowing arithmetic trap, as Aeneas's model of it fails. The evaluator's
-only arithmetic is the loop counter's `i += 1`, under `i < s.len()`.
+only arithmetic is the loop counter's `i += 1`, under `i < s.len()`, and the
+signer count's `count += 1`, which runs at most once per position of its loop,
+so `count` stays at most `i`. The equivalence theorems prove that neither
+overflows.
 
 ## Charon
 
@@ -73,15 +76,15 @@ each is trusted to match the Rust item.
 | `Deref` of `Vec<T>` to `&[T]` | `alloc.vec.Vec.deref` | The same list. |
 | `<[T]>::len` | `Slice.len` | The list's length. |
 | `s[i]` on a slice (`Index<usize>`) | `Slice.index_usize` | Element `i`, or `fail` when `i` is out of range. |
-| `<[T]>::get(i)` | `core.slice.Slice.get` with `core.slice.index.SliceIndexUsizeSlice` | `some` element `i`, or `none` when `i` is out of range. |
-| `u32 as usize` | `UScalar.cast` | The same value. Lossless because `usize` has at least 32 bits. |
-| `i += 1` on `usize` | `+` on `Usize` | Checked addition: `fail` on overflow. |
-| `<`, `>=`, `==`, `!=` on `usize` | the order and equality of `Usize` | On the values. |
+| `<[T]>::get(i)` | `core.slice.Slice.get` with `core.slice.index.SliceIndexUsizeSlice` | `some` element `i`, or `none` when `i` is out of range. Called on a rule's arguments and, in `raise_threshold`, on the rules. |
+| `u32 as usize` | `UScalar.cast` | The same value. Lossless because `usize` has at least 32 bits. Widens indices and, in `signers_met`, the threshold. |
+| `i += 1` and `count += 1` on `usize` | `+` on `Usize` | Checked addition: `fail` on overflow. |
+| `<`, `<=`, `>=`, `==`, `!=` on `usize` | the order and equality of `Usize` | On the values. |
 | `!=` on `u8` | equality of `U8` | On the values. |
 | `==` on `u64` | equality of `U64` | On the values. |
 | `==` and `<=` on `i128` | equality and order of `I128` | On the values, as signed integers. |
 | `usize::BITS` | `core.num.Usize.BITS` | `System.Platform.numBits`, as a `U32`. |
-| `>=` on `u32` | the order of `U32` | On the values. |
+| `<` and `>=` on `u32` | the order of `U32` | On the values. |
 | `const _: () = assert!(usize::BITS >= 32)` | `massert` | `ok ()` when the condition holds, `fail` otherwise. |
 
 `==` on `bool` translates to Lean's own `Bool` equality, which needs no
@@ -105,9 +108,9 @@ structural:
 
 - a byte string is the same bytes;
 - an integer is its bit vector;
-- each enum constructor maps to the constructor of the same name;
-- each struct field maps to the field of the same name;
-- a slice or vector maps to the list of its elements' denotations.
+- each enum constructor maps to the constructor of the same name, so `Signer::Delegated` is `Signer.delegated` and `Signer::External` is `Signer.external`;
+- each struct field maps to the field of the same name, so a rule's `threshold` is the same `u32`;
+- a slice or vector maps to the list of its elements' denotations, so the authenticated signers are the list of their denotations.
 
 Each one is proven injective, so two Rust values that differ never have the
 same meaning.

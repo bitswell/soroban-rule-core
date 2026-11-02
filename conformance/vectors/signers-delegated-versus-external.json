@@ -1,0 +1,44 @@
+{
+  "format": 2,
+  "name": "signers-delegated-versus-external",
+  "description": "Signers compare constructor first: an authenticated delegated signer satisfies only the delegated rule, though the external rules' signers hold the same bytes.",
+  "rules": [
+    {
+      "contract": "64656c656761746564",
+      "functions": ["7472616e73666572"],
+      "conds": [],
+      "signers": [{"delegated": {"address": "6162"}}],
+      "threshold": 1
+    },
+    {
+      "contract": "65787465726e616c",
+      "functions": ["7472616e73666572"],
+      "conds": [],
+      "signers": [{"external": {"verifier": "6162", "key": ""}}],
+      "threshold": 1
+    },
+    {
+      "contract": "73706c6974",
+      "functions": ["7472616e73666572"],
+      "conds": [],
+      "signers": [{"external": {"verifier": "61", "key": "62"}}],
+      "threshold": 1
+    },
+    {
+      "contract": "6b6579",
+      "functions": ["7472616e73666572"],
+      "conds": [],
+      "signers": [{"external": {"verifier": "", "key": "6162"}}],
+      "threshold": 1
+    }
+  ],
+  "batch": [
+    {"call": {"contract": "64656c656761746564", "function": "7472616e73666572", "args": []}},
+    {"call": {"contract": "65787465726e616c", "function": "7472616e73666572", "args": []}},
+    {"call": {"contract": "73706c6974", "function": "7472616e73666572", "args": []}},
+    {"call": {"contract": "6b6579", "function": "7472616e73666572", "args": []}}
+  ],
+  "authenticated": [{"delegated": {"address": "6162"}}],
+  "expected": {"allows": [true, false, false, false], "allows_all": false},
+  "attenuations": []
+}
