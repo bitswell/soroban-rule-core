@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "name": "attenuate-raise-threshold",
   "description": "raiseThreshold to the same threshold, a higher one, the number of distinct signers, above it and 2^32 - 1; lowering is refused with threshold_lowered; an index out of range is refused with no_such_rule whatever the threshold.",
   "rules": [
@@ -13,14 +13,16 @@
         {"external": {"verifier": "7665726966696572", "key": "6b6579"}},
         {"delegated": {"address": "616c696365"}}
       ],
-      "threshold": 2
+      "threshold": 2,
+      "cap": null
     },
     {
       "contract": "706f6f6c",
       "functions": ["6465706f736974"],
       "conds": [],
       "signers": [],
-      "threshold": 0
+      "threshold": 0,
+      "cap": null
     }
   ],
   "batch": [
@@ -48,14 +50,16 @@
                 {"external": {"verifier": "7665726966696572", "key": "6b6579"}},
                 {"delegated": {"address": "616c696365"}}
               ],
-              "threshold": 2
+              "threshold": 2,
+              "cap": null
             },
             {
               "contract": "706f6f6c",
               "functions": ["6465706f736974"],
               "conds": [],
               "signers": [],
-              "threshold": 0
+              "threshold": 0,
+              "cap": null
             }
           ],
           "allows": [true, true],
@@ -78,14 +82,16 @@
                 {"external": {"verifier": "7665726966696572", "key": "6b6579"}},
                 {"delegated": {"address": "616c696365"}}
               ],
-              "threshold": 3
+              "threshold": 3,
+              "cap": null
             },
             {
               "contract": "706f6f6c",
               "functions": ["6465706f736974"],
               "conds": [],
               "signers": [],
-              "threshold": 0
+              "threshold": 0,
+              "cap": null
             }
           ],
           "allows": [false, true],
@@ -108,14 +114,16 @@
                 {"external": {"verifier": "7665726966696572", "key": "6b6579"}},
                 {"delegated": {"address": "616c696365"}}
               ],
-              "threshold": 4
+              "threshold": 4,
+              "cap": null
             },
             {
               "contract": "706f6f6c",
               "functions": ["6465706f736974"],
               "conds": [],
               "signers": [],
-              "threshold": 0
+              "threshold": 0,
+              "cap": null
             }
           ],
           "allows": [false, true],
@@ -138,14 +146,16 @@
                 {"external": {"verifier": "7665726966696572", "key": "6b6579"}},
                 {"delegated": {"address": "616c696365"}}
               ],
-              "threshold": 4294967295
+              "threshold": 4294967295,
+              "cap": null
             },
             {
               "contract": "706f6f6c",
               "functions": ["6465706f736974"],
               "conds": [],
               "signers": [],
-              "threshold": 0
+              "threshold": 0,
+              "cap": null
             }
           ],
           "allows": [false, true],
@@ -176,14 +186,16 @@
                 {"external": {"verifier": "7665726966696572", "key": "6b6579"}},
                 {"delegated": {"address": "616c696365"}}
               ],
-              "threshold": 2
+              "threshold": 2,
+              "cap": null
             },
             {
               "contract": "706f6f6c",
               "functions": ["6465706f736974"],
               "conds": [],
               "signers": [],
-              "threshold": 0
+              "threshold": 0,
+              "cap": null
             }
           ],
           "allows": [true, true],
@@ -206,14 +218,16 @@
                 {"external": {"verifier": "7665726966696572", "key": "6b6579"}},
                 {"delegated": {"address": "616c696365"}}
               ],
-              "threshold": 2
+              "threshold": 2,
+              "cap": null
             },
             {
               "contract": "706f6f6c",
               "functions": ["6465706f736974"],
               "conds": [],
               "signers": [],
-              "threshold": 1
+              "threshold": 1,
+              "cap": null
             }
           ],
           "allows": [true, false],

@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "name": "random-081",
   "description": "Randomized case 81 of seed 20261102.",
   "rules": [
@@ -11,110 +11,47 @@
         {"arg_eq": {"index": 3, "value": {"symbol": "62"}}}
       ],
       "signers": [{"delegated": {"address": "6162"}}, {"external": {"verifier": "61", "key": ""}}],
-      "threshold": 0
+      "threshold": 0,
+      "cap": null
     },
     {
       "contract": "633130",
-      "functions": ["666f"],
-      "conds": [
-        {"arg_eq": {"index": 0, "value": {"symbol": "616263"}}},
-        {"arg_eq": {"index": 1, "value": {"bool": false}}}
-      ],
+      "functions": ["", "67"],
+      "conds": [],
       "signers": [],
-      "threshold": 1
+      "threshold": 1,
+      "cap": {"limit": "0", "period": 0, "amount_arg": 2}
     }
   ],
   "batch": [
+    {"call": {"contract": "", "function": "66", "args": []}},
     {
       "call": {
         "contract": "633130",
         "function": "",
         "args": [
-          {"i128": "-170141183460469231731687303715884105728"},
-          {"address": "00ff"},
-          {"bytes": "00ff"},
+          {"i128": "-170141183460469231731687303715884105727"},
+          {"u64": "0"},
+          {"symbol": ""},
           {"symbol": "62"}
         ]
       }
     }
   ],
-  "authenticated": [{"delegated": {"address": "6162"}}, {"external": {"verifier": "61", "key": ""}}],
-  "expected": {"allows": [true], "allows_all": true},
+  "authenticated": [{"delegated": {"address": "62"}}, {"external": {"verifier": "76", "key": "6b"}}],
+  "expected": {"allows": [false, true], "allows_all": false},
   "attenuations": [
     {
-      "steps": [
-        {"raise_threshold": {"index": 0, "threshold": 1}},
-        {"remove_functions": {"index": 1, "functions": []}}
-      ],
-      "expected": {
-        "ok": {
-          "rules": [
-            {
-              "contract": "633130",
-              "functions": ["67", ""],
-              "conds": [
-                {"arg_i128_at_most": {"index": 0, "bound": "100"}},
-                {"arg_eq": {"index": 3, "value": {"symbol": "62"}}}
-              ],
-              "signers": [
-                {"delegated": {"address": "6162"}},
-                {"external": {"verifier": "61", "key": ""}}
-              ],
-              "threshold": 1
-            },
-            {
-              "contract": "633130",
-              "functions": ["666f"],
-              "conds": [
-                {"arg_eq": {"index": 0, "value": {"symbol": "616263"}}},
-                {"arg_eq": {"index": 1, "value": {"bool": false}}}
-              ],
-              "signers": [],
-              "threshold": 1
-            }
-          ],
-          "allows": [true],
-          "allows_all": true
-        }
-      }
+      "steps": [{"raise_threshold": {"index": 2, "threshold": 0}}, {"drop_rule": {"index": 0}}],
+      "expected": {"error": "no_such_rule"}
     },
     {
-      "steps": [
-        {"add_cond": {"index": 0, "cond": {"arg_eq": {"index": 2, "value": {"bytes": "6162"}}}}}
-      ],
-      "expected": {
-        "ok": {
-          "rules": [
-            {
-              "contract": "633130",
-              "functions": ["67", ""],
-              "conds": [
-                {"arg_i128_at_most": {"index": 0, "bound": "100"}},
-                {"arg_eq": {"index": 3, "value": {"symbol": "62"}}},
-                {"arg_eq": {"index": 2, "value": {"bytes": "6162"}}}
-              ],
-              "signers": [
-                {"delegated": {"address": "6162"}},
-                {"external": {"verifier": "61", "key": ""}}
-              ],
-              "threshold": 0
-            },
-            {
-              "contract": "633130",
-              "functions": ["666f"],
-              "conds": [
-                {"arg_eq": {"index": 0, "value": {"symbol": "616263"}}},
-                {"arg_eq": {"index": 1, "value": {"bool": false}}}
-              ],
-              "signers": [],
-              "threshold": 1
-            }
-          ],
-          "allows": [false],
-          "allows_all": false
-        }
-      }
+      "steps": [{"lengthen_cap_period": {"index": 2, "period": 9}}],
+      "expected": {"error": "no_such_rule"}
     },
-    {"steps": [{"drop_rule": {"index": 2}}], "expected": {"error": "no_such_rule"}}
+    {
+      "steps": [{"add_cap": {"index": 0, "cap": {"limit": "1", "period": 0, "amount_arg": 2}}}],
+      "expected": {"error": "invalid_cap"}
+    }
   ]
 }

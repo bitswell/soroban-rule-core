@@ -6,9 +6,13 @@ import RuleCore.Theorems.RuleSet
 
 * `RuleSet.dropRule_narrower`, `RuleSet.addCond_narrower`,
   `RuleSet.restrictScope_narrower`, `RuleSet.removeSigners_narrower`,
-  `RuleSet.raiseThreshold_narrower`: each attenuation step yields a rule set
-  narrower than the one it started from, under every list of authenticated
-  signers.
+  `RuleSet.raiseThreshold_narrower`, `RuleSet.addCap_narrower`,
+  `RuleSet.lowerCapLimit_narrower`, `RuleSet.lengthenCapPeriod_narrower`: each
+  attenuation step yields a rule set narrower than the one it started from,
+  under every list of authenticated signers. The three cap steps change only a
+  rule's cap, which `allows` does not read (`RuleSet.set_cap_narrower`); what
+  they narrow is the runs of authorizations a rule set accepts
+  (`RuleCore.Theorems.Authorize`).
 * `RuleSet.attenuate_narrower`: so does any single step.
 * `RuleSet.Derives.narrower`: every rule set reachable from a root by
   attenuation steps is narrower than the root.
@@ -21,6 +25,14 @@ import RuleCore.Theorems.RuleSet
 * `RuleSet.raiseThreshold_eq_thresholdLowered_iff`: `raiseThreshold` is
   refused with `thresholdLowered` exactly when the rule exists and the new
   threshold is below its current one.
+* `RuleSet.addCap_eq_noSuchRule_iff`, `RuleSet.lowerCapLimit_eq_noSuchRule_iff`,
+  `RuleSet.lengthenCapPeriod_eq_noSuchRule_iff`: likewise for the cap steps;
+  `RuleSet.addCap_eq_capPresent_iff`, `RuleSet.addCap_eq_invalidCap_iff`,
+  `RuleSet.lowerCapLimit_eq_noCap_iff`, `RuleSet.lowerCapLimit_eq_limitRaised_iff`,
+  `RuleSet.lowerCapLimit_eq_invalidCap_iff`,
+  `RuleSet.lengthenCapPeriod_eq_noCap_iff`,
+  `RuleSet.lengthenCapPeriod_eq_periodShortened_iff`: each of their other
+  refusals happens exactly in the case it names.
 -/
 
 namespace RuleCore
@@ -121,6 +133,59 @@ theorem RuleSet.raiseThreshold_narrower {rs rs' : RuleSet Ctx Sig} {i k : Nat}
           Rule.allows_of_allows_threshold_le (Nat.le_of_not_lt hk) hc⟩
   · cases h
 
+/-- Changing only rule `i`'s cap leaves every verdict as it was: `allows` does
+not read the cap. -/
+theorem RuleSet.set_cap_narrower {rs : RuleSet Ctx Sig} {i : Nat} {r : Rule Ctx Sig}
+    (hr : rs.rules[i]? = some r) (k : Option (RuleCap Ctx)) :
+    (RuleSet.ofRules (rs.rules.set i { r with cap := k }) : RuleSet Ctx Sig).narrower rs := by
+  intro c auth hc
+  rw [RuleSet.allows_iff] at hc ⊢
+  obtain ⟨r', hr', hc⟩ := hc
+  rcases List.mem_or_eq_of_mem_set hr' with hmem | rfl
+  · exact ⟨r', hmem, hc⟩
+  · exact ⟨r, List.mem_of_getElem? hr, hc⟩
+
+theorem RuleSet.addCap_narrower {rs rs' : RuleSet Ctx Sig} {i : Nat} {k : RuleCap Ctx}
+    (h : rs.addCap i k = .ok rs') : rs'.narrower rs := by
+  unfold RuleSet.addCap at h
+  split at h
+  · rename_i r hr
+    split at h
+    · cases h
+    · split at h
+      · cases h
+        exact RuleSet.set_cap_narrower hr _
+      · cases h
+  · cases h
+
+theorem RuleSet.lowerCapLimit_narrower {rs rs' : RuleSet Ctx Sig} {i : Nat} {limit : Int}
+    (h : rs.lowerCapLimit i limit = .ok rs') : rs'.narrower rs := by
+  unfold RuleSet.lowerCapLimit at h
+  split at h
+  · rename_i r hr
+    split at h
+    · split at h
+      · cases h
+      · split at h
+        · cases h
+        · cases h
+          exact RuleSet.set_cap_narrower hr _
+    · cases h
+  · cases h
+
+theorem RuleSet.lengthenCapPeriod_narrower {rs rs' : RuleSet Ctx Sig} {i period : Nat}
+    (h : rs.lengthenCapPeriod i period = .ok rs') : rs'.narrower rs := by
+  unfold RuleSet.lengthenCapPeriod at h
+  split at h
+  · rename_i r hr
+    split at h
+    · split at h
+      · cases h
+      · cases h
+        exact RuleSet.set_cap_narrower hr _
+    · cases h
+  · cases h
+
 theorem RuleSet.attenuate_narrower {rs rs' : RuleSet Ctx Sig} {a : Attenuation Ctx Sig}
     (h : rs.attenuate a = .ok rs') : rs'.narrower rs := by
   cases a with
@@ -129,6 +194,9 @@ theorem RuleSet.attenuate_narrower {rs rs' : RuleSet Ctx Sig} {a : Attenuation C
   | restrictScope i s => exact RuleSet.restrictScope_narrower h
   | removeSigners i ss => exact RuleSet.removeSigners_narrower h
   | raiseThreshold i k => exact RuleSet.raiseThreshold_narrower h
+  | addCap i k => exact RuleSet.addCap_narrower h
+  | lowerCapLimit i limit => exact RuleSet.lowerCapLimit_narrower h
+  | lengthenCapPeriod i period => exact RuleSet.lengthenCapPeriod_narrower h
 
 /-! ## Chains of steps -/
 
@@ -226,6 +294,151 @@ theorem RuleSet.raiseThreshold_eq_thresholdLowered_iff (rs : RuleSet Ctx Sig) (i
   · split <;> rename_i hk
     · simp [h, hk]
     · simp [h, hk]
+  · simp [h]
+
+omit [DecidableEq Sig] in
+theorem RuleSet.addCap_eq_noSuchRule_iff (rs : RuleSet Ctx Sig) (i : Nat) (k : RuleCap Ctx) :
+    rs.addCap i k = .error .noSuchRule ↔ rs.rules.length ≤ i := by
+  unfold RuleSet.addCap
+  split <;> rename_i h
+  · have hi := (List.getElem?_eq_some_iff.mp h).1
+    constructor
+    · intro he
+      split at he
+      · cases he
+      · split at he <;> cases he
+    · intro hle
+      exact absurd hi (Nat.not_lt.mpr hle)
+  · simp only [true_iff]
+    exact List.getElem?_eq_none_iff.mp h
+
+omit [DecidableEq Sig] in
+theorem RuleSet.addCap_eq_capPresent_iff (rs : RuleSet Ctx Sig) (i : Nat) (k : RuleCap Ctx) :
+    rs.addCap i k = .error .capPresent ↔ ∃ r k', rs.rules[i]? = some r ∧ r.cap = some k' := by
+  unfold RuleSet.addCap
+  split <;> rename_i h
+  · split <;> rename_i hc
+    · simp [h, hc]
+    · split <;> simp [h, hc]
+  · simp [h]
+
+omit [DecidableEq Sig] in
+theorem RuleSet.addCap_eq_invalidCap_iff (rs : RuleSet Ctx Sig) (i : Nat) (k : RuleCap Ctx) :
+    rs.addCap i k = .error .invalidCap ↔
+      ∃ r, rs.rules[i]? = some r ∧ r.cap = none ∧ k.params.valid = false := by
+  unfold RuleSet.addCap
+  split <;> rename_i h
+  · split <;> rename_i hc
+    · simp [h, hc]
+    · split <;> rename_i hv <;> simp [h, hc, hv]
+  · simp [h]
+
+omit [DecidableEq Sig] in
+theorem RuleSet.lowerCapLimit_eq_noSuchRule_iff (rs : RuleSet Ctx Sig) (i : Nat) (limit : Int) :
+    rs.lowerCapLimit i limit = .error .noSuchRule ↔ rs.rules.length ≤ i := by
+  unfold RuleSet.lowerCapLimit
+  split <;> rename_i h
+  · have hi := (List.getElem?_eq_some_iff.mp h).1
+    constructor
+    · intro he
+      split at he
+      · split at he
+        · cases he
+        · split at he <;> cases he
+      · cases he
+    · intro hle
+      exact absurd hi (Nat.not_lt.mpr hle)
+  · simp only [true_iff]
+    exact List.getElem?_eq_none_iff.mp h
+
+omit [DecidableEq Sig] in
+theorem RuleSet.lowerCapLimit_eq_noCap_iff (rs : RuleSet Ctx Sig) (i : Nat) (limit : Int) :
+    rs.lowerCapLimit i limit = .error .noCap ↔ ∃ r, rs.rules[i]? = some r ∧ r.cap = none := by
+  unfold RuleSet.lowerCapLimit
+  split <;> rename_i h
+  · split <;> rename_i hc
+    · split
+      · simp [h, hc]
+      · split <;> simp [h, hc]
+    · simp [h, hc]
+  · simp [h]
+
+omit [DecidableEq Sig] in
+/-- `lowerCapLimit` refuses to raise a limit, and refuses nothing else with
+`limitRaised`. -/
+theorem RuleSet.lowerCapLimit_eq_limitRaised_iff (rs : RuleSet Ctx Sig) (i : Nat) (limit : Int) :
+    rs.lowerCapLimit i limit = .error .limitRaised ↔
+      ∃ r k, rs.rules[i]? = some r ∧ r.cap = some k ∧ k.params.limit < limit := by
+  unfold RuleSet.lowerCapLimit
+  split <;> rename_i h
+  · split <;> rename_i hc
+    · split <;> rename_i hl
+      · simp [h, hc, hl]
+      · split <;> simp [h, hc, hl]
+    · simp [h, hc]
+  · simp [h]
+
+omit [DecidableEq Sig] in
+/-- `lowerCapLimit` refuses a limit that is not positive, once the rule exists,
+has a cap and the limit is not above it. -/
+theorem RuleSet.lowerCapLimit_eq_invalidCap_iff (rs : RuleSet Ctx Sig) (i : Nat) (limit : Int) :
+    rs.lowerCapLimit i limit = .error .invalidCap ↔
+      ∃ r k, rs.rules[i]? = some r ∧ r.cap = some k ∧ limit ≤ k.params.limit ∧ limit ≤ 0 := by
+  unfold RuleSet.lowerCapLimit
+  split <;> rename_i h
+  · split <;> rename_i hc
+    · split <;> rename_i hl
+      · refine ⟨nofun, ?_⟩
+        rintro ⟨r, k, hr, hk, hle, -⟩
+        rw [h] at hr
+        cases hr
+        rw [hc] at hk
+        cases hk
+        omega
+      · split <;> rename_i hz
+        · simp [h, hc, Int.not_lt.mp hl, hz]
+        · simp [h, hz]
+    · simp [h, hc]
+  · simp [h]
+
+omit [DecidableEq Sig] in
+theorem RuleSet.lengthenCapPeriod_eq_noSuchRule_iff (rs : RuleSet Ctx Sig) (i period : Nat) :
+    rs.lengthenCapPeriod i period = .error .noSuchRule ↔ rs.rules.length ≤ i := by
+  unfold RuleSet.lengthenCapPeriod
+  split <;> rename_i h
+  · have hi := (List.getElem?_eq_some_iff.mp h).1
+    constructor
+    · intro he
+      split at he
+      · split at he <;> cases he
+      · cases he
+    · intro hle
+      exact absurd hi (Nat.not_lt.mpr hle)
+  · simp only [true_iff]
+    exact List.getElem?_eq_none_iff.mp h
+
+omit [DecidableEq Sig] in
+theorem RuleSet.lengthenCapPeriod_eq_noCap_iff (rs : RuleSet Ctx Sig) (i period : Nat) :
+    rs.lengthenCapPeriod i period = .error .noCap ↔
+      ∃ r, rs.rules[i]? = some r ∧ r.cap = none := by
+  unfold RuleSet.lengthenCapPeriod
+  split <;> rename_i h
+  · split <;> rename_i hc
+    · split <;> simp [h, hc]
+    · simp [h, hc]
+  · simp [h]
+
+omit [DecidableEq Sig] in
+/-- `lengthenCapPeriod` refuses to shorten a period, and refuses nothing else
+with `periodShortened`. -/
+theorem RuleSet.lengthenCapPeriod_eq_periodShortened_iff (rs : RuleSet Ctx Sig) (i period : Nat) :
+    rs.lengthenCapPeriod i period = .error .periodShortened ↔
+      ∃ r k, rs.rules[i]? = some r ∧ r.cap = some k ∧ period < k.params.period := by
+  unfold RuleSet.lengthenCapPeriod
+  split <;> rename_i h
+  · split <;> rename_i hc
+    · split <;> rename_i hp <;> simp [h, hc, hp]
+    · simp [h, hc]
   · simp [h]
 
 end RuleCore

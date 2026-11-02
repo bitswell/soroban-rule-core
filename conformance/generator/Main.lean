@@ -3,11 +3,13 @@ import Conformance
 /-!
 # gen-vectors
 
-`gen-vectors <dir> [--seed <n>] [--count <n>] [--cap-count <n>]` writes every
-named case and `count` randomized cases of seed `seed` (by default the
-committed seed and count) into `<dir>`, one `<name>.json` per case, and every
+`gen-vectors <dir> [--seed <n>] [--count <n>] [--cap-count <n>] [--auth-count <n>]`
+writes every named case and `count` randomized cases of seed `seed` (by default
+the committed seed and count) into `<dir>`, one `<name>.json` per case, every
 named cap trace and `cap-count` randomized cap traces of the same seed into
-`<dir>/caps`, after removing the `.json` files already in each.
+`<dir>/caps`, and every named authorization trace and `auth-count` randomized
+authorization traces of the same seed into `<dir>/authorize`, after removing
+the `.json` files already in each.
 -/
 
 open Conformance
@@ -17,9 +19,10 @@ structure Options where
   seed : UInt64 := Random.defaultSeed
   count : Nat := Random.defaultCount
   capCount : Nat := Caps.defaultCount
+  authCount : Nat := Authorize.defaultCount
 
 def usage : String :=
-  "usage: gen-vectors <dir> [--seed <n>] [--count <n>] [--cap-count <n>]"
+  "usage: gen-vectors <dir> [--seed <n>] [--count <n>] [--cap-count <n>] [--auth-count <n>]"
 
 def parseFlags (o : Options) : List String → Except String Options
   | [] => .ok o
@@ -35,6 +38,10 @@ def parseFlags (o : Options) : List String → Except String Options
     match n.toNat? with
     | some v => parseFlags { o with capCount := v } rest
     | none => .error s!"--cap-count: not a number: {n}"
+  | "--auth-count" :: n :: rest =>
+    match n.toNat? with
+    | some v => parseFlags { o with authCount := v } rest
+    | none => .error s!"--auth-count: not a number: {n}"
   | flag :: _ => .error s!"unexpected argument: {flag}\n{usage}"
 
 def parseArgs : List String → Except String Options
@@ -59,8 +66,18 @@ def main (args : List String) : IO UInt32 := do
     unless t.inRange do
       IO.eprintln s!"{t.name}: a ledger, period or amount does not fit the Rust types"
       return 1
+  let auths := Authorize.traces o.seed o.authCount
+  let authNames := auths.map (·.name)
+  if authNames.eraseDups.length ≠ authNames.length then
+    IO.eprintln "two authorization traces share a name"
+    return 1
+  for t in auths do
+    unless t.inRange do
+      IO.eprintln s!"{t.name}: a ledger or amount does not fit the Rust types"
+      return 1
   let capDir := o.dir / "caps"
-  for d in [o.dir, capDir] do
+  let authDir := o.dir / "authorize"
+  for d in [o.dir, capDir, authDir] do
     IO.FS.createDirAll d
     for entry in ← d.readDir do
       if entry.path.extension == some "json" then
@@ -69,5 +86,7 @@ def main (args : List String) : IO UInt32 := do
     IO.FS.writeFile (o.dir / s!"{c.name}.json") c.toJson.render
   for t in traces do
     IO.FS.writeFile (capDir / s!"{t.name}.json") t.toJson.render
-  IO.println s!"wrote {cases.length} vectors to {o.dir} and {traces.length} cap traces to {capDir}"
+  for t in auths do
+    IO.FS.writeFile (authDir / s!"{t.name}.json") t.toJson.render
+  IO.println s!"wrote {cases.length} vectors to {o.dir}, {traces.length} cap traces to {capDir} and {auths.length} authorization traces to {authDir}"
   return 0

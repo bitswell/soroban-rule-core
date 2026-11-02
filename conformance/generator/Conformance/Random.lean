@@ -3,12 +3,12 @@ import Conformance.Cases
 /-!
 # Randomized cases
 
-A seeded generator of vector specifications. Rule sets, contexts, signers and
-attenuation steps are drawn from small universes of contract ids, function
-names, payloads, integers and signers that include each other's prefixes and
-extensions, the integer extremes, and delegated and external signers with equal
-bytes, so random contexts often hit a rule and random comparisons often meet
-the edge cases. Calls are mostly built from a rule in the set, with arguments
+A seeded generator of vector specifications. Rule sets, contexts, signers, caps
+and attenuation steps are drawn from small universes of contract ids, function
+names, payloads, integers, signers and cap parameters that include each other's
+prefixes and extensions, the integer extremes, and delegated and external
+signers with equal bytes, so random contexts often hit a rule and random
+comparisons often meet the edge cases. Calls are mostly built from a rule in the set, with arguments
 that usually satisfy that rule's conditions, and the authenticated signers
 usually include some of the rules' signers, so that the vectors mix allowed and
 refused contexts.
@@ -52,6 +52,7 @@ instance : Inhabited Val := ⟨.bool false⟩
 instance : Inhabited Cond := ⟨.argEq 0 (.bool false)⟩
 instance : Inhabited Rule :=
   ⟨{ contract := [], functions := [], conds := [], signers := [], threshold := 0 }⟩
+instance : Inhabited Cap := ⟨⟨0, 0, 0⟩⟩
 instance : Inhabited Signer := ⟨.delegated []⟩
 
 def pick {α : Type} [Inhabited α] (xs : List α) : Gen α := do
@@ -98,13 +99,23 @@ def threshold (n : Nat) : Gen UInt32 := do
   if (← below 2) = 0 then return 0
   return UInt32.ofNat (← below (n + 2))
 
+/-- Cap limits, periods and amount indices, with the invalid values and the
+extremes. -/
+def capLimits : List Int := [0, 1, 5, 10, 100, 2 ^ 127 - 1]
+def capPeriods : List UInt32 := [0, 1, 2, 3, 10, u32Max]
+def capArgs : List UInt32 := [0, 1, 2, 2, 2, 3, u32Max]
+
+def cap : Gen Cap := do
+  return ⟨BitVec.ofInt 128 (← pick capLimits), ← pick capPeriods, ← pick capArgs⟩
+
 def rule : Gen Rule := do
   let contract ← pick contracts
   let functions ← listOf (← pick [0, 1, 1, 1, 2, 2, 3, 3]) (pick functions)
   let conds ← listOf (← below 3) cond
   let ss ← listOf (← pick [0, 0, 1, 1, 2, 3]) (pick signers)
   let threshold ← threshold ss.length
-  return { contract, functions, conds, signers := ss, threshold }
+  let cap ← if (← below 3) = 0 then some <$> cap else pure none
+  return { contract, functions, conds, signers := ss, threshold, cap }
 
 def ruleSet : Gen RuleSet := do
   listOf (← pick [0, 1, 2, 2, 3, 4]) rule
@@ -164,7 +175,8 @@ def authenticated (rs : RuleSet) : Gen (List Signer) := do
 
 def step (rs : RuleSet) : Gen Attenuation := do
   let i ← ruleIndex rs
-  match ← below 5 with
+  let current := (rs[i.toNat]?.bind (·.cap))
+  match ← below 8 with
   | 0 => return .dropRule i
   | 1 => return .addCond i (← cond)
   | 2 =>
@@ -173,9 +185,16 @@ def step (rs : RuleSet) : Gen Attenuation := do
   | 3 =>
     let pool := signers ++ rs.flatMap (·.signers)
     return .removeSigners i (← listOf (← below 3) (pick pool))
-  | _ =>
+  | 4 =>
     let current := (rs[i.toNat]?.map (·.threshold.toNat)).getD 0
     return .raiseThreshold i (UInt32.ofNat (current + (← below 3) - 1))
+  | 5 => return .addCap i (← cap)
+  | 6 =>
+    let limit := (current.map (·.limit.toInt)).getD 10
+    return .lowerCapLimit i (BitVec.ofInt 128 (← pick [limit, limit - 1, limit + 1, 0, 1]))
+  | _ =>
+    let period := (current.map (·.period.toNat)).getD 10
+    return .lengthenCapPeriod i (UInt32.ofNat (← pick [period, period + 1, period - 1, 0]))
 
 /-- `n` as a decimal string of at least `w` digits. -/
 def pad (w n : Nat) : String :=

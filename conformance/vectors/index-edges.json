@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "name": "index-edges",
   "description": "Argument indices at the u32 edges: 0 on empty arguments, 2^31 and 2^32 - 1 are always missing.",
   "rules": [
@@ -8,21 +8,24 @@
       "functions": ["66"],
       "conds": [{"arg_eq": {"index": 0, "value": {"bool": true}}}],
       "signers": [],
-      "threshold": 0
+      "threshold": 0,
+      "cap": null
     },
     {
       "contract": "68616c66",
       "functions": ["66"],
       "conds": [{"arg_eq": {"index": 2147483648, "value": {"bool": true}}}],
       "signers": [],
-      "threshold": 0
+      "threshold": 0,
+      "cap": null
     },
     {
       "contract": "6d6178",
       "functions": ["66"],
       "conds": [{"arg_eq": {"index": 4294967295, "value": {"bool": true}}}],
       "signers": [],
-      "threshold": 0
+      "threshold": 0,
+      "cap": null
     },
     {
       "contract": "6d6178",
@@ -36,7 +39,8 @@
         }
       ],
       "signers": [],
-      "threshold": 0
+      "threshold": 0,
+      "cap": null
     }
   ],
   "batch": [

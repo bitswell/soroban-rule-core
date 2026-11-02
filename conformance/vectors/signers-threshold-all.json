@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "name": "signers-threshold-all",
   "description": "Thresholds 0, 1, 2, 3 (all three signers) and 4 (above the number of signers), with every signer, in another order authenticated.",
   "rules": [
@@ -12,7 +12,8 @@
         {"delegated": {"address": "626f62"}},
         {"external": {"verifier": "7665726966696572", "key": "6b6579"}}
       ],
-      "threshold": 0
+      "threshold": 0,
+      "cap": null
     },
     {
       "contract": "7431",
@@ -23,7 +24,8 @@
         {"delegated": {"address": "626f62"}},
         {"external": {"verifier": "7665726966696572", "key": "6b6579"}}
       ],
-      "threshold": 1
+      "threshold": 1,
+      "cap": null
     },
     {
       "contract": "7432",
@@ -34,7 +36,8 @@
         {"delegated": {"address": "626f62"}},
         {"external": {"verifier": "7665726966696572", "key": "6b6579"}}
       ],
-      "threshold": 2
+      "threshold": 2,
+      "cap": null
     },
     {
       "contract": "7433",
@@ -45,7 +48,8 @@
         {"delegated": {"address": "626f62"}},
         {"external": {"verifier": "7665726966696572", "key": "6b6579"}}
       ],
-      "threshold": 3
+      "threshold": 3,
+      "cap": null
     },
     {
       "contract": "7434",
@@ -56,7 +60,8 @@
         {"delegated": {"address": "626f62"}},
         {"external": {"verifier": "7665726966696572", "key": "6b6579"}}
       ],
-      "threshold": 4
+      "threshold": 4,
+      "cap": null
     }
   ],
   "batch": [

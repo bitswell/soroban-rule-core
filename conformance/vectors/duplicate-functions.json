@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "name": "duplicate-functions",
   "description": "A function listed twice is matched like one listed once.",
   "rules": [
@@ -8,7 +8,8 @@
       "functions": ["7472616e73666572", "7472616e73666572", "617070726f7665"],
       "conds": [],
       "signers": [],
-      "threshold": 0
+      "threshold": 0,
+      "cap": null
     }
   ],
   "batch": [

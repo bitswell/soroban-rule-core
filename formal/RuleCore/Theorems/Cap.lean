@@ -45,7 +45,8 @@ stated:
 * `Params.accepts_of_narrower`, `accepts_of_limit_le`, `accepts_of_period_le`,
   `capAccepts_of_capNarrower`: narrowing is trace inclusion, every run a
   narrower cap (a lower limit, a longer period, or a cap where there was none)
-  accepts from a valid record, the wider one accepts.
+  accepts from a valid record, the wider one accepts; `check_of_narrower_suffix`
+  is its single step, from records whose histories are suffixes of each other.
 
 None of these assumes anything about the ledgers the calls are made at: the
 clock check refuses every positive spend made earlier than the newest recorded
@@ -733,6 +734,50 @@ theorem amountSum_suffix_le {as bs : List Entry} (h : as <:+ bs) (hpos : ∀ e �
   simp only [amountSum_append]
   omega
 
+/-- One check under a narrower cap: when the narrower cap `q` accepts a spend
+from `rq`, the wider cap `p` accepts it from any valid `rp` whose history is a
+suffix of `rq`'s, and its history stays a suffix of the one `q` leaves. -/
+theorem check_of_narrower_suffix {q p : Params} (hqp : q.narrower p) {rq rp rq' : Record}
+    (hq : rq.Valid) (hp : rp.Valid) (hs : rp.history <:+ rq.history) {now : Nat} {amount : Int}
+    (hcq : q.check rq now amount = .ok rq') :
+    ∃ rp', p.check rp now amount = .ok rp' ∧ rp'.history <:+ rq'.history := by
+  rcases Int.lt_trichotomy amount 0 with hn | hz | hpos
+  · simp [check_negative q rq now hn] at hcq
+  · rw [hz, check_zero] at hcq ⊢
+    obtain rfl := Except.ok.inj hcq
+    exact ⟨rp, rfl, hs⟩
+  · obtain ⟨hbq, hhq, htq, hlq, hmq, hlenq⟩ := check_pos_ok hq hpos hcq
+    have hbp : beforeNewest rp.history now = false := by
+      rw [beforeNewest_eq_false_iff hp.sorted]
+      exact fun x hx => (beforeNewest_eq_false_iff hq.sorted now).mp hbq x (hs.subset hx)
+    have hsuf : rp.history.filter (fun x => decide (now - p.period < x.ledger)) <:+
+        rq.history.filter (fun x => decide (now - q.period < x.ledger)) :=
+      (filter_cutoff_suffix (Nat.sub_le_sub_left hqp.2 _) rp.history hp.sorted).trans
+        (hs.filter _)
+    have hkpos : ∀ e ∈ rq.history.filter (fun x => decide (now - q.period < x.ledger)),
+        0 < e.amount := fun e he => hq.pos e (List.mem_filter.mp he).1
+    have hsum := amountSum_suffix_le hsuf hkpos
+    have hlen := hsuf.length_le
+    rw [htq, hhq, amountSum_append] at hlq hmq
+    simp only [amountSum_cons, amountSum_nil, Int.add_zero] at hlq hmq
+    have hl := hqp.1
+    have hcp : p.check rp now amount =
+        .ok ⟨rp.history.filter (fun x => decide (now - p.period < x.ledger)) ++
+            [⟨now, amount⟩],
+          amountSum (rp.history.filter (fun x => decide (now - p.period < x.ledger))) +
+            amount⟩ := by
+      rw [check_valid hp hpos hbp]
+      simp only [show ¬ i128Max < amountSum (rp.history.filter
+          (fun x => decide (now - p.period < x.ledger))) + amount by omega,
+        show ¬ p.limit < amountSum (rp.history.filter
+          (fun x => decide (now - p.period < x.ledger))) + amount by omega,
+        show ¬ maxHistory ≤ (rp.history.filter
+          (fun x => decide (now - p.period < x.ledger))).length by omega, ↓reduceIte]
+    refine ⟨_, hcp, ?_⟩
+    rw [hhq]
+    obtain ⟨t, ht⟩ := hsuf
+    exact ⟨t, by rw [← ht, List.append_assoc]⟩
+
 theorem accepts_of_narrower_suffix {q p : Params} (hqp : q.narrower p) :
     ∀ (calls : List Call) (rq rp : Record), rq.Valid → rp.Valid → rp.history <:+ rq.history →
       q.Accepts rq calls → p.Accepts rp calls
@@ -740,43 +785,9 @@ theorem accepts_of_narrower_suffix {q p : Params} (hqp : q.narrower p) :
   | k :: ks, rq, rp, hq, hp, hs, ha => by
     rw [accepts_cons_iff] at ha ⊢
     obtain ⟨rq', hcq, ha'⟩ := ha
-    rcases Int.lt_trichotomy k.amount 0 with hn | hz | hpos
-    · simp [check_negative q rq k.now hn] at hcq
-    · rw [hz, check_zero] at hcq ⊢
-      obtain rfl := Except.ok.inj hcq
-      exact ⟨rp, rfl, accepts_of_narrower_suffix hqp ks rq rp hq hp hs ha'⟩
-    · obtain ⟨hbq, hhq, htq, hlq, hmq, hlenq⟩ := check_pos_ok hq hpos hcq
-      have hbp : beforeNewest rp.history k.now = false := by
-        rw [beforeNewest_eq_false_iff hp.sorted]
-        exact fun x hx => (beforeNewest_eq_false_iff hq.sorted k.now).mp hbq x (hs.subset hx)
-      have hsuf : rp.history.filter (fun x => decide (k.now - p.period < x.ledger)) <:+
-          rq.history.filter (fun x => decide (k.now - q.period < x.ledger)) :=
-        (filter_cutoff_suffix (Nat.sub_le_sub_left hqp.2 _) rp.history hp.sorted).trans
-          (hs.filter _)
-      have hkpos : ∀ e ∈ rq.history.filter (fun x => decide (k.now - q.period < x.ledger)),
-          0 < e.amount := fun e he => hq.pos e (List.mem_filter.mp he).1
-      have hsum := amountSum_suffix_le hsuf hkpos
-      have hlen := hsuf.length_le
-      rw [htq, hhq, amountSum_append] at hlq hmq
-      simp only [amountSum_cons, amountSum_nil, Int.add_zero] at hlq hmq
-      have hl := hqp.1
-      have hcp : p.check rp k.now k.amount =
-          .ok ⟨rp.history.filter (fun x => decide (k.now - p.period < x.ledger)) ++
-              [⟨k.now, k.amount⟩],
-            amountSum (rp.history.filter (fun x => decide (k.now - p.period < x.ledger))) +
-              k.amount⟩ := by
-        rw [check_valid hp hpos hbp]
-        simp only [show ¬ i128Max < amountSum (rp.history.filter
-            (fun x => decide (k.now - p.period < x.ledger))) + k.amount by omega,
-          show ¬ p.limit < amountSum (rp.history.filter
-            (fun x => decide (k.now - p.period < x.ledger))) + k.amount by omega,
-          show ¬ maxHistory ≤ (rp.history.filter
-            (fun x => decide (k.now - p.period < x.ledger))).length by omega, ↓reduceIte]
-      refine ⟨_, hcp, accepts_of_narrower_suffix hqp ks rq' _ (check_preserves_valid hq hcq)
-        (check_preserves_valid hp hcp) ?_ ha'⟩
-      rw [hhq]
-      obtain ⟨t, ht⟩ := hsuf
-      exact ⟨t, by rw [← ht, List.append_assoc]⟩
+    obtain ⟨rp', hcp, hs'⟩ := check_of_narrower_suffix hqp hq hp hs hcq
+    exact ⟨rp', hcp, accepts_of_narrower_suffix hqp ks rq' rp' (check_preserves_valid hq hcq)
+      (check_preserves_valid hp hcp) hs' ha'⟩
 
 /-- Narrowing is trace inclusion: every run a narrower cap accepts from a
 valid record, the wider cap accepts too. -/

@@ -1,0 +1,36 @@
+{
+  "format": 3,
+  "name": "caps-leave-verdicts",
+  "description": "allows and allows_all do not read a rule's cap: a capped rule allows a call whose amount exceeds its limit, and one with no amount at all.",
+  "rules": [
+    {
+      "contract": "746f6b656e",
+      "functions": ["7472616e73666572"],
+      "conds": [],
+      "signers": [],
+      "threshold": 0,
+      "cap": {"limit": "10", "period": 5, "amount_arg": 2}
+    }
+  ],
+  "batch": [
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7472616e73666572",
+        "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "5"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7472616e73666572",
+        "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "1000"}]
+      }
+    },
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": []}},
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": [{"u64": "1"}]}}
+  ],
+  "authenticated": [],
+  "expected": {"allows": [true, true, true, true], "allows_all": true},
+  "attenuations": []
+}

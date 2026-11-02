@@ -1,0 +1,158 @@
+{
+  "format": 1,
+  "name": "authorize-random-13",
+  "description": "Randomized authorization trace 13 of seed 20261102.",
+  "rules": [
+    {
+      "contract": "63",
+      "functions": ["67", "66", "666f"],
+      "conds": [],
+      "signers": [{"external": {"verifier": "61", "key": ""}}],
+      "threshold": 2,
+      "cap": null
+    },
+    {
+      "contract": "633130",
+      "functions": ["67", "67"],
+      "conds": [{"arg_i128_at_most": {"index": 1, "bound": "0"}}],
+      "signers": [{"delegated": {"address": "6162"}}],
+      "threshold": 0,
+      "cap": null
+    },
+    {
+      "contract": "63",
+      "functions": [""],
+      "conds": [
+        {"arg_i128_at_most": {"index": 0, "bound": "170141183460469231731687303715884105727"}}
+      ],
+      "signers": [{"external": {"verifier": "61", "key": ""}}],
+      "threshold": 0,
+      "cap": {"limit": "0", "period": 10, "amount_arg": 2}
+    }
+  ],
+  "start": [
+    {"history": [], "total": "0"},
+    {"history": [], "total": "0"},
+    {"history": [], "total": "0"}
+  ],
+  "authorizations": [
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "633130",
+            "function": "67",
+            "args": [
+              {"other": "616263"},
+              {"i128": "-170141183460469231731687303715884105728"},
+              {"bool": false}
+            ]
+          }
+        },
+        {
+          "call": {
+            "contract": "633130",
+            "function": "67",
+            "args": [{"i128": "-1"}, {"symbol": "6162"}]
+          }
+        },
+        {"call": {"contract": "633130", "function": "67", "args": [{"i128": "0"}]}}
+      ],
+      "choices": [1, 1, 1],
+      "authenticated": [
+        {"external": {"verifier": "61", "key": ""}},
+        {"external": {"verifier": "76", "key": "6b"}},
+        {"delegated": {"address": "6162"}}
+      ],
+      "now": 16,
+      "expected": {"error": "not_allowed"}
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "633130",
+            "function": "67",
+            "args": [{"bool": true}, {"i128": "-170141183460469231731687303715884105727"}]
+          }
+        }
+      ],
+      "choices": [1],
+      "authenticated": [
+        {"delegated": {"address": "6162"}},
+        {"external": {"verifier": "61", "key": ""}}
+      ],
+      "now": 19,
+      "expected": {
+        "ok": [
+          {"history": [], "total": "0"},
+          {"history": [], "total": "0"},
+          {"history": [], "total": "0"}
+        ]
+      }
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "633130",
+            "function": "67",
+            "args": [{"address": "6162"}, {"i128": "-1"}]
+          }
+        }
+      ],
+      "choices": [1],
+      "authenticated": [
+        {"external": {"verifier": "61", "key": ""}},
+        {"external": {"verifier": "76", "key": "6b"}},
+        {"external": {"verifier": "61", "key": ""}}
+      ],
+      "now": 19,
+      "expected": {
+        "ok": [
+          {"history": [], "total": "0"},
+          {"history": [], "total": "0"},
+          {"history": [], "total": "0"}
+        ]
+      }
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "633130",
+            "function": "67",
+            "args": [{"address": "62"}, {"i128": "0"}]
+          }
+        }
+      ],
+      "choices": [1],
+      "authenticated": [{"delegated": {"address": "6162"}}, {"delegated": {"address": "6162"}}],
+      "now": 22,
+      "expected": {
+        "ok": [
+          {"history": [], "total": "0"},
+          {"history": [], "total": "0"},
+          {"history": [], "total": "0"}
+        ]
+      }
+    },
+    {
+      "batch": [],
+      "choices": [],
+      "authenticated": [
+        {"delegated": {"address": "6162"}},
+        {"delegated": {"address": "6162"}},
+        {"delegated": {"address": "61"}}
+      ],
+      "now": 32,
+      "expected": {
+        "ok": [
+          {"history": [], "total": "0"},
+          {"history": [], "total": "0"},
+          {"history": [], "total": "0"}
+        ]
+      }
+    }
+  ]
+}

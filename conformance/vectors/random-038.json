@@ -1,57 +1,28 @@
 {
-  "format": 2,
+  "format": 3,
   "name": "random-038",
   "description": "Randomized case 38 of seed 20261102.",
   "rules": [],
   "batch": [
-    {
-      "call": {
-        "contract": "63",
-        "function": "66",
-        "args": [{"i128": "-170141183460469231731687303715884105727"}]
-      }
-    },
-    {
-      "call": {
-        "contract": "",
-        "function": "",
-        "args": [{"bool": true}, {"bool": true}, {"i128": "100"}]
-      }
-    }
+    {"call": {"contract": "63", "function": "", "args": [{"i128": "0"}]}},
+    {"call": {"contract": "6331", "function": "666f", "args": []}}
   ],
   "authenticated": [{"delegated": {"address": "61"}}, {"delegated": {"address": "6162"}}],
   "expected": {"allows": [false, false], "allows_all": false},
   "attenuations": [
     {
       "steps": [
-        {
-          "add_cond": {
-            "index": 0,
-            "cond": {
-              "arg_i128_at_most": {"index": 0, "bound": "-170141183460469231731687303715884105728"}
-            }
-          }
-        }
+        {"lengthen_cap_period": {"index": 0, "period": 9}},
+        {"lengthen_cap_period": {"index": 0, "period": 10}}
       ],
       "expected": {"error": "no_such_rule"}
     },
     {
       "steps": [
-        {
-          "remove_signers": {
-            "index": 2147483648,
-            "signers": [{"external": {"verifier": "76", "key": "6b"}}]
-          }
-        }
+        {"add_cap": {"index": 2147483648, "cap": {"limit": "10", "period": 0, "amount_arg": 2}}}
       ],
       "expected": {"error": "no_such_rule"}
     },
-    {
-      "steps": [
-        {"remove_functions": {"index": 2147483648, "functions": ["666f6f"]}},
-        {"remove_signers": {"index": 0, "signers": []}}
-      ],
-      "expected": {"error": "no_such_rule"}
-    }
+    {"steps": [{"drop_rule": {"index": 0}}], "expected": {"error": "no_such_rule"}}
   ]
 }

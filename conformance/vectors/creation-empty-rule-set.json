@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "name": "creation-empty-rule-set",
   "description": "The empty rule set refuses a creation.",
   "rules": [],

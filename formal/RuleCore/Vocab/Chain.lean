@@ -1,4 +1,4 @@
-import RuleCore.Model.Attenuation
+import RuleCore.Model.Authorize
 import RuleCore.Vocab.Bytes
 
 /-!
@@ -8,12 +8,20 @@ The concrete rules installed on chain, and their meaning as generic rules.
 
 A context is a contract call (contract, function, arguments) or a contract
 creation. A rule names one contract, a list of its functions, conditions on the
-call's arguments, a list of signers and a threshold. `Rule.denote` gives each
-rule's meaning as a generic `RuleCore.Rule Context Signer`: its scope matches a
-call to the rule's contract and one of its functions, each condition reads the
-arguments of the call it is evaluated against, and its signers and threshold
-are the rule's own. A creation has no arguments, every scope is false on it,
-and so no rule allows a creation.
+call's arguments, a list of signers, a threshold and, optionally, a spending
+cap. `Rule.denote` gives each rule's meaning as a generic
+`RuleCore.Rule Context Signer`: its scope matches a call to the rule's contract
+and one of its functions, each condition reads the arguments of the call it is
+evaluated against, and its signers, threshold and cap are the rule's own. A
+creation has no arguments, every scope is false on it, and so no rule allows a
+creation.
+
+A cap (`Cap`) is a limit, an `i128`, a period in ledgers and the index of the
+argument that holds the amount, both `u32`. Its meaning (`Cap.denote`) is the
+cap parameters `⟨limit, period⟩` of `RuleCore.Cap`, read as an integer and a
+natural number, and the amount a call spends: its argument at `amountArg`
+when that argument exists and is an `i128`, and no amount otherwise. A cap may
+be added to a rule only when it is valid (`Cap.valid`).
 
 A signer follows OpenZeppelin's smart-account signer kinds: `delegated` is an
 address that authorizes for itself, as its `ScAddress` XDR; `external` is a
@@ -35,7 +43,10 @@ another.
 
 `allows`, `allowsAll` and `narrower` on chain rule sets are the generic ones on
 the denotation, and each chain attenuation operation denotes the generic step of
-the same kind (`Attenuation.denote`). The theorems in `RuleCore.Theorems.Chain`
+the same kind (`Attenuation.denote`). `RuleSet.authorize` is the generic
+authorization of `RuleCore.Model.Authorize` on the denotation, with an
+authorization's choices and ledger, `u32` here, read as natural numbers; the
+records are the cap model's own. The theorems in `RuleCore.Theorems.Chain`
 carry the generic results over and state the vocabulary's own properties.
 -/
 
@@ -100,12 +111,21 @@ def Cond.holds : Cond → List Val → Bool
     | some (.i128 v) => decide (v.toInt ≤ n.toInt)
     | _ => false
 
+/-- A spending cap: at most `limit` spent within `period` consecutive ledgers,
+each call spending its argument at index `amountArg`. -/
+structure Cap where
+  limit : I128
+  period : UInt32
+  amountArg : UInt32
+  deriving DecidableEq, Repr
+
 structure Rule where
   contract : Bytes
   functions : List Bytes
   conds : List Cond
   signers : List Signer
   threshold : UInt32
+  cap : Option Cap := none
   deriving DecidableEq, Repr
 
 abbrev RuleSet := List Rule
@@ -124,9 +144,31 @@ def Cond.denote (cond : Cond) : Context → Bool
   | .call _ _ args => cond.holds args
   | .create _ => false
 
+/-- A cap's parameters: its limit as a signed integer and its period as a
+natural number. -/
+def Cap.params (k : Cap) : RuleCore.Cap.Params :=
+  ⟨k.limit.toInt, k.period.toNat⟩
+
+/-- The amount a context spends under cap `k`: the call's argument at
+`amountArg`, when it exists and is an `i128`. A creation spends no amount. -/
+def Cap.amount (k : Cap) : Context → Option Int
+  | .call _ _ args =>
+    match args[k.amountArg.toNat]? with
+    | some (.i128 v) => some v.toInt
+    | _ => none
+  | .create _ => none
+
+/-- Whether cap `k` may be added to a rule: a positive limit and a nonzero
+period. -/
+def Cap.valid (k : Cap) : Bool :=
+  k.params.valid
+
+def Cap.denote (k : Cap) : RuleCap Context :=
+  ⟨k.params, k.amount⟩
+
 def Rule.denote (r : Rule) : RuleCore.Rule Context Signer :=
   { scope := r.scope, conds := r.conds.map Cond.denote, signers := r.signers,
-    threshold := r.threshold.toNat }
+    threshold := r.threshold.toNat, cap := r.cap.map Cap.denote }
 
 def RuleSet.denote (rs : RuleSet) : RuleCore.RuleSet Context Signer :=
   .ofRules (rs.map Rule.denote)
@@ -192,6 +234,43 @@ def RuleSet.raiseThreshold (rs : RuleSet) (i k : UInt32) : Except AttenuationErr
     else .ok (rs.set i.toNat { r with threshold := k })
   | none => .error .noSuchRule
 
+/-- Give rule `i` the cap `k`, refusing a rule that has a cap and a cap that is
+not valid. -/
+def RuleSet.addCap (rs : RuleSet) (i : UInt32) (k : Cap) : Except AttenuationError RuleSet :=
+  match rs[i.toNat]? with
+  | some r =>
+    match r.cap with
+    | some _ => .error .capPresent
+    | none => if k.valid then .ok (rs.set i.toNat { r with cap := some k }) else .error .invalidCap
+  | none => .error .noSuchRule
+
+/-- Set the limit of rule `i`'s cap to `limit`, refusing a rule without a cap,
+a higher limit and a limit that is not positive. -/
+def RuleSet.lowerCapLimit (rs : RuleSet) (i : UInt32) (limit : I128) :
+    Except AttenuationError RuleSet :=
+  match rs[i.toNat]? with
+  | some r =>
+    match r.cap with
+    | some k =>
+      if k.limit.toInt < limit.toInt then .error .limitRaised
+      else if limit.toInt ≤ 0 then .error .invalidCap
+      else .ok (rs.set i.toNat { r with cap := some { k with limit } })
+    | none => .error .noCap
+  | none => .error .noSuchRule
+
+/-- Set the period of rule `i`'s cap to `period`, refusing a rule without a cap
+and a shorter period. -/
+def RuleSet.lengthenCapPeriod (rs : RuleSet) (i period : UInt32) :
+    Except AttenuationError RuleSet :=
+  match rs[i.toNat]? with
+  | some r =>
+    match r.cap with
+    | some k =>
+      if period < k.period then .error .periodShortened
+      else .ok (rs.set i.toNat { r with cap := some { k with period } })
+    | none => .error .noCap
+  | none => .error .noSuchRule
+
 /-- One attenuation step. -/
 inductive Attenuation where
   | dropRule (i : UInt32)
@@ -199,6 +278,9 @@ inductive Attenuation where
   | removeFunctions (i : UInt32) (fs : List Bytes)
   | removeSigners (i : UInt32) (ss : List Signer)
   | raiseThreshold (i k : UInt32)
+  | addCap (i : UInt32) (k : Cap)
+  | lowerCapLimit (i : UInt32) (limit : I128)
+  | lengthenCapPeriod (i period : UInt32)
   deriving DecidableEq, Repr
 
 def RuleSet.attenuate (rs : RuleSet) : Attenuation → Except AttenuationError RuleSet
@@ -207,6 +289,9 @@ def RuleSet.attenuate (rs : RuleSet) : Attenuation → Except AttenuationError R
   | .removeFunctions i fs => rs.removeFunctions i fs
   | .removeSigners i ss => rs.removeSigners i ss
   | .raiseThreshold i k => rs.raiseThreshold i k
+  | .addCap i k => rs.addCap i k
+  | .lowerCapLimit i limit => rs.lowerCapLimit i limit
+  | .lengthenCapPeriod i period => rs.lengthenCapPeriod i period
 
 /-- Apply `steps` in order, failing with the first step that fails. -/
 def RuleSet.attenuateAll (rs : RuleSet) (steps : List Attenuation) :
@@ -233,5 +318,46 @@ def Attenuation.denote : Attenuation → RuleCore.Attenuation Context Signer
   | .removeFunctions i fs => .restrictScope i.toNat (notCalling fs)
   | .removeSigners i ss => .removeSigners i.toNat ss
   | .raiseThreshold i k => .raiseThreshold i.toNat k.toNat
+  | .addCap i k => .addCap i.toNat k.denote
+  | .lowerCapLimit i limit => .lowerCapLimit i.toNat limit.toInt
+  | .lengthenCapPeriod i period => .lengthenCapPeriod i.toNat period.toNat
+
+/-! ## Authorization -/
+
+/-- One authorization: a batch of contexts, the index of the rule chosen for
+each, the signers it authenticated and the ledger it is made in. -/
+structure Authorization where
+  contexts : List Context
+  choices : List UInt32
+  auth : List Signer
+  now : UInt32
+  deriving DecidableEq, Repr
+
+def Authorization.denote (a : Authorization) : RuleCore.Authorization Context Signer :=
+  ⟨a.contexts, a.choices.map (·.toNat), a.auth, a.now.toNat⟩
+
+/-- The records after authorization `a`, or why it is refused. -/
+def RuleSet.authorize (rs : RuleSet) (records : List RuleCore.Cap.Record) (a : Authorization) :
+    Except Refusal (List RuleCore.Cap.Record) :=
+  rs.denote.authorize records a.denote
+
+/-- The records of a rule set that has spent nothing: one empty record per
+rule. -/
+def RuleSet.emptyRecords (rs : RuleSet) : List RuleCore.Cap.Record :=
+  rs.map fun _ => .empty
+
+/-- Apply every authorization in order, failing with the first refusal. -/
+def RuleSet.authorizeAll (rs : RuleSet) (records : List RuleCore.Cap.Record)
+    (as : List Authorization) : Except Refusal (List RuleCore.Cap.Record) :=
+  as.foldlM rs.authorize records
+
+/-- `rs'` is narrower than `rs` as trace inclusion along `f`, on the
+denotations. -/
+def RuleSet.TraceNarrower (rs' rs : RuleSet) (f : Nat → Nat) : Prop :=
+  rs'.denote.TraceNarrower rs.denote f
+
+/-- The renumbering a list of chain steps induces, on the denoted steps. -/
+def Attenuation.chainSource (steps : List Attenuation) : Nat → Nat :=
+  RuleCore.Attenuation.chainSource (steps.map Attenuation.denote)
 
 end RuleCore.Chain

@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "name": "attenuate-signer-chains",
   "description": "Lists of all five step kinds: a threshold raised then a signer removed, a refusal for lowering part-way through, and a threshold raised past the remaining signers.",
   "rules": [
@@ -13,14 +13,16 @@
         {"external": {"verifier": "7665726966696572", "key": "6b6579"}},
         {"delegated": {"address": "616c696365"}}
       ],
-      "threshold": 2
+      "threshold": 2,
+      "cap": null
     },
     {
       "contract": "706f6f6c",
       "functions": ["6465706f736974"],
       "conds": [],
       "signers": [],
-      "threshold": 0
+      "threshold": 0,
+      "cap": null
     }
   ],
   "batch": [
@@ -56,14 +58,16 @@
                 {"delegated": {"address": "626f62"}},
                 {"delegated": {"address": "616c696365"}}
               ],
-              "threshold": 3
+              "threshold": 3,
+              "cap": null
             },
             {
               "contract": "706f6f6c",
               "functions": ["6465706f736974"],
               "conds": [],
               "signers": [],
-              "threshold": 0
+              "threshold": 0,
+              "cap": null
             }
           ],
           "allows": [false, true],
@@ -94,14 +98,16 @@
                 {"external": {"verifier": "7665726966696572", "key": "6b6579"}},
                 {"delegated": {"address": "616c696365"}}
               ],
-              "threshold": 2
+              "threshold": 2,
+              "cap": null
             },
             {
               "contract": "706f6f6c",
               "functions": ["6465706f736974"],
               "conds": [{"arg_eq": {"index": 0, "value": {"address": "616c696365"}}}],
               "signers": [],
-              "threshold": 0
+              "threshold": 0,
+              "cap": null
             }
           ],
           "allows": [true, false],
@@ -126,7 +132,14 @@
       "expected": {
         "ok": {
           "rules": [
-            {"contract": "706f6f6c", "functions": [], "conds": [], "signers": [], "threshold": 1}
+            {
+              "contract": "706f6f6c",
+              "functions": [],
+              "conds": [],
+              "signers": [],
+              "threshold": 1,
+              "cap": null
+            }
           ],
           "allows": [false, false],
           "allows_all": false
@@ -154,14 +167,16 @@
               "functions": ["7472616e73666572"],
               "conds": [],
               "signers": [{"delegated": {"address": "626f62"}}],
-              "threshold": 2
+              "threshold": 2,
+              "cap": null
             },
             {
               "contract": "706f6f6c",
               "functions": ["6465706f736974"],
               "conds": [],
               "signers": [],
-              "threshold": 0
+              "threshold": 0,
+              "cap": null
             }
           ],
           "allows": [false, true],

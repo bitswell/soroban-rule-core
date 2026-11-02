@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "name": "arg-eq-i128",
   "description": "argEq on an i128: equal value, other values, the same number as a u64, and the extremes.",
   "rules": [
@@ -8,7 +8,8 @@
       "functions": ["7472616e73666572"],
       "conds": [{"arg_eq": {"index": 0, "value": {"i128": "100"}}}],
       "signers": [],
-      "threshold": 0
+      "threshold": 0,
+      "cap": null
     }
   ],
   "batch": [

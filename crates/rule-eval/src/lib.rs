@@ -2,23 +2,28 @@
 //!
 //! A [`Rule`] names one contract, a list of function names, a list of
 //! conditions on the arguments of the call it matches, a list of
-//! [`Signer`]s and a threshold. An authorization carries the signers it
-//! authenticated, one list for every context it covers. A rule allows a
-//! [`Context`] under those signers when the call matches, every condition
-//! holds, and at least `threshold` distinct signers of the rule are
-//! authenticated. A rule set (a slice of rules) allows a context when some
-//! rule allows it, and allows a batch, every context of a Soroban
-//! authorization tree, when it allows each context. No rule allows a contract
-//! creation.
+//! [`Signer`]s, a threshold and, optionally, a spending [`Cap`]. An
+//! authorization carries the signers it authenticated, one list for every
+//! context it covers. A rule allows a [`Context`] under those signers when the
+//! call matches, every condition holds, and at least `threshold` distinct
+//! signers of the rule are authenticated. A rule set (a slice of rules) allows
+//! a context when some rule allows it, and allows a batch, every context of a
+//! Soroban authorization tree, when it allows each context. No rule allows a
+//! contract creation.
 //!
 //! The readable Lean model this crate implements:
 //!
 //! ```lean
+//! structure RuleCap (Ctx : Type) where
+//!   params : Cap.Params         -- at most `limit` within `period` ledgers
+//!   amount : Ctx → Option Int   -- the amount a context spends, if it names one
+//!
 //! structure Rule (Ctx Sig : Type) where
 //!   scope : Ctx → Bool          -- contract and function match
 //!   conds : List (Ctx → Bool)   -- conditions on this call's arguments
 //!   signers : List Sig          -- the signers that count towards the threshold
 //!   threshold : Nat             -- how many distinct signers must be authenticated
+//!   cap : Option (RuleCap Ctx) := none  -- the rule's spending cap, if it has one
 //!
 //! def Rule.present (r : Rule Ctx Sig) (auth : List Sig) : List Sig :=
 //!   r.signers.eraseDups.filter (· ∈ auth)
@@ -38,16 +43,25 @@
 //!   cs.all (rs.allows · auth)
 //! ```
 //!
-//! [`allows`] and [`allows_all`] evaluate a rule set. [`drop_rule`],
-//! [`add_cond`], [`remove_functions`], [`remove_signers`] and
-//! [`raise_threshold`] are the attenuation steps: each returns a new rule set
-//! that allows no context, under any authenticated signers, that the original
-//! does not.
+//! [`allows`] and [`allows_all`] evaluate a rule set, without caps. [`authorize`]
+//! is the stateful check: an authorization names one rule per context, as
+//! OpenZeppelin's smart account does, each chosen rule must allow its context,
+//! and the context's amount is charged to the record of each chosen rule with
+//! a cap; it returns the records after every charge or a [`Refusal`] that
+//! changes nothing.
+//!
+//! [`drop_rule`], [`add_cond`], [`remove_functions`], [`remove_signers`],
+//! [`raise_threshold`], [`add_cap`], [`lower_cap_limit`] and
+//! [`lengthen_cap_period`] are the attenuation steps: each returns a new rule
+//! set that allows no context, under any authenticated signers, that the
+//! original does not, and accepts no run of authorizations from empty records
+//! that the original does not accept from its own, with each rule index
+//! renumbered past a dropped rule.
 //!
 //! [`check_spend`] is the spending-cap check: given what a capped rule has
 //! spent in its window ([`SpendRecord`]), the cap, the current ledger and the
 //! amount of a new spend, it returns the record after the spend or a
-//! [`CapError`].
+//! [`CapError`]. [`authorize`] calls it for every charge.
 //!
 //! Identifiers and byte payloads compare exactly (same length, same bytes).
 //! Values of different [`Val`] constructors are never equal, and signers of
@@ -63,26 +77,28 @@
 //! - each loop is a single `while i < s.len()` over one slice, with an early
 //!   `return` where it decides;
 //! - slice indexing `s[i]` happens only under `i < s.len()`, and indices taken
-//!   from rules go through `get`; the counter step `i += 1` runs under
+//!   from rules or from an authorization's choices go through `get` or
+//!   `get_mut`; the counter step `i += 1` runs under
 //!   `i < s.len()`, so it cannot overflow, and the signer count grows by at
 //!   most one per step of its loop, so it stays at most `i`;
 //! - indices and thresholds are `u32` widened with `as usize`, lossless on
 //!   every target with at least 32-bit pointers (asserted at compile time
 //!   below);
 //! - no parameter or local variable is named after a module of the crate
-//!   (`attenuate`, `bytes`, `cap`, `context`, `rule`, `rule_set`, `signer`,
-//!   `val`): the translation puts each module's items in a Lean namespace of
-//!   that name, which a binding of the same name would shadow.
+//!   (`attenuate`, `authorize`, `bytes`, `cap`, `context`, `rule`, `rule_set`,
+//!   `signer`, `val`): the translation puts each module's items in a Lean
+//!   namespace of that name, which a binding of the same name would shadow.
 //!
 //! The only panic left is allocation failure in `Vec::push`, which the
-//! attenuation steps and [`check_spend`] call to build their result;
-//! [`allows`] and [`allows_all`] do not allocate.
+//! attenuation steps, [`check_spend`] and [`authorize`] call to build their
+//! result; [`allows`] and [`allows_all`] do not allocate.
 #![no_std]
 #![forbid(unsafe_code)]
 
 extern crate alloc;
 
 mod attenuate;
+mod authorize;
 mod bytes;
 mod cap;
 mod context;
@@ -92,15 +108,17 @@ mod signer;
 mod val;
 
 pub use attenuate::{
-    AttenuationError, add_cond, drop_rule, raise_threshold, remove_functions, remove_signers,
+    AttenuationError, add_cap, add_cond, drop_rule, lengthen_cap_period, lower_cap_limit,
+    raise_threshold, remove_functions, remove_signers,
 };
+pub use authorize::{Refusal, authorize};
 pub use bytes::{bytes_eq, bytes_in};
 pub use cap::{
     CapError, CapParams, MAX_HISTORY_ENTRIES, SpendEntry, SpendRecord, check_spend, empty_record,
     params_valid,
 };
 pub use context::Context;
-pub use rule::{Cond, Rule, cond_holds, rule_allows};
+pub use rule::{Cap, Cond, Rule, cap_valid, cond_holds, rule_allows};
 pub use rule_set::{allows, allows_all};
 pub use signer::{Signer, signer_eq, signer_in, signers_met};
 pub use val::{Val, val_eq};

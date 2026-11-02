@@ -18,9 +18,10 @@ binary or the WebAssembly against the Lean translation.
 
 `overflow-checks = true` in the `release` and `contract` profiles makes
 overflowing arithmetic trap, as Aeneas's model of it fails. The evaluator's
-only arithmetic is the loop counter's `i += 1`, under `i < s.len()`, and the
-signer count's `count += 1`, which runs at most once per position of its loop,
-so `count` stays at most `i`. The equivalence theorems prove that neither
+only arithmetic is the loop counter's `i += 1`, under `i < s.len()` (in
+`authorize`'s two passes, under `i < contexts.len()`), and the signer count's
+`count += 1`, which runs at most once per position of its loop, so `count`
+stays at most `i`. The equivalence theorems prove that neither
 overflows. The spending-cap check sums with `i128::checked_add` and
 `i128::checked_sub`, which return `None` instead of trapping, and takes its
 cutoff with `u32::saturating_sub`. Its two subtractions on `usize`, `len - 1`
@@ -79,25 +80,30 @@ each is trusted to match the Rust item.
 | `Vec::push` | `alloc.vec.Vec.push` | Appends. Fails with `maximumSizeExceeded` when the vector already holds `Usize.max` elements. Allocation failure, which aborts in Rust, is outside the model. |
 | `Vec::len` | `alloc.vec.Vec.len` | The list's length. |
 | `Deref` of `Vec<T>` to `&[T]` | `alloc.vec.Vec.deref` | The same list. |
+| `DerefMut` of `Vec<T>` to `&mut [T]` | `alloc.vec.Vec.deref_mut` | The same list, and a function that rebuilds the vector from the slice written back. Called in `authorize` to charge a record in place. |
 | `<[T]>::len` | `Slice.len` | The list's length. |
 | `s[i]` on a slice (`Index<usize>`) | `Slice.index_usize` | Element `i`, or `fail` when `i` is out of range. |
-| `<[T]>::get(i)` | `core.slice.Slice.get` with `core.slice.index.SliceIndexUsizeSlice` | `some` element `i`, or `none` when `i` is out of range. Called on a rule's arguments and, in `raise_threshold`, on the rules. |
-| `u32 as usize` | `UScalar.cast` | The same value. Lossless because `usize` has at least 32 bits. Widens indices and, in `signers_met`, the threshold. |
+| `<[T]>::get(i)` | `core.slice.Slice.get` with `core.slice.index.SliceIndexUsizeSlice` | `some` element `i`, or `none` when `i` is out of range. Called on a rule's arguments (a condition's, and a cap's amount), on the rules in `raise_threshold`, the cap steps and `authorize`, and on an authorization's choices. |
+| `<[T]>::get_mut(i)` | `core.slice.Slice.get_mut` with `core.slice.index.SliceIndexUsizeSlice` | `some` element `i` and a function that writes a new element back at `i` (`Slice.set_opt`), or `none` and the slice unchanged when `i` is out of range. Called in `authorize` on the copied records. |
+| `u32 as usize` | `UScalar.cast` | The same value. Lossless because `usize` has at least 32 bits. Widens indices (an authorization's choices and a cap's `amount_arg` included) and, in `signers_met`, the threshold. |
 | `i += 1` and `count += 1` on `usize` | `+` on `Usize` | Checked addition: `fail` on overflow. |
 | `len - 1` and `len - kept_from` on `usize` | `-` on `Usize` | Checked subtraction: `fail` when the result would be negative. |
 | `<`, `<=`, `>=`, `==`, `!=` on `usize` | the order and equality of `Usize` | On the values. |
 | `!=` on `u8` | equality of `U8` | On the values. |
 | `==` on `u64` | equality of `U64` | On the values. |
-| `==`, `<`, `<=` and `>` on `i128` | equality and order of `I128` | On the values, as signed integers. |
+| `==`, `<`, `<=` and `>` on `i128` | equality and order of `I128` | On the values, as signed integers. `lower_cap_limit` compares limits with `>` and `<= 0`, and `cap_valid` the limit with `> 0`. |
 | `i128::checked_add`, `i128::checked_sub` | `I128.checked_add`, `I128.checked_sub` | `some` of the sum or difference when it lies between `i128::MIN` and `i128::MAX`, `none` otherwise. |
 | `Option<T>` (`Some`, `None`) | Lean's `Option` | The two-constructor inductive. |
 | `u32::saturating_sub` | `core.num.U32.saturating_sub` | The difference when it is not negative, `0` otherwise. |
 | `usize::BITS` | `core.num.Usize.BITS` | `System.Platform.numBits`, as a `U32`. |
-| `<`, `>` and `>=` on `u32` | the order of `U32` | On the values. |
+| `<`, `>` and `>=` on `u32` | the order of `U32` | On the values. `lengthen_cap_period` compares periods with `<`, and `cap_valid` the period with `> 0`. |
 | `const _: () = assert!(usize::BITS >= 32)` | `massert` | `ok ()` when the condition holds, `fail` otherwise. |
 
 `==` on `bool` translates to Lean's own `Bool` equality, which needs no
-library model.
+library model. Writing through a mutable borrow (`*record = next` in
+`authorize`, `c.limit = limit` and `c.period = period` in the cap steps)
+translates to functional updates and backward functions in the generated Lean,
+not to library items.
 
 ## Lean's kernel
 
@@ -117,9 +123,14 @@ structural:
 
 - a byte string is the same bytes;
 - an integer is its bit vector;
-- each enum constructor maps to the constructor of the same name, so `Signer::Delegated` is `Signer.delegated` and `Signer::External` is `Signer.external`;
-- each struct field maps to the field of the same name, so a rule's `threshold` is the same `u32`;
+- each enum constructor maps to the constructor of the same name, so `Signer::Delegated` is `Signer.delegated` and `Signer::External` is `Signer.external`, and each `AttenuationError` is the error of the same name;
+- each struct field maps to the field of the same name, so a rule's `threshold` is the same `u32`, a `Cap`'s `limit` the same `i128` and its `amount_arg` the chain cap's `amountArg`, and a rule's optional cap the optional denoted cap;
 - a slice or vector maps to the list of its elements' denotations, so the authenticated signers are the list of their denotations.
+
+The chain vocabulary gives a cap its meaning (`Chain.Cap.denote`): its
+parameters are the cap model's `⟨limit, period⟩`, the limit read as a signed
+integer, and the amount a call spends is its argument at `amountArg` when that
+argument is an `i128`. That reading is part of the specification as well.
 
 `formal/RuleCore/Equiv/DenoteCap.lean` maps the types of the `cap` module to
 the cap model of `formal/RuleCore/Model/Cap.lean` in the same way:
@@ -127,6 +138,13 @@ the cap model of `formal/RuleCore/Model/Cap.lean` in the same way:
 - a `u32` ledger or period is its value as a natural number, and an `i128` amount, total or limit its value as an integer;
 - `SpendEntry`, `SpendRecord` and `CapParams` map each field to the field of the same name, and the history to the list of its entries' denotations;
 - each `CapError` constructor maps to the constructor of the same name.
+
+`formal/RuleCore/Equiv/Authorize.lean` maps the types of the `authorize`
+module the same way:
+
+- each `Refusal` constructor maps to the constructor of the same name, and `Refusal::Cap(e)` to `Refusal.cap` of the denoted `CapError`;
+- a result of `authorize` is the `Except` of the denoted records or refusal;
+- `authorize`'s contexts, choices, authenticated signers and ledger are the chain vocabulary's authorization of their denotations.
 
 Each one is proven injective, so two Rust values that differ never have the
 same meaning.
@@ -178,10 +196,12 @@ window that eviction leaves at each ledger is bounded without the rule
 
 ## The conformance encoding
 
-The vectors in `conformance/vectors` and the cap traces in
-`conformance/vectors/caps` are computed by the Lean model and written as JSON
-by the generator's own encoder (`conformance/generator/Conformance/Json.lean`
-and `Conformance/Caps.lean`). The Rust runner decodes them into `rule-eval`'s
-types (`conformance/runner/src/lib.rs` and `src/caps.rs`). Neither the
+The vectors in `conformance/vectors`, the cap traces in
+`conformance/vectors/caps` and the authorization traces in
+`conformance/vectors/authorize` are computed by the Lean model and written as
+JSON by the generator's own encoder (`conformance/generator/Conformance/Json.lean`,
+`Conformance/Caps.lean` and `Conformance/Authorize.lean`). The Rust runner
+decodes them into `rule-eval`'s types (`conformance/runner/src/lib.rs`,
+`src/caps.rs` and `src/authorize.rs`). Neither the
 encoding nor the decoding is verified. A mismatch in either one shows up as a
 failing vector, unless both get the same field wrong in the same way.

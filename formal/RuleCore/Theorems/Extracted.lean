@@ -13,8 +13,9 @@ call of an extracted attenuation function that returned `Ok`.
 Attenuation:
 
 * `drop_rule_narrower`, `add_cond_narrower`, `remove_functions_narrower`,
-  `remove_signers_narrower`, `raise_threshold_narrower`, `Step.narrower`: each
-  extracted attenuation step yields a narrower rule set.
+  `remove_signers_narrower`, `raise_threshold_narrower`, `add_cap_narrower`,
+  `lower_cap_limit_narrower`, `lengthen_cap_period_narrower`, `Step.narrower`:
+  each extracted attenuation step yields a narrower rule set.
 * `Narrower.refl`, `Narrower.trans`: `Narrower` is a preorder.
 * `Derives.narrower`: any chain of extracted steps stays inside its root.
 * `allows_all_of_narrower`, `Derives.allows_all`: a narrower rule set accepts
@@ -153,9 +154,40 @@ theorem add_cond_narrower {rules : Slice rule_eval.rule.Rule} {index : Std.U32}
   rw [vec_deref_val]
   exact Chain.RuleSet.addCond_narrower hd.symm
 
+theorem add_cap_narrower {rules : Slice rule_eval.rule.Rule} {index : Std.U32}
+    {new_cap : rule_eval.rule.Cap} {out : alloc.vec.Vec rule_eval.rule.Rule}
+    (h : rule_eval.attenuate.add_cap rules index new_cap = ok (.Ok out)) :
+    Narrower (alloc.vec.Vec.deref out) rules := by
+  obtain ⟨res, hres, hd⟩ := add_cap_eq rules index new_cap
+  obtain rfl := Result.ok_injective (h.symm.trans hres)
+  apply narrower_of_denote
+  rw [vec_deref_val]
+  exact Chain.RuleSet.addCap_narrower hd.symm
+
+theorem lower_cap_limit_narrower {rules : Slice rule_eval.rule.Rule} {index : Std.U32}
+    {limit : Std.I128} {out : alloc.vec.Vec rule_eval.rule.Rule}
+    (h : rule_eval.attenuate.lower_cap_limit rules index limit = ok (.Ok out)) :
+    Narrower (alloc.vec.Vec.deref out) rules := by
+  obtain ⟨res, hres, hd⟩ := lower_cap_limit_eq rules index limit
+  obtain rfl := Result.ok_injective (h.symm.trans hres)
+  apply narrower_of_denote
+  rw [vec_deref_val]
+  exact Chain.RuleSet.lowerCapLimit_narrower hd.symm
+
+theorem lengthen_cap_period_narrower {rules : Slice rule_eval.rule.Rule} {index period : Std.U32}
+    {out : alloc.vec.Vec rule_eval.rule.Rule}
+    (h : rule_eval.attenuate.lengthen_cap_period rules index period = ok (.Ok out)) :
+    Narrower (alloc.vec.Vec.deref out) rules := by
+  obtain ⟨res, hres, hd⟩ := lengthen_cap_period_eq rules index period
+  obtain rfl := Result.ok_injective (h.symm.trans hres)
+  apply narrower_of_denote
+  rw [vec_deref_val]
+  exact Chain.RuleSet.lengthenCapPeriod_narrower hd.symm
+
 /-- One extracted attenuation step from `rs` that returned `Ok`: `Step rs rs'`
-when one of `drop_rule`, `add_cond`, `remove_functions`, `remove_signers` and
-`raise_threshold` on `rs` returned `Ok` of the rules of `rs'`. -/
+when one of the eight steps (`drop_rule`, `add_cond`, `remove_functions`,
+`remove_signers`, `raise_threshold`, `add_cap`, `lower_cap_limit` and
+`lengthen_cap_period`) on `rs` returned `Ok` of the rules of `rs'`. -/
 inductive Step (rs : Slice rule_eval.rule.Rule) : Slice rule_eval.rule.Rule → Prop where
   | dropRule (index : Std.U32) {out : alloc.vec.Vec rule_eval.rule.Rule} :
       rule_eval.attenuate.drop_rule rs index = ok (.Ok out) → Step rs (alloc.vec.Vec.deref out)
@@ -174,6 +206,16 @@ inductive Step (rs : Slice rule_eval.rule.Rule) : Slice rule_eval.rule.Rule → 
   | raiseThreshold (index threshold : Std.U32) {out : alloc.vec.Vec rule_eval.rule.Rule} :
       rule_eval.attenuate.raise_threshold rs index threshold = ok (.Ok out) →
         Step rs (alloc.vec.Vec.deref out)
+  | addCap (index : Std.U32) (new_cap : rule_eval.rule.Cap)
+      {out : alloc.vec.Vec rule_eval.rule.Rule} :
+      rule_eval.attenuate.add_cap rs index new_cap = ok (.Ok out) →
+        Step rs (alloc.vec.Vec.deref out)
+  | lowerCapLimit (index : Std.U32) (limit : Std.I128) {out : alloc.vec.Vec rule_eval.rule.Rule} :
+      rule_eval.attenuate.lower_cap_limit rs index limit = ok (.Ok out) →
+        Step rs (alloc.vec.Vec.deref out)
+  | lengthenCapPeriod (index period : Std.U32) {out : alloc.vec.Vec rule_eval.rule.Rule} :
+      rule_eval.attenuate.lengthen_cap_period rs index period = ok (.Ok out) →
+        Step rs (alloc.vec.Vec.deref out)
 
 /-- `Derives root rs`: `rs` is reachable from `root` by zero or more extracted
 attenuation steps. -/
@@ -187,6 +229,9 @@ theorem Step.narrower {rs rs' : Slice rule_eval.rule.Rule} : Step rs rs' → Nar
   | .removeFunctions _ _ h => remove_functions_narrower h
   | .removeSigners _ _ h => remove_signers_narrower h
   | .raiseThreshold _ _ h => raise_threshold_narrower h
+  | .addCap _ _ h => add_cap_narrower h
+  | .lowerCapLimit _ _ h => lower_cap_limit_narrower h
+  | .lengthenCapPeriod _ _ h => lengthen_cap_period_narrower h
 
 /-- Every rule set derived from a root by extracted attenuation steps stays
 inside the root. -/

@@ -1,8 +1,8 @@
 # conformance
 
-Test vectors for rule-set evaluation and attenuation, and traces of the
-spending-cap check, computed by the Lean model in `formal/`, and a runner that
-checks `rule-eval` against them. Any other implementation of the same rules
+Test vectors for rule-set evaluation and attenuation, traces of the
+spending-cap check and traces of `authorize`, computed by the Lean model in
+`formal/`, and a runner that checks `rule-eval` against them. Any other implementation of the same rules
 (Perch's smart account, the grant signer) can run the same vectors as a
 differential test.
 
@@ -10,6 +10,7 @@ differential test.
 | --- | --- |
 | `vectors/*.json` | One vector per file: a rule set, a batch of contexts, the authenticated signers, attenuation step lists, and the results the Lean model computes for them. |
 | `vectors/caps/*.json` | One cap trace per file: a cap, a starting record, and calls, each with the outcome the Lean model computes for it. |
+| `vectors/authorize/*.json` | One authorization trace per file: a rule set, its starting records, and authorizations, each with the outcome the Lean model computes for it. |
 | `generator/` | The Lake package that writes the vectors and traces: the case specifications and the JSON encoding. |
 | `runner/` | The Rust crate `rule-eval-conformance`, which loads every vector and trace and checks `rule-eval` against it. |
 
@@ -22,7 +23,9 @@ every expected result with the chain vocabulary's own functions,
 `RuleCore.Chain.RuleSet.allows`, `RuleSet.allowsAll` and
 `RuleSet.attenuateAll`, the functions the theorems in `formal/` are about, and
 writes each case to `<name>.json`. The cap traces (`Conformance/Caps.lean`) are
-computed with `RuleCore.Cap.Params.check` and written to `caps/<name>.json`. No
+computed with `RuleCore.Cap.Params.check` and written to `caps/<name>.json`, and
+the authorization traces (`Conformance/Authorize.lean`) with
+`RuleCore.Chain.RuleSet.authorize` and written to `authorize/<name>.json`. No
 expected result is written by hand.
 
 ```sh
@@ -30,14 +33,15 @@ cd conformance/generator
 lake exe gen-vectors ../vectors
 ```
 
-`gen-vectors <dir>` removes the `.json` files in `<dir>` and `<dir>/caps` and
-writes every named case plus 100 randomized cases of seed 20261102, and every
-named cap trace plus 50 randomized traces of the same seed. `--seed <n>`,
-`--count <n>` and `--cap-count <n>` choose another randomized set, for a larger
-run outside the committed vectors:
+`gen-vectors <dir>` removes the `.json` files in `<dir>`, `<dir>/caps` and
+`<dir>/authorize` and writes every named case plus 100 randomized cases of seed
+20261102, every named cap trace plus 50 randomized traces of the same seed, and
+every named authorization trace plus 50 randomized traces of the same seed.
+`--seed <n>`, `--count <n>`, `--cap-count <n>` and `--auth-count <n>` choose
+another randomized set, for a larger run outside the committed vectors:
 
 ```sh
-lake exe gen-vectors /tmp/vectors --seed 7 --count 5000 --cap-count 5000
+lake exe gen-vectors /tmp/vectors --seed 7 --count 5000 --cap-count 5000 --auth-count 5000
 CONFORMANCE_VECTORS=/tmp/vectors cargo test -p rule-eval-conformance
 ```
 
@@ -52,7 +56,12 @@ conditions, and the authenticated signers usually include some of the rules'
 signers, so allowed and refused contexts both occur. The randomized cap traces
 draw caps, starting ledgers, amounts and ledger steps from small universes that
 include the `u32` and `i128` extremes; ledgers mostly advance by less than a
-period and sometimes repeat or go back, so every refusal occurs.
+period and sometimes repeat or go back, so every refusal occurs. Random rules
+carry a cap a third of the time, and random steps include the three cap steps.
+The randomized authorization traces draw rule sets with caps, batches built
+from their rules with amounts near the caps' limits at the caps' argument
+indices, choices that usually name the rule a call was built from, and ledgers
+that mostly advance.
 
 ## Running them against rule-eval
 
@@ -68,8 +77,12 @@ case, step kind and outcome, and that a vector with a changed expectation is
 reported. Its cap tests (`tests/caps.rs`) check that `check_spend` reproduces
 every outcome and record of every trace, that the traces still cover every
 refusal, ledger 0, `u32::MAX` and invalid caps, and that a changed expectation
-is reported. `rule-eval` itself
-keeps no dependencies; the runner depends on it, `serde` and `serde_json`.
+is reported. Its authorization tests (`tests/authorize.rs`) check that
+`authorize` reproduces every outcome and record of every trace, that the traces
+still cover every refusal, two contexts charging one rule, eviction, mismatched
+records and the empty batch, and that a changed expectation is reported.
+`rule-eval` itself keeps no dependencies; the runner depends on it, `serde` and
+`serde_json`.
 
 `.github/workflows/conformance.yml` rebuilds the generator, regenerates the
 vectors and traces into an empty directory and fails if they differ from
@@ -85,7 +98,7 @@ readers should not depend on it.
 
 ```json
 {
-  "format": 2,
+  "format": 3,
   "name": "batch-mixed",
   "description": "A batch of allowed and refused calls is refused as a whole.",
   "rules": [Rule, ...],
@@ -101,7 +114,7 @@ readers should not depend on it.
 
 | Field | Meaning |
 | --- | --- |
-| `format` | The version of this format, `2`. A change a reader of the current version cannot read raises it. |
+| `format` | The version of this format, `3`. A change a reader of the current version cannot read raises it. |
 | `name` | The file name without `.json`. |
 | `description` | What the vector exercises, for a reader; carries no data. |
 | `rules` | The rule set, in order. |
@@ -121,8 +134,8 @@ readers should not depend on it.
   doubles lose nothing. Bounds run from `-170141183460469231731687303715884105728`
   to `170141183460469231731687303715884105727` and from `0` to
   `18446744073709551615`.
-* An **index** (argument index or rule index) or a **threshold** is a JSON
-  number from `0` to `4294967295`, a `u32`.
+* An **index** (argument index or rule index), a **threshold** or a **period**
+  is a JSON number from `0` to `4294967295`, a `u32`.
 
 ### Values
 
@@ -183,7 +196,7 @@ makes either condition false, as does an argument of another constructor.
 
 ```json
 {"contract": "746f6b656e", "functions": ["7472616e73666572", ...], "conds": [Condition, ...],
- "signers": [Signer, ...], "threshold": 2}
+ "signers": [Signer, ...], "threshold": 2, "cap": Cap}
 ```
 
 A rule allows a call when the call's contract equals `contract`, its function
@@ -199,6 +212,18 @@ it, so every rule set allows the empty batch. A batch collected from a Soroban
 authorization tree always holds the root context; a caller that builds batches
 another way must refuse an empty one itself.
 
+### Caps
+
+```json
+{"limit": "100", "period": 10, "amount_arg": 2}
+```
+
+A rule's `cap` is `null` when it has none. A cap allows at most `limit` (an
+`i128`) to be spent within `period` consecutive ledgers, each call spending its
+argument at index `amount_arg` when that argument is an `i128`. `allows` and
+`allows_all` do not read the cap; the authorization traces charge it. A cap
+may be added to a rule only when `limit > 0` and `period > 0`.
+
 ### Attenuation steps
 
 ```json
@@ -207,6 +232,9 @@ another way must refuse an empty one itself.
 {"remove_functions": {"index": 0, "functions": ["617070726f7665", ...]}}
 {"remove_signers": {"index": 0, "signers": [Signer, ...]}}
 {"raise_threshold": {"index": 0, "threshold": 3}}
+{"add_cap": {"index": 0, "cap": Cap}}
+{"lower_cap_limit": {"index": 1, "limit": "50"}}
+{"lengthen_cap_period": {"index": 1, "period": 20}}
 ```
 
 * `drop_rule` removes rule `index`, keeping the others in order.
@@ -220,6 +248,16 @@ another way must refuse an empty one itself.
 * `raise_threshold` sets the threshold of rule `index` to `threshold`. It is
   refused with `threshold_lowered` when `threshold` is below the rule's
   current threshold.
+* `add_cap` gives rule `index` the cap `cap`. It is refused with `cap_present`
+  when the rule has a cap, and then with `invalid_cap` when `cap`'s limit is
+  not positive or its period is `0`.
+* `lower_cap_limit` sets the limit of rule `index`'s cap to `limit`. It is
+  refused with `no_cap` when the rule has no cap, then with `limit_raised`
+  when `limit` is above the current limit, and then with `invalid_cap` when
+  `limit` is not positive.
+* `lengthen_cap_period` sets the period of rule `index`'s cap to `period`. It
+  is refused with `no_cap` when the rule has no cap, and then with
+  `period_shortened` when `period` is below the current period.
 
 A step whose `index` is not below the number of rules is refused with
 `no_such_rule`, before any other check. A step list is applied in order, each
@@ -233,8 +271,10 @@ step to the previous step's result, and stops at the first refused step.
 {"error": "threshold_lowered"}
 ```
 
-`ok` holds the rule set after every step, compared rule by rule, field by field
-and in order, and its verdicts on the vector's `batch` under its
+The errors are `no_such_rule`, `threshold_lowered`, `cap_present`, `no_cap`,
+`invalid_cap`, `limit_raised` and `period_shortened`. `ok` holds the rule set
+after every step, compared rule by rule, field by field (the cap included) and
+in order, and its verdicts on the vector's `batch` under its
 `authenticated` signers, as in `expected`. `error` says a step was refused, and
 why.
 
@@ -355,3 +395,90 @@ and the total increased by `amount`.
 | `cap-invalid-limit`, `cap-invalid-period`, `cap-empty-run` | Caps that are not valid to install, and a trace with no calls. |
 
 `cap-random-00.json` to `cap-random-49.json` are the randomized traces.
+
+## Authorization trace format
+
+An authorization trace runs authorizations through the stateful check,
+`authorize` in `rule-eval` and `RuleSet.authorize` in the model. Every file is
+one JSON object. Object fields appear in the order below; readers should not
+depend on it.
+
+```json
+{
+  "format": 1,
+  "name": "authorize-batch-same-rule",
+  "description": "...",
+  "rules": [Rule, ...],
+  "start": [Record, ...],
+  "authorizations": [
+    {"batch": [Context, ...], "choices": [0, 0], "authenticated": [Signer, ...], "now": 1,
+     "expected": Outcome},
+    ...
+  ]
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `format` | The version of this format, `1`. It is versioned apart from the rule vectors and the cap traces. |
+| `name` | The file name without `.json`. |
+| `description` | What the trace exercises, for a reader; carries no data. |
+| `rules` | The rule set, in the rule vector format, caps included. |
+| `start` | The records the first authorization starts from, one per rule: `start[j]` is rule `j`'s. A few traces start from a list of another length, to exercise `records_mismatch`. |
+| `authorizations` | The authorizations, in order. Each starts from the records the authorizations before it left: the records after an accepted one, the same records after a refused one. |
+| `authorizations[i].batch` | The contexts of one authorization tree, in order. |
+| `authorizations[i].choices` | The rule chosen for each context: `choices[k]` is the index of the rule for `batch[k]`, a `u32`. |
+| `authorizations[i].authenticated` | The signers the authorization authenticated, one list for every context. |
+| `authorizations[i].now` | The current ledger, a `u32`. |
+| `authorizations[i].expected` | The outcome of the authorization. |
+
+Records are in the cap trace format.
+
+### The check
+
+In order:
+
+1. `choices` must hold exactly one index per context (`choices_mismatch`), and
+   the records exactly one record per rule (`records_mismatch`).
+2. In context order, the rule `choices[k]` must exist (`no_such_rule`) and
+   allow `batch[k]` under `authenticated` (`not_allowed`), as in the rule
+   vectors.
+3. In context order, for each context whose chosen rule has a cap, the
+   context's argument at the cap's `amount_arg` must be an `i128` (`no_amount`)
+   and is charged to that rule's record with the cap check at ledger `now`,
+   from the record the charges before it left. A refusal of the cap check is
+   `cap_` followed by its cap trace name.
+
+A rule without a cap reads no amount and keeps its record. A refused
+authorization leaves every record as it was, the charges of its earlier
+contexts included.
+
+### Outcomes
+
+```json
+{"ok": [Record, ...]}
+{"error": "cap_limit_exceeded"}
+```
+
+`ok` holds the records after the authorization, one per rule, each compared
+entry by entry and total for total. `error` names the refusal:
+`choices_mismatch`, `records_mismatch`, `no_such_rule`, `not_allowed`,
+`no_amount`, `cap_negative_amount`, `cap_ledger_before_newest`, `cap_overflow`,
+`cap_limit_exceeded` or `cap_history_full`.
+
+### The named traces
+
+| Trace | What it exercises |
+| --- | --- |
+| `authorize-batch-same-rule` | Two contexts choosing one capped rule accumulate; the window then evicts both. |
+| `authorize-choices-mismatch`, `authorize-records-mismatch` | Choice and record lists of the wrong length, and which is checked first. |
+| `authorize-no-such-rule`, `authorize-not-allowed` | Chosen indices out of range; chosen rules that do not allow their context though another rule would. |
+| `authorize-missing-amount` | A missing or wrong-typed amount, an uncapped rule reading none, and a cap on another argument. |
+| `authorize-window-rolls`, `authorize-ledger-zero` | Charges across ledgers and eviction, and the cutoff saturating at ledger 0. |
+| `authorize-refusal-discards-batch`, `authorize-choices-before-charges` | A refusal discarding its batch's earlier charges, and choices checked before any charge. |
+| `authorize-cap-refusals`, `authorize-cap-overflow`, `authorize-history-full` | Each refusal of the cap check, passed on. |
+| `authorize-own-records`, `authorize-empty-batch` | Rules keeping their own records, uncapped rules keeping theirs, and the empty batch. |
+| `authorize-step-base`, `authorize-step-add-cap`, `authorize-step-lower-cap-limit`, `authorize-step-lengthen-cap-period`, `authorize-step-drop-rule` | One run on a rule set and on the rule sets each cap step and `drop_rule` derive from it, the drop with its choices renumbered. |
+
+`authorize-random-00.json` to `authorize-random-49.json` are the randomized
+traces.

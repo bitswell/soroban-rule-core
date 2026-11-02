@@ -4,7 +4,7 @@ import RuleCore.Model.RuleSet
 # Attenuation
 
 A holder of a rule set derives a narrower one by attenuation steps. There are
-exactly five, each naming a rule by its index:
+exactly eight, each naming a rule by its index:
 
 * `dropRule i`: remove rule `i`.
 * `addCond i p`: append condition `p` to rule `i`.
@@ -15,9 +15,20 @@ exactly five, each naming a rule by its index:
   keeping its threshold.
 * `raiseThreshold i k`: set rule `i`'s threshold to `k`, refused with
   `AttenuationError.thresholdLowered` when `k` is below the current threshold.
+* `addCap i k`: give rule `i` the cap `k`, refused with `capPresent` when the
+  rule has a cap and with `invalidCap` when `k`'s parameters are not valid
+  (`Cap.Params.valid`).
+* `lowerCapLimit i limit`: set the limit of rule `i`'s cap to `limit`, refused
+  with `noCap` when the rule has no cap, with `limitRaised` when `limit` is
+  above the current limit, and with `invalidCap` when `limit` is not
+  positive.
+* `lengthenCapPeriod i period`: set the period of rule `i`'s cap to `period`,
+  refused with `noCap` when the rule has no cap and with `periodShortened`
+  when `period` is below the current period.
 
 Each step returns the new rule set, or `AttenuationError.noSuchRule` when its
-index is not below the number of rules. Nothing else is an attenuation step.
+index is not below the number of rules, before any other refusal. Nothing else
+is an attenuation step.
 -/
 
 namespace RuleCore
@@ -30,6 +41,17 @@ inductive AttenuationError where
   | noSuchRule
   /-- The new threshold is below the rule's current threshold. -/
   | thresholdLowered
+  /-- The rule already has a cap. -/
+  | capPresent
+  /-- The rule has no cap. -/
+  | noCap
+  /-- The cap would not be valid: its limit is not positive or its period is
+  0. -/
+  | invalidCap
+  /-- The new limit is above the rule's current limit. -/
+  | limitRaised
+  /-- The new period is below the rule's current period. -/
+  | periodShortened
   deriving DecidableEq, Repr
 
 /-- Rule `r` with condition `p` appended to its conditions. -/
@@ -74,6 +96,48 @@ def RuleSet.raiseThreshold (rs : RuleSet Ctx Sig) (i k : Nat) :
     else .ok (.ofRules (rs.rules.set i { r with threshold := k }))
   | none => .error .noSuchRule
 
+/-- Cap `k` with its limit set to `limit`. -/
+def RuleCap.withLimit (k : RuleCap Ctx) (limit : Int) : RuleCap Ctx :=
+  { k with params := { k.params with limit } }
+
+/-- Cap `k` with its period set to `period`. -/
+def RuleCap.withPeriod (k : RuleCap Ctx) (period : Nat) : RuleCap Ctx :=
+  { k with params := { k.params with period } }
+
+def RuleSet.addCap (rs : RuleSet Ctx Sig) (i : Nat) (k : RuleCap Ctx) :
+    Except AttenuationError (RuleSet Ctx Sig) :=
+  match rs.rules[i]? with
+  | some r =>
+    match r.cap with
+    | some _ => .error .capPresent
+    | none =>
+      if k.params.valid then .ok (.ofRules (rs.rules.set i { r with cap := some k }))
+      else .error .invalidCap
+  | none => .error .noSuchRule
+
+def RuleSet.lowerCapLimit (rs : RuleSet Ctx Sig) (i : Nat) (limit : Int) :
+    Except AttenuationError (RuleSet Ctx Sig) :=
+  match rs.rules[i]? with
+  | some r =>
+    match r.cap with
+    | some k =>
+      if k.params.limit < limit then .error .limitRaised
+      else if limit ≤ 0 then .error .invalidCap
+      else .ok (.ofRules (rs.rules.set i { r with cap := some (k.withLimit limit) }))
+    | none => .error .noCap
+  | none => .error .noSuchRule
+
+def RuleSet.lengthenCapPeriod (rs : RuleSet Ctx Sig) (i period : Nat) :
+    Except AttenuationError (RuleSet Ctx Sig) :=
+  match rs.rules[i]? with
+  | some r =>
+    match r.cap with
+    | some k =>
+      if period < k.params.period then .error .periodShortened
+      else .ok (.ofRules (rs.rules.set i { r with cap := some (k.withPeriod period) }))
+    | none => .error .noCap
+  | none => .error .noSuchRule
+
 /-- One attenuation step. -/
 inductive Attenuation (Ctx Sig : Type) where
   | dropRule (i : Nat)
@@ -81,6 +145,9 @@ inductive Attenuation (Ctx Sig : Type) where
   | restrictScope (i : Nat) (s : Ctx → Bool)
   | removeSigners (i : Nat) (ss : List Sig)
   | raiseThreshold (i k : Nat)
+  | addCap (i : Nat) (k : RuleCap Ctx)
+  | lowerCapLimit (i : Nat) (limit : Int)
+  | lengthenCapPeriod (i period : Nat)
 
 def RuleSet.attenuate [DecidableEq Sig] (rs : RuleSet Ctx Sig) :
     Attenuation Ctx Sig → Except AttenuationError (RuleSet Ctx Sig)
@@ -89,6 +156,9 @@ def RuleSet.attenuate [DecidableEq Sig] (rs : RuleSet Ctx Sig) :
   | .restrictScope i s => rs.restrictScope i s
   | .removeSigners i ss => rs.removeSigners i ss
   | .raiseThreshold i k => rs.raiseThreshold i k
+  | .addCap i k => rs.addCap i k
+  | .lowerCapLimit i limit => rs.lowerCapLimit i limit
+  | .lengthenCapPeriod i period => rs.lengthenCapPeriod i period
 
 /-- Apply `steps` in order, failing with the first step that fails. -/
 def RuleSet.attenuateAll [DecidableEq Sig] (rs : RuleSet Ctx Sig)

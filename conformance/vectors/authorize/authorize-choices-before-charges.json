@@ -1,0 +1,79 @@
+{
+  "format": 1,
+  "name": "authorize-choices-before-charges",
+  "description": "Every chosen rule is checked before any charge: a batch whose first context would exceed its cap and whose second chooses a rule that does not allow it is refused with not_allowed; with the signer authenticated, the cap refusal shows.",
+  "rules": [
+    {
+      "contract": "746f6b656e",
+      "functions": ["7472616e73666572"],
+      "conds": [],
+      "signers": [],
+      "threshold": 0,
+      "cap": {"limit": "100", "period": 10, "amount_arg": 2}
+    },
+    {
+      "contract": "7661756c74",
+      "functions": ["6465706f736974"],
+      "conds": [],
+      "signers": [{"delegated": {"address": "616c696365"}}],
+      "threshold": 1,
+      "cap": null
+    }
+  ],
+  "start": [{"history": [], "total": "0"}, {"history": [], "total": "0"}],
+  "authorizations": [
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "101"}]
+          }
+        },
+        {"call": {"contract": "7661756c74", "function": "6465706f736974", "args": []}}
+      ],
+      "choices": [0, 1],
+      "authenticated": [],
+      "now": 1,
+      "expected": {"error": "not_allowed"}
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "101"}]
+          }
+        },
+        {"call": {"contract": "7661756c74", "function": "6465706f736974", "args": []}}
+      ],
+      "choices": [0, 1],
+      "authenticated": [{"delegated": {"address": "616c696365"}}],
+      "now": 1,
+      "expected": {"error": "cap_limit_exceeded"}
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "100"}]
+          }
+        },
+        {"call": {"contract": "7661756c74", "function": "6465706f736974", "args": []}}
+      ],
+      "choices": [0, 1],
+      "authenticated": [{"delegated": {"address": "616c696365"}}],
+      "now": 1,
+      "expected": {
+        "ok": [
+          {"history": [{"ledger": 1, "amount": "100"}], "total": "100"},
+          {"history": [], "total": "0"}
+        ]
+      }
+    }
+  ]
+}

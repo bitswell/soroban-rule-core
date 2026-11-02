@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "name": "arg-eq-empty-payload",
   "description": "argEq on empty bytes holds only for empty bytes, not an empty address, symbol or other value.",
   "rules": [
@@ -8,7 +8,8 @@
       "functions": ["7472616e73666572"],
       "conds": [{"arg_eq": {"index": 0, "value": {"bytes": ""}}}],
       "signers": [],
-      "threshold": 0
+      "threshold": 0,
+      "cap": null
     }
   ],
   "batch": [

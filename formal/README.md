@@ -6,11 +6,11 @@ and the theorems relating them. The Lake package is `rule-core`
 
 | Directory | Contents |
 | --- | --- |
-| `RuleCore/Model/` | The generic model: rules with their signers and threshold, rule sets, `narrower`, and the five attenuation steps, over any context and signer type. `Cap.lean` models spending caps: the spend record, the check, runs and windows. |
-| `RuleCore/Vocab/` | The chain vocabulary (contexts, values, conditions, signers, rules) and its denotation into the generic model. |
+| `RuleCore/Model/` | The generic model: rules with their signers, threshold and optional cap, rule sets, `narrower`, and the eight attenuation steps, over any context and signer type. `Cap.lean` models spending caps: the spend record, the check, runs and windows. `Authorize.lean` models `authorize`, its runs, and narrowing as trace inclusion. |
+| `RuleCore/Vocab/` | The chain vocabulary (contexts, values, conditions, signers, caps, rules, authorizations) and its denotation into the generic model. |
 | `RuleCore/Extracted/` | `RuleEval.lean`, the translation of `crates/rule-eval` that Charon and Aeneas generate. Never edited by hand. |
-| `RuleCore/Equiv/` | Denotations from the translated types to the chain vocabulary and the cap model (`DenoteCap.lean`), and theorems that the translated functions compute the model's results (`Cap.lean` for the cap check). |
-| `RuleCore/Theorems/` | The theorems below, including the model's theorems carried over to the translation (`Extracted.lean`, `ExtractedCap.lean`), the cap theorems (`Cap.lean`), and kernel-checked examples of concrete verdicts. |
+| `RuleCore/Equiv/` | Denotations from the translated types to the chain vocabulary and the cap model (`DenoteCap.lean`), and theorems that the translated functions compute the model's results (`Cap.lean` for the cap check, `Authorize.lean` for `authorize`). |
+| `RuleCore/Theorems/` | The theorems below, including the model's theorems carried over to the translation (`Extracted.lean`, `ExtractedCap.lean`, `ExtractedAuthorize.lean`), the cap theorems (`Cap.lean`), the authorization theorems (`Authorize.lean`), and kernel-checked examples of concrete verdicts. |
 | `RuleCore/Axioms.lean` | The axioms each theorem depends on, pinned under `#guard_msgs`. |
 
 ## Building
@@ -46,11 +46,16 @@ theorem of the built package (`tools/check-claims --theorems lean`).
 type `Ctx` and the signer type `Sig` (with decidable equality):
 
 ```lean
+structure RuleCap (Ctx : Type) where
+  params : Cap.Params         -- at most `limit` within `period` ledgers
+  amount : Ctx → Option Int   -- the amount a context spends, if it names one
+
 structure Rule (Ctx Sig : Type) where
   scope : Ctx → Bool          -- contract and function match
   conds : List (Ctx → Bool)   -- conditions on this call's arguments
   signers : List Sig          -- the signers that count towards the threshold
   threshold : Nat             -- how many distinct signers must be authenticated
+  cap : Option (RuleCap Ctx) := none  -- the rule's spending cap, if it has one
 
 def Rule.present (r : Rule Ctx Sig) (auth : List Sig) : List Sig :=
   r.signers.eraseDups.filter (· ∈ auth)
@@ -76,8 +81,9 @@ def RuleSet.narrower (rs' rs : RuleSet Ctx Sig) : Prop :=
 `auth` is the list of signers the authorization authenticated, one list for a
 whole batch. `eraseDups` keeps each signer at its first position, so a signer
 listed twice in a rule, or authenticated twice, counts once. A threshold of 0 is
-no requirement. `RuleSet` is a plain definition, so `RuleSet.rules` and
-`RuleSet.ofRules` convert to and from the underlying list for list notation.
+no requirement. `Rule.allows` does not read the cap. `RuleSet` is a plain
+definition, so `RuleSet.rules` and `RuleSet.ofRules` convert to and from the
+underlying list for list notation.
 
 `RuleCore/Model/Attenuation.lean` defines the attenuation steps. Each names a
 rule by its position and returns the new rule set, or
@@ -93,6 +99,14 @@ rules:
 * `RuleSet.raiseThreshold i k` sets rule `i`'s threshold to `k`, and is refused
   with `AttenuationError.thresholdLowered` when `k` is below the current
   threshold.
+* `RuleSet.addCap i k` gives rule `i` the cap `k`, refused with `capPresent`
+  when the rule has a cap and with `invalidCap` when `k`'s parameters are not
+  valid.
+* `RuleSet.lowerCapLimit i limit` sets the limit of rule `i`'s cap, refused
+  with `noCap`, with `limitRaised` above the current limit, and with
+  `invalidCap` when `limit` is not positive.
+* `RuleSet.lengthenCapPeriod i period` sets the period of rule `i`'s cap,
+  refused with `noCap` and with `periodShortened` below the current period.
 
 `Attenuation` names one step, `RuleSet.attenuate` applies one,
 `RuleSet.attenuateAll` applies a list in order, and `RuleSet.Derives root rs`
@@ -119,13 +133,20 @@ Rust evaluator implements:
   `argI128AtMost index n` (argument `index` exists, is an `i128`, and is at
   most `n`). A missing argument or another constructor makes the condition
   false.
-* `Rule` is `{ contract, functions, conds, signers, threshold }` and `RuleSet`
-  is `List Rule`. A rule with an empty function list allows nothing.
+* `Cap` is `{ limit, period, amountArg }`: an `i128` limit, a `UInt32` period
+  and the index of the argument holding a call's amount. `Cap.params` reads
+  it as the cap model's `⟨limit.toInt, period.toNat⟩`, `Cap.amount` reads a
+  call's argument at `amountArg` when it is an `i128`, and `Cap.valid` is
+  `Params.valid` of its parameters.
+* `Rule` is `{ contract, functions, conds, signers, threshold, cap }` and
+  `RuleSet` is `List Rule`. A rule with an empty function list allows nothing.
 * `RuleSet.allows rs c auth` and `RuleSet.allowsAll rs cs auth` take the
   authenticated signers `auth`.
 * `RuleSet.dropRule i`, `RuleSet.addCond i cond`,
-  `RuleSet.removeFunctions i fs`, `RuleSet.removeSigners i ss` and
-  `RuleSet.raiseThreshold i k` are the attenuation operations.
+  `RuleSet.removeFunctions i fs`, `RuleSet.removeSigners i ss`,
+  `RuleSet.raiseThreshold i k`, `RuleSet.addCap i k`,
+  `RuleSet.lowerCapLimit i limit` and `RuleSet.lengthenCapPeriod i period` are
+  the attenuation operations.
   `removeFunctions` and `removeSigners` remove every occurrence of every
   function in `fs` or signer in `ss` and keep the rest in order; `dropRule`
   keeps the remaining rules in their order; `addCond` appends;
@@ -142,8 +163,12 @@ and every condition is false on a creation. `allows`, `allowsAll` and
 `Attenuation.denote` maps each chain step to the generic step of the same kind
 at position `i.toNat`: `removeFunctions i fs` denotes
 `restrictScope i.toNat (notCalling fs)`, and the signer steps denote the
-generic steps of the same name. A chain rule's signers and threshold are the
-generic rule's.
+generic steps of the same name, as do the cap steps, with the cap denoted by
+`Cap.denote` and the limit and period read through `toInt` and `toNat`. A chain
+rule's signers and threshold are the generic rule's, and its cap the denoted
+cap. `Authorization` is `{ contexts, choices, auth, now }` with `UInt32`
+choices and ledger, and `RuleSet.authorize` is the generic authorization of
+the denotation, the choices and ledger read through `toNat`.
 
 ## The extracted evaluator
 
@@ -177,13 +202,14 @@ same bytes; an `i128` is its bit vector, a `u64` and a `u32` the `UInt64` and
 each constructor to the constructor of the same name; `Rule` maps each field to
 the field of the same name; a slice or vector of rules or signers is the list
 of its elements' denotations (`denoteRules`, `denoteSigners`);
-`AttenuationError::NoSuchRule` and `AttenuationError::ThresholdLowered` are
-`AttenuationError.noSuchRule` and `AttenuationError.thresholdLowered`, and a
-Rust `Result` of an attenuation step is the `Except` with the denoted payload
+a `Cap` is the chain cap of the same limit, period and argument index
+(`denoteCap`), and a rule's optional cap the optional denoted cap;
+each `AttenuationError` constructor is the error of the same name, and a Rust
+`Result` of an attenuation step is the `Except` with the denoted payload
 (`denoteOutcome`). Every denotation is injective (`denoteVal_injective`,
 `denoteContext_injective`, `denoteCond_injective`, `denoteSigner_injective`,
-`denoteSigners_injective`, `denoteRule_injective`, `denoteRules_injective`,
-`denoteOutcome_injective`).
+`denoteSigners_injective`, `denoteCap_injective`, `denoteRule_injective`,
+`denoteRules_injective`, `denoteOutcome_injective`).
 
 On every input, the translated functions return `ok` of the model's result on
 the denotations:
@@ -197,6 +223,8 @@ the denotations:
   model's `dropRule`, `removeFunctions`, `removeSigners` or `raiseThreshold` of
   the denotations, `noSuchRule` and `thresholdLowered` included.
 * `add_cond_eq`: the same for `addCond`, under the stated rule `CondRoom`.
+* `add_cap_eq`, `lower_cap_limit_eq`, `lengthen_cap_period_eq`: the same for
+  the cap steps, every refusal included.
 
 The signer count is a fourth loop shape, `loop_count`: a counter that grows by
 at most one per position, so it stays at most the position and its increment
@@ -260,6 +288,39 @@ and with no stated bound: every push copies from a slice or follows the
 history-bound check. The eviction loop, whose state carries the running total
 of the evicted amounts, has its own induction (`evict_loop_eq`).
 
+## Authorization
+
+`RuleCore/Model/Authorize.lean` models `authorize`. An `Authorization` is a
+batch of contexts, the index of the rule chosen for each (`choices`), the
+authenticated signers and the ledger `now`; `records` holds one `Cap.Record`
+per rule.
+
+* `RuleSet.authorize rs records a` refuses `choicesMismatch` and
+  `recordsMismatch` for lists of the wrong length, then runs
+  `RuleSet.checkChoice` on every context with its choice (`noSuchRule`,
+  `notAllowed`), then folds `RuleSet.charge` over them in order: a context
+  whose chosen rule has a cap must name an amount under it (`noAmount`) and is
+  charged to the rule's record with `Cap.Params.check` (`cap e`).
+* `RuleSet.step` keeps the records after a refusal, `RuleSet.run` folds it over
+  a list of authorizations, `RuleSet.authorizeAll` fails at the first refusal
+  and `RuleSet.Accepts` says every authorization is accepted.
+* `Authorization.charges a k j` lists the calls `a` charges to rule `j` under
+  its cap `k`, `RuleSet.charged` those of every accepted authorization of a
+  run, and `RuleSet.spent` the positive ones as entries.
+* `RuleSet.TraceNarrower rs' rs f`: every run `rs'` accepts from its empty
+  records, `rs` accepts from its own, each choice `j` renumbered to `f j`.
+  `Attenuation.source` is the renumbering a step induces and
+  `Attenuation.chainSource` its composition along a list of steps.
+* `RuleSet.capsValid`: every cap of the rule set is valid.
+
+`RuleCore/Equiv/Authorize.lean` maps `Refusal` constructor for constructor,
+`authorize`'s result to the `Except` of the denoted records, and its arguments
+to the chain authorization of their denotations (`denoteAuthorization`), and
+proves `authorize_eq`: on every input, the translated `authorize` returns `ok`
+of `Chain.RuleSet.authorize` on the denotations. Its two loops have their own
+inductions (`check_choices_loop_eq`, `charge_all_loop_eq`); the charge writes
+through `get_mut` (`slice_get_mut_eq`).
+
 ## Theorems
 
 Generic model (`RuleCore`):
@@ -293,6 +354,30 @@ Generic model (`RuleCore`):
 | `RuleSet.modifyRule_narrower` | Replacing one rule by a rule that allows no more yields a narrower rule set. |
 | `RuleSet.modifyRule_eq_error_iff` | Replacing rule `i` is refused with `noSuchRule` exactly when `i` is not below the number of rules. |
 | `RuleSet.rules_ofRules` | The rules of `ofRules l` are `l`. |
+| `RuleSet.addCap_narrower`, `RuleSet.lowerCapLimit_narrower`, `RuleSet.lengthenCapPeriod_narrower`, `RuleSet.set_cap_narrower` | Each cap step yields a narrower rule set: changing only a rule's cap leaves every verdict as it was. |
+| `RuleSet.addCap_eq_noSuchRule_iff`, `RuleSet.lowerCapLimit_eq_noSuchRule_iff`, `RuleSet.lengthenCapPeriod_eq_noSuchRule_iff` | A cap step is refused with `noSuchRule` exactly when its position is not below the number of rules. |
+| `RuleSet.addCap_eq_capPresent_iff`, `RuleSet.addCap_eq_invalidCap_iff`, `RuleSet.lowerCapLimit_eq_noCap_iff`, `RuleSet.lowerCapLimit_eq_limitRaised_iff`, `RuleSet.lowerCapLimit_eq_invalidCap_iff`, `RuleSet.lengthenCapPeriod_eq_noCap_iff`, `RuleSet.lengthenCapPeriod_eq_periodShortened_iff` | Each other refusal of a cap step happens exactly in the case it names. |
+
+Authorization (`RuleCore`, `RuleCore/Theorems/Authorize.lean`):
+
+| Theorem | Statement |
+| --- | --- |
+| `RuleSet.authorize_eq_ok_iff`, `RuleSet.checkChoice_ok_iff` | An accepted authorization, pass by pass: the lengths match, every chosen rule exists and allows its context, and the charges build the new records. |
+| `RuleSet.authorize_chosen`, `RuleSet.authorize_allowsAll` | An accepted authorization's every context is allowed by the rule chosen for it, so the rule set allows the batch under its signers. |
+| `RuleSet.authorize_length`, `RuleSet.charge_length`, `RuleSet.foldlM_charge_length` | An accepted authorization keeps one record per rule. |
+| `RuleSet.step_of_error` | A refused authorization leaves the records as they were. |
+| `RuleSet.charge_get_ne`, `RuleSet.charge_get_capped`, `RuleSet.charge_of_cap_none`, `RuleSet.foldlM_charge_get`, `RuleSet.foldlM_charge_get_of_cap_none` | A charge touches only the chosen rule's record, through the cap check when the rule has a cap. |
+| `RuleSet.run_get`, `RuleSet.runAll_charged`, `RuleSet.spent_eq_recorded`, `RuleSet.run_get_of_cap_none`, `RuleSet.mem_charged` | After a run, a capped rule's record is the cap check's run over the calls charged to it, every one of which it accepted; a rule without a cap keeps its record. |
+| `RuleSet.window_le_limit`, `RuleSet.period_le_limit_of_pos`, `RuleSet.period_le_limit` | From empty records, the spends a run records for a capped rule with a non-negative limit sum to at most the limit in every window of eviction, in every window of `period` ledgers from ledger 1 on, and in every window when every authorization is at ledger 1 or later. |
+| `RuleSet.run_eq_window`, `RuleSet.run_history_length_le` | From empty records, the stored record is the spends in the window at the last spend's ledger with their sum as total, and holds at most `maxHistory` entries. |
+| `RuleSet.Refines.traceNarrower`, `RuleSet.Refines.authorize`, `RuleSet.Refines.authorizeAll`, `RuleSet.Refines.charge`, `RuleSet.Refines.foldlM_charge`, `RuleSet.RecordsRel.empty` | A rule set whose rules, renumbered one to one, each allow no more and carry a cap at least as narrow accepts no run of authorizations its image does not. |
+| `RuleSet.attenuate_refines`, `RuleSet.attenuateAll_refines`, `RuleSet.dropRule_refines`, `RuleSet.modifyRule_refines`, `RuleSet.raiseThreshold_refines`, `RuleSet.addCap_refines`, `RuleSet.lowerCapLimit_refines`, `RuleSet.lengthenCapPeriod_refines`, `RuleSet.Refines.set`, `RuleSet.Refines.refl`, `RuleSet.Refines.trans`, `Rule.Refines.refl`, `Rule.Refines.trans`, `Rule.refines_addCond`, `Rule.refines_restrictScope`, `Rule.refines_removeSigners`, `RuleCap.NarrowerOpt.refl`, `RuleCap.NarrowerOpt.trans` | Each of the eight steps, and every list of them, refines along the renumbering it induces. |
+| `RuleSet.attenuate_traceNarrower`, `RuleSet.attenuateAll_traceNarrower` | Each step, and every chain of steps, is narrowing as trace inclusion, each side from its own empty records, with the choices renumbered. |
+| `RuleSet.TraceNarrower.refl`, `RuleSet.TraceNarrower.trans`, `Authorization.renumber_renumber`, `Authorization.chosen_renumber` | Trace inclusion is reflexive and composes, with the renumberings composed. |
+| `Attenuation.source_dropRule`, `Attenuation.source_eq_of_ne_dropRule` | `dropRule i` sends `j` to `j` below `i` and to `j + 1` from `i` on; every other step keeps each index. |
+| `RuleSet.attenuate_capsValid`, `RuleSet.attenuateAll_capsValid`, `RuleSet.capsValid_set` | The steps keep every cap valid. |
+| `Cap.run_of_runAll`, `Cap.recorded_of_runAll`, `Cap.runAll_append`, `Cap.run_append`, `Cap.check_of_narrower_suffix` | Runs of the cap check that accept every call, and one check under a narrower cap. |
+| `forM_except_ok_iff`, `foldlM_except_cons`, `foldlM_except_append`, `Authorization.map_fst_chosen`, `Authorization.length_chosen`, `RuleSet.run_nil`, `RuleSet.run_cons`, `RuleSet.emptyRecords_length`, `RuleSet.emptyRecords_get`, `Authorization.charges_eq` | The lemmas these rest on. |
 
 Chain vocabulary (`RuleCore.Chain`):
 
@@ -326,6 +411,12 @@ Chain vocabulary (`RuleCore.Chain`):
 | `RuleSet.dropRule_eq_error_iff`, `RuleSet.addCond_eq_error_iff`, `RuleSet.removeFunctions_eq_error_iff`, `RuleSet.removeSigners_eq_error_iff`, `RuleSet.raiseThreshold_eq_noSuchRule_iff`, `RuleSet.modifyRule_eq_error_iff` | A chain operation is refused with `noSuchRule` exactly when its index is not below the number of rules. |
 | `RuleSet.raiseThreshold_eq_thresholdLowered_iff` | `raiseThreshold` is refused with `thresholdLowered` exactly when the rule exists and the new threshold is below its own. |
 | `RuleSet.rules_denote` | The rules of a chain rule set's denotation are the denotations of its rules. |
+| `RuleSet.addCap_narrower`, `RuleSet.lowerCapLimit_narrower`, `RuleSet.lengthenCapPeriod_narrower` | Each chain cap step yields a narrower rule set. |
+| `RuleSet.denote_addCap`, `RuleSet.denote_lowerCapLimit`, `RuleSet.denote_lengthenCapPeriod`, `RuleSet.denote_attenuateAll`, `Cap.valid_denote` | Each chain cap step, and each list of steps, commutes with the denotation. |
+| `RuleSet.authorize_allowsAll` | A chain rule set that accepts an authorization allows its batch under its signers. |
+| `RuleSet.attenuate_traceNarrower`, `RuleSet.attenuateAll_traceNarrower`, `Attenuation.source_denote_dropRule`, `Attenuation.source_denote_of_ne` | Each chain step, and every chain of steps, is trace inclusion on the denotations, along the renumbering `dropRule` induces. |
+| `RuleSet.attenuate_capsValid`, `RuleSet.attenuateAll_capsValid` | The chain steps keep every cap valid. |
+| `RuleSet.emptyRecords_denote`, `RuleSet.authorizeAll_denote` | The chain's empty records and runs are the generic ones of the denotation. |
 
 Equivalence (`RuleCore.Equiv`), on every input of the translated functions:
 
@@ -347,18 +438,23 @@ Equivalence (`RuleCore.Equiv`), on every input of the translated functions:
 | `loop_any`, `loop_all`, `loop_build`, `loop_build_fail`, `loop_count` | What a scanning, building or counting loop returns, from what one round of its body returns. |
 | `countFrom_first`, `countFrom_first_from`, `countFrom_map` | Counting each element at its first position, when it satisfies a predicate, counts the elements of `eraseDups` that do. |
 | `push_eq`, `push_full`, `incr_eq`, `incr_eq_of_le`, `index_usize_eq`, `slice_get_eq` | `Vec::push` succeeds below `Usize.max` elements and fails at it; the loop counter's and the signer count's increments and in-range indexing succeed; `get` is the list lookup. |
+| `add_cap_eq`, `lower_cap_limit_eq`, `lengthen_cap_period_eq` | Each cap step returns `ok res`, and `denoteOutcome res` is the chain step on the denotations, every refusal included. |
+| `add_cap_ok`, `lower_cap_limit_ok`, `lengthen_cap_period_ok`, `loop_set_eq`, `cap_valid_eq`, `cap_copy_eq`, `cap_option_copy_eq` | The rules each cap step returns when it is taken; the loop that rebuilds every rule and changes one; `cap_valid` is `Cap.valid`; the cap copies return their input. |
+| `authorize_eq` | `authorize rules records contexts choices authenticated now` returns `ok res`, and `denoteAuthorized res` is the chain `RuleSet.authorize` on the denotations, every refusal included. |
+| `check_choices_loop_eq`, `charge_all_loop_eq`, `records_copy_eq`, `records_copy_loop_eq`, `spend_amount_eq`, `slice_get_mut_eq`, `slice_len_bne_any`, `list_set_opt_some` | The first pass is the model's `forM` of `checkChoice`, the second its `foldlM` of `charge`; the records copy returns the records; `spend_amount` is the cap's amount; `get_mut` returns the element and writes back at its index. |
+| `chosen_denoteAuthorization`, `chosenOf_drop`, `chosenOf_drop_nil`, `denoteRules_rules_get`, `denoteRule_denote_cap`, `denoteCap_params`, `except_error_bind`, `except_ok_bind` | The model read on the denotations. |
+| `denoteCap_injective`, `denoteRefusal_injective`, `denoteAuthorized_injective` | The new denotations are injective. |
 
 The model's theorems carried over to the translation
 (`RuleCore.Extracted`), stated on the translated functions alone. `Narrower
 rs' rs` says every context the translated `allows` accepts under `rs'` and some
 authenticated signers, it accepts under `rs` and the same signers; `Step rs
-rs'` says one of the translated `drop_rule`, `add_cond`, `remove_functions`,
-`remove_signers` and `raise_threshold` on `rs` returned `Ok` of the rules of
-`rs'`; `Derives root rs` is zero or more steps.
+rs'` says one of the eight translated attenuation steps on `rs` returned `Ok`
+of the rules of `rs'`; `Derives root rs` is zero or more steps.
 
 | Theorem | Statement |
 | --- | --- |
-| `drop_rule_narrower`, `add_cond_narrower`, `remove_functions_narrower`, `remove_signers_narrower`, `raise_threshold_narrower`, `Step.narrower` | Each translated attenuation step that returns `Ok` yields a narrower rule set. |
+| `drop_rule_narrower`, `add_cond_narrower`, `remove_functions_narrower`, `remove_signers_narrower`, `raise_threshold_narrower`, `add_cap_narrower`, `lower_cap_limit_narrower`, `lengthen_cap_period_narrower`, `Step.narrower` | Each translated attenuation step that returns `Ok` yields a narrower rule set. |
 | `Narrower.refl`, `Narrower.trans` | `Narrower` is reflexive and transitive. |
 | `Derives.narrower` | Any chain of translated steps stays inside its root. |
 | `allows_all_of_narrower`, `Derives.allows_all` | A narrower rule set accepts a batch only if its ancestor does. |
@@ -402,6 +498,24 @@ The cap check on the translation (`RuleCore.Extracted`):
 | `runSpends_eq` | A run of the translated `check_spend`, keeping the record after a refusal, returns `ok` of a record denoting `Params.run`. |
 | `runSpends_window`, `runSpends_length_le` | From the empty record, that record holds the recorded spends in its window and at most `MAX_HISTORY_ENTRIES` entries. |
 | `check_spend_negative`, `check_spend_zero`, `check_spend_before_newest` | The translated check refuses a negative amount, returns the record unchanged on a zero amount, and refuses a positive spend before the newest recorded ledger. |
+| `empty_record_denote` | The empty record denotes the model's. |
+
+`authorize` on the translation (`RuleCore.Extracted`,
+`Theorems/ExtractedAuthorize.lean`). `runAuthorizations` runs the translated
+`authorize`, keeping the records after a refusal; `emptyRecords rules` is one
+empty record per rule; `TraceNarrower rules' rules f` says every run `rules'`
+accepts from its empty records, `rules` accepts from its own with each choice
+renumbered by `f` (`Renumbered`); `StepAlong rs rs' f` is one translated step
+with its renumbering and `DerivesAlong root rs f` a chain of them.
+
+| Theorem | Statement |
+| --- | --- |
+| `authorize_allows_all` | An `authorize` that returned `Ok` means the translated `allows_all` accepts the same batch under the same signers. |
+| `runAuthorizations_eq`, `authorizeAll_eq`, `accepts_iff` | A run of the translated `authorize` returns `ok` of records denoting the model's run, and accepts a run exactly when the model does. |
+| `runAuthorizations_of_err` | A refused authorization leaves the records as they were. |
+| `runAuthorizations_window`, `runAuthorizations_window_le_limit`, `runAuthorizations_length_le` | From empty records, a capped rule's stored record is the in-window spends with their sum as total, every window of its spends sums to at most its limit, and it holds at most `MAX_HISTORY_ENTRIES` entries. |
+| `traceNarrower_of_denote`, `StepAlong.denote_traceNarrower`, `StepAlong.traceNarrower`, `DerivesAlong.traceNarrower`, `DerivesAlong.derives` | Each translated step, and every chain of them, is trace inclusion along its renumbering; a chain is also a `Derives`. |
+| `emptyRecords_denote`, `emptyRecords_denote_rules`, `emptyRecords_length`, `renumbered_denote`, `renumbered_map` | The empty records and renumbered runs, read on the denotations. |
 
 The empty batch is allowed by every rule set (`RuleCore.RuleSet.allowsAll_nil`;
 chain `allowsAll` is the generic one on the denotation, and the translated

@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "name": "contract-exact-bytes",
   "description": "Contract ids compare exactly: a prefix, an extension, another case and the empty id are refused, as are prefixes and extensions of a non-text id.",
   "rules": [
@@ -8,14 +8,16 @@
       "functions": ["7472616e73666572"],
       "conds": [],
       "signers": [],
-      "threshold": 0
+      "threshold": 0,
+      "cap": null
     },
     {
       "contract": "00ff",
       "functions": ["7472616e73666572"],
       "conds": [],
       "signers": [],
-      "threshold": 0
+      "threshold": 0,
+      "cap": null
     }
   ],
   "batch": [

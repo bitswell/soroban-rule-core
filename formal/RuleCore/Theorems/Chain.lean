@@ -1,5 +1,5 @@
 import RuleCore.Vocab.Chain
-import RuleCore.Theorems.Attenuation
+import RuleCore.Theorems.Authorize
 import RuleCore.Theorems.Bytes
 
 /-!
@@ -64,12 +64,15 @@ Attenuation:
   `Rule.denote_removeSigners`, `RuleSet.denote_modifyRule`,
   `RuleSet.denote_dropRule`, `RuleSet.denote_addCond`,
   `RuleSet.denote_removeFunctions`, `RuleSet.denote_removeSigners`,
-  `RuleSet.denote_raiseThreshold`, `RuleSet.denote_attenuate`: each chain step
-  denotes the generic step of the same kind.
+  `RuleSet.denote_raiseThreshold`, `RuleSet.denote_addCap`,
+  `RuleSet.denote_lowerCapLimit`, `RuleSet.denote_lengthenCapPeriod`,
+  `RuleSet.denote_attenuate`, `RuleSet.denote_attenuateAll`: each chain step,
+  and each list of steps, denotes the generic step of the same kind.
 * `RuleSet.dropRule_narrower`, `RuleSet.addCond_narrower`,
   `RuleSet.removeFunctions_narrower`, `RuleSet.removeSigners_narrower`,
-  `RuleSet.raiseThreshold_narrower`, `RuleSet.attenuate_narrower`: each step
-  yields a narrower rule set.
+  `RuleSet.raiseThreshold_narrower`, `RuleSet.addCap_narrower`,
+  `RuleSet.lowerCapLimit_narrower`, `RuleSet.lengthenCapPeriod_narrower`,
+  `RuleSet.attenuate_narrower`: each step yields a narrower rule set.
 * `RuleSet.narrower_refl`, `RuleSet.narrower_trans`: `narrower` is a preorder.
 * `RuleSet.Derives.narrower`, `RuleSet.attenuateAll_derives`,
   `RuleSet.attenuateAll_narrower`: any chain of steps stays inside its root.
@@ -85,6 +88,19 @@ Attenuation:
 * `RuleSet.raiseThreshold_eq_thresholdLowered_iff`: `raiseThreshold` is refused
   with `thresholdLowered` exactly when the rule exists and the new threshold is
   below its current one.
+
+Authorization:
+
+* `RuleSet.authorize_allowsAll`: a rule set that accepts an authorization
+  allows its batch under its signers.
+* `RuleSet.attenuate_traceNarrower`, `RuleSet.attenuateAll_traceNarrower`: each
+  step, and every chain of steps, is narrowing as trace inclusion on the
+  denotations, with the choices renumbered by the map `dropRule` induces
+  (`Attenuation.source_denote_dropRule`, `Attenuation.source_denote_of_ne`).
+* `RuleSet.attenuate_capsValid`, `RuleSet.attenuateAll_capsValid`: the steps
+  keep every cap valid.
+* `RuleSet.emptyRecords_denote`, `RuleSet.authorizeAll_denote`: the chain's
+  empty records and runs are the generic ones of the denotation.
 -/
 
 namespace RuleCore.Chain
@@ -364,7 +380,7 @@ theorem Rule.mem_removeFunctions (r : Rule) (fs : List Bytes) (f : Bytes) :
 theorem Rule.denote_removeFunctions (r : Rule) (fs : List Bytes) :
     (r.removeFunctions fs).denote = r.denote.restrictScope (notCalling fs) := by
   simp only [Rule.denote, RuleCore.Rule.restrictScope, RuleCore.Rule.mk.injEq]
-  refine ⟨?_, rfl, rfl, rfl⟩
+  refine ⟨?_, rfl, rfl, rfl, rfl⟩
   funext c
   cases c with
   | call contract function args =>
@@ -425,6 +441,70 @@ theorem RuleSet.denote_raiseThreshold (rs : RuleSet) (i k : UInt32) :
     · simp only [Except.map, RuleSet.denote, List.map_set, Rule.denote]
       rfl
 
+theorem Cap.valid_denote (k : Cap) : k.denote.params.valid = k.valid := rfl
+
+theorem RuleSet.denote_addCap (rs : RuleSet) (i : UInt32) (k : Cap) :
+    (rs.addCap i k).map RuleSet.denote = rs.denote.addCap i.toNat k.denote := by
+  unfold RuleSet.addCap RuleCore.RuleSet.addCap
+  simp only [RuleSet.rules_denote, List.getElem?_map]
+  cases h : rs[i.toNat]? with
+  | none => rfl
+  | some r =>
+    simp only [Option.map_some]
+    cases hc : r.cap with
+    | some k' => simp [Rule.denote, hc, Except.map]
+    | none =>
+      have hd : r.denote.cap = none := by simp [Rule.denote, hc]
+      simp only [hd, Cap.valid_denote]
+      by_cases hv : k.valid = true
+      · simp only [hv, ↓reduceIte, Except.map, RuleSet.denote, List.map_set, Rule.denote]
+        rfl
+      · simp [hv, Except.map]
+
+theorem RuleSet.denote_lowerCapLimit (rs : RuleSet) (i : UInt32) (limit : I128) :
+    (rs.lowerCapLimit i limit).map RuleSet.denote = rs.denote.lowerCapLimit i.toNat limit.toInt := by
+  unfold RuleSet.lowerCapLimit RuleCore.RuleSet.lowerCapLimit
+  simp only [RuleSet.rules_denote, List.getElem?_map]
+  cases h : rs[i.toNat]? with
+  | none => rfl
+  | some r =>
+    simp only [Option.map_some]
+    cases hc : r.cap with
+    | none => simp [Rule.denote, hc, Except.map]
+    | some k =>
+      have hd : r.denote.cap = some k.denote := by simp [Rule.denote, hc]
+      simp only [hd]
+      have hl : k.denote.params.limit = k.limit.toInt := rfl
+      simp only [hl]
+      by_cases h₁ : k.limit.toInt < limit.toInt
+      · simp [h₁, Except.map]
+      · by_cases h₂ : limit.toInt ≤ 0
+        · simp [h₁, h₂, Except.map]
+        · simp only [h₁, h₂, ↓reduceIte, Except.map, RuleSet.denote, List.map_set, Rule.denote]
+          rfl
+
+theorem RuleSet.denote_lengthenCapPeriod (rs : RuleSet) (i period : UInt32) :
+    (rs.lengthenCapPeriod i period).map RuleSet.denote =
+      rs.denote.lengthenCapPeriod i.toNat period.toNat := by
+  unfold RuleSet.lengthenCapPeriod RuleCore.RuleSet.lengthenCapPeriod
+  simp only [RuleSet.rules_denote, List.getElem?_map]
+  cases h : rs[i.toNat]? with
+  | none => rfl
+  | some r =>
+    simp only [Option.map_some]
+    cases hc : r.cap with
+    | none => simp [Rule.denote, hc, Except.map]
+    | some k =>
+      have hd : r.denote.cap = some k.denote := by simp [Rule.denote, hc]
+      simp only [hd]
+      have hlt : (period < k.period) = (period.toNat < k.denote.params.period) := by
+        simp [Cap.denote, Cap.params, UInt32.lt_iff_toNat_lt]
+      simp only [hlt]
+      by_cases h₁ : period.toNat < k.denote.params.period
+      · simp [h₁, Except.map]
+      · simp only [h₁, ↓reduceIte, Except.map, RuleSet.denote, List.map_set, Rule.denote]
+        rfl
+
 theorem RuleSet.denote_attenuate (rs : RuleSet) (a : Attenuation) :
     (rs.attenuate a).map RuleSet.denote = rs.denote.attenuate a.denote := by
   cases a with
@@ -433,6 +513,28 @@ theorem RuleSet.denote_attenuate (rs : RuleSet) (a : Attenuation) :
   | removeFunctions i fs => exact RuleSet.denote_removeFunctions rs i fs
   | removeSigners i ss => exact RuleSet.denote_removeSigners rs i ss
   | raiseThreshold i k => exact RuleSet.denote_raiseThreshold rs i k
+  | addCap i k => exact RuleSet.denote_addCap rs i k
+  | lowerCapLimit i limit => exact RuleSet.denote_lowerCapLimit rs i limit
+  | lengthenCapPeriod i period => exact RuleSet.denote_lengthenCapPeriod rs i period
+
+theorem RuleSet.denote_attenuateAll :
+    ∀ (rs : RuleSet) (steps : List Attenuation),
+      (rs.attenuateAll steps).map RuleSet.denote =
+        rs.denote.attenuateAll (steps.map Attenuation.denote)
+  | rs, [] => rfl
+  | rs, a :: steps => by
+    simp only [RuleSet.attenuateAll, RuleCore.RuleSet.attenuateAll, List.map_cons,
+      List.foldlM_cons] at *
+    have hd := RuleSet.denote_attenuate rs a
+    cases ha : rs.attenuate a with
+    | error e =>
+      rw [ha] at hd
+      rw [← hd]
+      rfl
+    | ok rs₁ =>
+      rw [ha] at hd
+      rw [← hd]
+      exact RuleSet.denote_attenuateAll rs₁ steps
 
 /-! ## Attenuation: narrowing -/
 
@@ -468,6 +570,18 @@ theorem RuleSet.removeSigners_narrower {rs rs' : RuleSet} {i : UInt32} {ss : Lis
 theorem RuleSet.raiseThreshold_narrower {rs rs' : RuleSet} {i k : UInt32}
     (h : rs.raiseThreshold i k = .ok rs') : rs'.narrower rs :=
   RuleSet.attenuate_narrower (a := .raiseThreshold i k) h
+
+theorem RuleSet.addCap_narrower {rs rs' : RuleSet} {i : UInt32} {k : Cap}
+    (h : rs.addCap i k = .ok rs') : rs'.narrower rs :=
+  RuleSet.attenuate_narrower (a := .addCap i k) h
+
+theorem RuleSet.lowerCapLimit_narrower {rs rs' : RuleSet} {i : UInt32} {limit : I128}
+    (h : rs.lowerCapLimit i limit = .ok rs') : rs'.narrower rs :=
+  RuleSet.attenuate_narrower (a := .lowerCapLimit i limit) h
+
+theorem RuleSet.lengthenCapPeriod_narrower {rs rs' : RuleSet} {i period : UInt32}
+    (h : rs.lengthenCapPeriod i period = .ok rs') : rs'.narrower rs :=
+  RuleSet.attenuate_narrower (a := .lengthenCapPeriod i period) h
 
 /-- Every rule set derived from a root by attenuation steps stays inside the
 root. -/
@@ -561,5 +675,69 @@ theorem RuleSet.raiseThreshold_eq_thresholdLowered_iff (rs : RuleSet) (i k : UIn
     · simp [h, hk]
     · simp [h, hk]
   · simp [h]
+
+/-! ## Authorization -/
+
+theorem RuleSet.emptyRecords_denote (rs : RuleSet) : rs.denote.emptyRecords = rs.emptyRecords := by
+  simp [RuleCore.RuleSet.emptyRecords, RuleSet.emptyRecords, RuleSet.rules_denote]
+
+theorem RuleSet.authorizeAll_denote (rs : RuleSet) (records : List RuleCore.Cap.Record)
+    (as : List Authorization) :
+    rs.authorizeAll records as = rs.denote.authorizeAll records (as.map Authorization.denote) := by
+  simp only [RuleSet.authorizeAll, RuleCore.RuleSet.authorizeAll]
+  induction as generalizing records with
+  | nil => rfl
+  | cons a as ih =>
+    simp only [List.foldlM_cons, List.map_cons]
+    have hd : rs.denote.authorize records a.denote = rs.authorize records a := rfl
+    rw [hd]
+    cases rs.authorize records a with
+    | error e => rfl
+    | ok r => exact ih r
+
+/-- Soundness of the stateful check: a rule set that accepts an authorization
+allows its whole batch under its signers. -/
+theorem RuleSet.authorize_allowsAll {rs : RuleSet} {records records' : List RuleCore.Cap.Record}
+    {a : Authorization} (h : rs.authorize records a = .ok records') :
+    rs.allowsAll a.contexts a.auth = true :=
+  RuleCore.RuleSet.authorize_allowsAll h
+
+theorem Attenuation.source_denote_dropRule (i : UInt32) (j : Nat) :
+    (Attenuation.dropRule i).denote.source j = if j < i.toNat then j else j + 1 := rfl
+
+theorem Attenuation.source_denote_of_ne {a : Attenuation} (h : ∀ i, a ≠ .dropRule i) (j : Nat) :
+    a.denote.source j = j := by
+  cases a with
+  | dropRule i => exact absurd rfl (h i)
+  | _ => rfl
+
+/-- Each step is narrowing as trace inclusion, with the choices renumbered by
+the map the step induces. -/
+theorem RuleSet.attenuate_traceNarrower {rs rs' : RuleSet} {a : Attenuation}
+    (h : rs.attenuate a = .ok rs') : rs'.TraceNarrower rs a.denote.source := by
+  have hd := RuleSet.denote_attenuate rs a
+  rw [h] at hd
+  exact RuleCore.RuleSet.attenuate_traceNarrower hd.symm
+
+/-- Every chain of steps is narrowing as trace inclusion, with the choices
+renumbered by the map the chain induces. -/
+theorem RuleSet.attenuateAll_traceNarrower {root rs : RuleSet} {steps : List Attenuation}
+    (h : root.attenuateAll steps = .ok rs) :
+    rs.TraceNarrower root (Attenuation.chainSource steps) := by
+  have hd := RuleSet.denote_attenuateAll root steps
+  rw [h] at hd
+  exact RuleCore.RuleSet.attenuateAll_traceNarrower hd.symm
+
+theorem RuleSet.attenuate_capsValid {rs rs' : RuleSet} {a : Attenuation}
+    (hv : rs.denote.capsValid) (h : rs.attenuate a = .ok rs') : rs'.denote.capsValid := by
+  have hd := RuleSet.denote_attenuate rs a
+  rw [h] at hd
+  exact RuleCore.RuleSet.attenuate_capsValid hv hd.symm
+
+theorem RuleSet.attenuateAll_capsValid {root rs : RuleSet} {steps : List Attenuation}
+    (hv : root.denote.capsValid) (h : root.attenuateAll steps = .ok rs) : rs.denote.capsValid := by
+  have hd := RuleSet.denote_attenuateAll root steps
+  rw [h] at hd
+  exact RuleCore.RuleSet.attenuateAll_capsValid hv hd.symm
 
 end RuleCore.Chain

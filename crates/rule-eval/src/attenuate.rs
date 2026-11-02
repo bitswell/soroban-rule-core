@@ -2,14 +2,18 @@
 //!
 //! Each step reads a rule set and returns a new one, or
 //! [`AttenuationError::NoSuchRule`] when its rule index is out of range;
-//! [`raise_threshold`] also refuses to lower a threshold. The new rule set
-//! allows no context, under any authenticated signers, that the original does
-//! not. Nothing else is an attenuation step.
+//! [`raise_threshold`] also refuses to lower a threshold, and the three cap
+//! steps refuse what would widen or invalidate a cap. The new rule set allows
+//! no context, under any authenticated signers, that the original does not,
+//! and accepts no run of authorizations that the original does not (see
+//! [`authorize`](crate::authorize)). Nothing else is an attenuation step.
 
 use alloc::vec::Vec;
 
 use crate::bytes::{bytes_copy, bytes_list_copy, bytes_list_without};
-use crate::rule::{Cond, Rule, cond_copy, conds_copy, rule_copy};
+use crate::rule::{
+    Cap, Cond, Rule, cap_copy, cap_option_copy, cap_valid, cond_copy, conds_copy, rule_copy,
+};
 use crate::signer::{Signer, signers_copy, signers_without};
 
 /// Why an attenuation step was refused.
@@ -18,6 +22,17 @@ pub enum AttenuationError {
     NoSuchRule,
     /// The new threshold is below the rule's current threshold.
     ThresholdLowered,
+    /// The rule already has a cap.
+    CapPresent,
+    /// The rule has no cap.
+    NoCap,
+    /// The cap would not be valid: its limit is not positive or its period
+    /// is 0.
+    InvalidCap,
+    /// The new limit is above the rule's current limit.
+    LimitRaised,
+    /// The new period is below the rule's current period.
+    PeriodShortened,
 }
 
 /// `rules` without the rule at `index`.
@@ -100,6 +115,7 @@ fn rule_without_functions(r: &Rule, functions: &[Vec<u8>]) -> Rule {
         conds: conds_copy(&r.conds),
         signers: signers_copy(&r.signers),
         threshold: r.threshold,
+        cap: cap_option_copy(&r.cap),
     }
 }
 
@@ -139,6 +155,7 @@ fn rule_without_signers(r: &Rule, signers: &[Signer]) -> Rule {
         conds: conds_copy(&r.conds),
         signers: signers_without(&r.signers, signers),
         threshold: r.threshold,
+        cap: cap_option_copy(&r.cap),
     }
 }
 
@@ -169,6 +186,120 @@ pub fn raise_threshold(
         let mut r = rule_copy(&rules[i]);
         if i == index {
             r.threshold = threshold;
+        }
+        out.push(r);
+        i += 1;
+    }
+    Ok(out)
+}
+
+/// `rules` with the cap `new_cap` added to the rule at `index`.
+///
+/// # Errors
+///
+/// [`AttenuationError::NoSuchRule`] if `index` is out of range,
+/// [`AttenuationError::CapPresent`] if the rule already has a cap, and
+/// [`AttenuationError::InvalidCap`] if `new_cap` is not valid
+/// ([`cap_valid`]).
+pub fn add_cap(rules: &[Rule], index: u32, new_cap: &Cap) -> Result<Vec<Rule>, AttenuationError> {
+    let index = index as usize;
+    match rules.get(index) {
+        Some(Rule { cap: None, .. }) => {}
+        Some(_) => return Err(AttenuationError::CapPresent),
+        None => return Err(AttenuationError::NoSuchRule),
+    }
+    if !cap_valid(new_cap) {
+        return Err(AttenuationError::InvalidCap);
+    }
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < rules.len() {
+        let mut r = rule_copy(&rules[i]);
+        if i == index {
+            r.cap = Some(cap_copy(new_cap));
+        }
+        out.push(r);
+        i += 1;
+    }
+    Ok(out)
+}
+
+/// `rules` with the limit of the cap of the rule at `index` set to `limit`.
+///
+/// # Errors
+///
+/// [`AttenuationError::NoSuchRule`] if `index` is out of range,
+/// [`AttenuationError::NoCap`] if the rule has no cap,
+/// [`AttenuationError::LimitRaised`] if `limit` is above the cap's current
+/// limit, and [`AttenuationError::InvalidCap`] if `limit` is not positive.
+pub fn lower_cap_limit(
+    rules: &[Rule],
+    index: u32,
+    limit: i128,
+) -> Result<Vec<Rule>, AttenuationError> {
+    let index = index as usize;
+    match rules.get(index) {
+        Some(r) => match &r.cap {
+            Some(c) => {
+                if limit > c.limit {
+                    return Err(AttenuationError::LimitRaised);
+                }
+                if limit <= 0 {
+                    return Err(AttenuationError::InvalidCap);
+                }
+            }
+            None => return Err(AttenuationError::NoCap),
+        },
+        None => return Err(AttenuationError::NoSuchRule),
+    }
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < rules.len() {
+        let mut r = rule_copy(&rules[i]);
+        if i == index
+            && let Some(c) = &mut r.cap
+        {
+            c.limit = limit;
+        }
+        out.push(r);
+        i += 1;
+    }
+    Ok(out)
+}
+
+/// `rules` with the period of the cap of the rule at `index` set to `period`.
+///
+/// # Errors
+///
+/// [`AttenuationError::NoSuchRule`] if `index` is out of range,
+/// [`AttenuationError::NoCap`] if the rule has no cap, and
+/// [`AttenuationError::PeriodShortened`] if `period` is below the cap's
+/// current period.
+pub fn lengthen_cap_period(
+    rules: &[Rule],
+    index: u32,
+    period: u32,
+) -> Result<Vec<Rule>, AttenuationError> {
+    let index = index as usize;
+    match rules.get(index) {
+        Some(r) => match &r.cap {
+            Some(c) => {
+                if period < c.period {
+                    return Err(AttenuationError::PeriodShortened);
+                }
+            }
+            None => return Err(AttenuationError::NoCap),
+        },
+        None => return Err(AttenuationError::NoSuchRule),
+    }
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < rules.len() {
+        let mut r = rule_copy(&rules[i]);
+        if i == index
+            && let Some(c) = &mut r.cap
+        {
+            c.period = period;
         }
         out.push(r);
         i += 1;

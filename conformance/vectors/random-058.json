@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "name": "random-058",
   "description": "Randomized case 58 of seed 20261102.",
   "rules": [
@@ -10,49 +10,49 @@
         {"arg_i128_at_most": {"index": 2, "bound": "-170141183460469231731687303715884105728"}}
       ],
       "signers": [],
-      "threshold": 1
+      "threshold": 1,
+      "cap": null
     },
     {
-      "contract": "6331",
-      "functions": ["67", "67"],
-      "conds": [{"arg_eq": {"index": 1, "value": {"symbol": "62"}}}],
-      "signers": [],
-      "threshold": 0
+      "contract": "633130",
+      "functions": ["67", "666f6f"],
+      "conds": [
+        {"arg_i128_at_most": {"index": 1, "bound": "1"}},
+        {"arg_eq": {"index": 1, "value": {"other": "62"}}}
+      ],
+      "signers": [{"delegated": {"address": "6162"}}, {"delegated": {"address": "6162"}}],
+      "threshold": 2,
+      "cap": {"limit": "170141183460469231731687303715884105727", "period": 0, "amount_arg": 3}
     }
   ],
   "batch": [
     {
       "call": {
-        "contract": "63",
-        "function": "67",
-        "args": [{"u64": "0"}, {"i128": "-1"}, {"i128": "-170141183460469231731687303715884105728"}]
+        "contract": "6332",
+        "function": "",
+        "args": [{"other": "00ff"}, {"symbol": ""}, {"bool": false}]
       }
-    },
-    {"call": {"contract": "6331", "function": "67", "args": [{"other": "00ff"}, {"symbol": "62"}]}}
+    }
   ],
-  "authenticated": [{"delegated": {"address": "61"}}],
-  "expected": {"allows": [false, true], "allows_all": false},
+  "authenticated": [],
+  "expected": {"allows": [false], "allows_all": false},
   "attenuations": [
     {
-      "steps": [{"drop_rule": {"index": 0}}],
-      "expected": {
-        "ok": {
-          "rules": [
-            {
-              "contract": "6331",
-              "functions": ["67", "67"],
-              "conds": [{"arg_eq": {"index": 1, "value": {"symbol": "62"}}}],
-              "signers": [],
-              "threshold": 0
-            }
-          ],
-          "allows": [false, true],
-          "allows_all": false
-        }
-      }
+      "steps": [{"raise_threshold": {"index": 2, "threshold": 1}}],
+      "expected": {"error": "no_such_rule"}
     },
     {
-      "steps": [{"drop_rule": {"index": 1}}],
+      "steps": [
+        {"add_cond": {"index": 2, "cond": {"arg_eq": {"index": 1, "value": {"u64": "0"}}}}},
+        {"remove_functions": {"index": 1, "functions": ["666f6f"]}}
+      ],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [
+        {"add_cond": {"index": 0, "cond": {"arg_i128_at_most": {"index": 1, "bound": "0"}}}},
+        {"remove_functions": {"index": 0, "functions": ["", ""]}}
+      ],
       "expected": {
         "ok": {
           "rules": [
@@ -65,23 +65,33 @@
                     "index": 2,
                     "bound": "-170141183460469231731687303715884105728"
                   }
-                }
+                },
+                {"arg_i128_at_most": {"index": 1, "bound": "0"}}
               ],
               "signers": [],
-              "threshold": 1
+              "threshold": 1,
+              "cap": null
+            },
+            {
+              "contract": "633130",
+              "functions": ["67", "666f6f"],
+              "conds": [
+                {"arg_i128_at_most": {"index": 1, "bound": "1"}},
+                {"arg_eq": {"index": 1, "value": {"other": "62"}}}
+              ],
+              "signers": [{"delegated": {"address": "6162"}}, {"delegated": {"address": "6162"}}],
+              "threshold": 2,
+              "cap": {
+                "limit": "170141183460469231731687303715884105727",
+                "period": 0,
+                "amount_arg": 3
+              }
             }
           ],
-          "allows": [false, false],
+          "allows": [false],
           "allows_all": false
         }
       }
-    },
-    {
-      "steps": [
-        {"drop_rule": {"index": 0}},
-        {"remove_functions": {"index": 1, "functions": ["666f", "67"]}}
-      ],
-      "expected": {"error": "no_such_rule"}
     }
   ]
 }

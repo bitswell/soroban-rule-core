@@ -583,6 +583,99 @@ def signerChains : Case where
     [.dropRule 0, .raiseThreshold 0 1, .removeFunctions 0 [s "deposit"]],
     [.removeSigners 0 [sAlice, sKey], .raiseThreshold 0 2]]
 
+/-! ## Caps -/
+
+/-- A cap on argument 2 (a transfer's amount): at most `limit` within `period`
+ledgers. -/
+def cap (limit : Int) (period : UInt32) (amountArg : UInt32 := 2) : Cap :=
+  ⟨BitVec.ofInt 128 limit, period, amountArg⟩
+
+def transfer (amount : Int) : Context :=
+  call token "transfer" [alice, bob, .i128 (BitVec.ofInt 128 amount)]
+
+/-- An uncapped transfer rule, a transfer rule capped at 100 per 10 ledgers,
+and a vault rule, for the cap step cases. -/
+def capRules : RuleSet := [
+  rule token ["transfer"] [],
+  { rule token ["transfer", "approve"] [] with cap := some (cap 100 10) },
+  rule "vault" ["deposit"] []]
+
+def capBatch : List Context := [transfer 5, transfer 1000, call "vault" "deposit" []]
+
+def capsLeaveVerdicts : Case where
+  name := "caps-leave-verdicts"
+  description := "allows and allows_all do not read a rule's cap: a capped rule allows a call whose amount exceeds its limit, and one with no amount at all."
+  rules := [{ rule token ["transfer"] [] with cap := some (cap 10 5) }]
+  batch := [transfer 5, transfer 1000, call token "transfer" [], call token "transfer" [.u64 1]]
+
+def addCap : Case where
+  name := "attenuate-add-cap"
+  description := "addCap on a rule without a cap, with the largest limit, period and argument index; refused with cap_present on a capped rule, with invalid_cap for a limit that is not positive or a period of 0, and with no_such_rule at the length, 2^31 and 2^32 - 1, before any other refusal."
+  rules := capRules
+  batch := capBatch
+  attenuations := [
+    [.addCap 0 (cap 50 5)],
+    [.addCap 2 (cap 1 1 0)],
+    [.addCap 0 (cap ((2 : Int) ^ 127 - 1) u32Max u32Max)],
+    [.addCap 1 (cap 50 5)],
+    [.addCap 1 (cap 0 0)],
+    [.addCap 0 (cap 0 5)],
+    [.addCap 0 (cap (-1) 5)],
+    [.addCap 0 (cap (-(2 : Int) ^ 127) 5)],
+    [.addCap 0 (cap 50 0)],
+    [.addCap 3 (cap 50 5)],
+    [.addCap 3 (cap 0 0)],
+    [.addCap u32Half (cap 50 5)],
+    [.addCap u32Max (cap 50 5)]]
+
+def lowerCapLimit : Case where
+  name := "attenuate-lower-cap-limit"
+  description := "lowerCapLimit to the same limit, a lower one and 1; refused with limit_raised above the current limit, with invalid_cap at 0 and below, with no_cap on a rule without a cap, and with no_such_rule out of range."
+  rules := capRules
+  batch := capBatch
+  attenuations := [
+    [.lowerCapLimit 1 (BitVec.ofInt 128 100)],
+    [.lowerCapLimit 1 (BitVec.ofInt 128 60)],
+    [.lowerCapLimit 1 (BitVec.ofInt 128 1)],
+    [.lowerCapLimit 1 (BitVec.ofInt 128 101)],
+    [.lowerCapLimit 1 i128Max],
+    [.lowerCapLimit 1 (BitVec.ofInt 128 0)],
+    [.lowerCapLimit 1 (BitVec.ofInt 128 (-5))],
+    [.lowerCapLimit 1 i128Min],
+    [.lowerCapLimit 0 (BitVec.ofInt 128 50)],
+    [.lowerCapLimit 3 (BitVec.ofInt 128 50)],
+    [.lowerCapLimit u32Max (BitVec.ofInt 128 50)]]
+
+def lengthenCapPeriod : Case where
+  name := "attenuate-lengthen-cap-period"
+  description := "lengthenCapPeriod to the same period, a longer one and 2^32 - 1; refused with period_shortened below the current period, 0 included, with no_cap on a rule without a cap, and with no_such_rule out of range."
+  rules := capRules
+  batch := capBatch
+  attenuations := [
+    [.lengthenCapPeriod 1 10],
+    [.lengthenCapPeriod 1 11],
+    [.lengthenCapPeriod 1 u32Max],
+    [.lengthenCapPeriod 1 9],
+    [.lengthenCapPeriod 1 0],
+    [.lengthenCapPeriod 0 20],
+    [.lengthenCapPeriod 2 20],
+    [.lengthenCapPeriod 3 20],
+    [.lengthenCapPeriod u32Half 20]]
+
+def capChains : Case where
+  name := "attenuate-cap-chains"
+  description := "Lists mixing the cap steps with the others: a cap added then lowered and lengthened, a drop that moves the capped rule's index, a cap added twice, and a refusal part-way through."
+  rules := capRules
+  batch := capBatch
+  attenuations := [
+    [.addCap 0 (cap 50 5), .lowerCapLimit 0 (BitVec.ofInt 128 20), .lengthenCapPeriod 0 8],
+    [.dropRule 0, .lowerCapLimit 0 (BitVec.ofInt 128 10), .lengthenCapPeriod 0 30],
+    [.dropRule 0, .lowerCapLimit 1 (BitVec.ofInt 128 10)],
+    [.addCap 2 (cap 5 5 0), .addCap 2 (cap 4 5 0)],
+    [.lowerCapLimit 1 (BitVec.ofInt 128 50), .lowerCapLimit 1 (BitVec.ofInt 128 60)],
+    [.addCond 1 (.argI128AtMost 2 (BitVec.ofInt 128 10)), .lengthenCapPeriod 1 12,
+      .removeFunctions 1 [s "approve"]]]
+
 def all : List Case := [
   argEqI128, argEqU64, argEqBool, argEqBytes, argEqAddress, argEqSymbol, argEqOther,
   argEqEmptyPayload, argEqRawBytes, argI128AtMost, argI128AtMostExtremes, missingArguments,
@@ -594,6 +687,7 @@ def all : List Case := [
   dropRule, emptyRuleSetSteps, addCond, removeFunctions, chains,
   thresholdNone, thresholdOne, thresholdTwo, thresholdAll, ruleSignerRepeats, authenticatedRepeats,
   delegatedVersusExternal, externalVersusDelegated, missingSigners, batchOneMissing,
-  batchAllPresent, removeSigners, raiseThreshold, signerChains]
+  batchAllPresent, removeSigners, raiseThreshold, signerChains,
+  capsLeaveVerdicts, addCap, lowerCapLimit, lengthenCapPeriod, capChains]
 
 end Conformance.Cases

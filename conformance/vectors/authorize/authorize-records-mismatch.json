@@ -1,0 +1,63 @@
+{
+  "format": 1,
+  "name": "authorize-records-mismatch",
+  "description": "The records must hold exactly one record per rule: starting from one record for two rules, every authorization is refused with records_mismatch, after the choice length check.",
+  "rules": [
+    {
+      "contract": "746f6b656e",
+      "functions": ["7472616e73666572"],
+      "conds": [],
+      "signers": [],
+      "threshold": 0,
+      "cap": {"limit": "100", "period": 10, "amount_arg": 2}
+    },
+    {
+      "contract": "7661756c74",
+      "functions": ["6465706f736974"],
+      "conds": [],
+      "signers": [{"delegated": {"address": "616c696365"}}],
+      "threshold": 1,
+      "cap": null
+    }
+  ],
+  "start": [{"history": [], "total": "0"}],
+  "authorizations": [
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "1"}]
+          }
+        }
+      ],
+      "choices": [0],
+      "authenticated": [],
+      "now": 1,
+      "expected": {"error": "records_mismatch"}
+    },
+    {
+      "batch": [],
+      "choices": [],
+      "authenticated": [],
+      "now": 1,
+      "expected": {"error": "records_mismatch"}
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "1"}]
+          }
+        }
+      ],
+      "choices": [],
+      "authenticated": [],
+      "now": 1,
+      "expected": {"error": "choices_mismatch"}
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "name": "random-004",
   "description": "Randomized case 4 of seed 20261102.",
   "rules": [
@@ -8,42 +8,22 @@
       "functions": [],
       "conds": [],
       "signers": [{"delegated": {"address": "61"}}],
-      "threshold": 0
+      "threshold": 0,
+      "cap": null
     }
   ],
-  "batch": [{"call": {"contract": "633130", "function": "666f", "args": []}}],
-  "authenticated": [],
-  "expected": {"allows": [false], "allows_all": false},
+  "batch": [],
+  "authenticated": [{"external": {"verifier": "76", "key": "6b32"}}],
+  "expected": {"allows": [], "allows_all": true},
   "attenuations": [
     {
       "steps": [
-        {"add_cond": {"index": 0, "cond": {"arg_i128_at_most": {"index": 1, "bound": "0"}}}}
-      ],
-      "expected": {
-        "ok": {
-          "rules": [
-            {
-              "contract": "633130",
-              "functions": [],
-              "conds": [{"arg_i128_at_most": {"index": 1, "bound": "0"}}],
-              "signers": [{"delegated": {"address": "61"}}],
-              "threshold": 0
-            }
-          ],
-          "allows": [false],
-          "allows_all": false
-        }
-      }
-    },
-    {
-      "steps": [
-        {"drop_rule": {"index": 1}},
-        {"remove_functions": {"index": 2147483648, "functions": []}}
+        {"add_cap": {"index": 2147483648, "cap": {"limit": "0", "period": 2, "amount_arg": 2}}}
       ],
       "expected": {"error": "no_such_rule"}
     },
     {
-      "steps": [{"remove_functions": {"index": 0, "functions": ["666f"]}}],
+      "steps": [{"add_cap": {"index": 0, "cap": {"limit": "1", "period": 10, "amount_arg": 0}}}],
       "expected": {
         "ok": {
           "rules": [
@@ -52,13 +32,31 @@
               "functions": [],
               "conds": [],
               "signers": [{"delegated": {"address": "61"}}],
-              "threshold": 0
+              "threshold": 0,
+              "cap": {"limit": "1", "period": 10, "amount_arg": 0}
             }
           ],
-          "allows": [false],
-          "allows_all": false
+          "allows": [],
+          "allows_all": true
         }
       }
+    },
+    {
+      "steps": [
+        {"lower_cap_limit": {"index": 1, "limit": "11"}},
+        {
+          "add_cond": {
+            "index": 0,
+            "cond": {
+              "arg_i128_at_most": {
+                "index": 2147483648,
+                "bound": "-170141183460469231731687303715884105728"
+              }
+            }
+          }
+        }
+      ],
+      "expected": {"error": "no_such_rule"}
     }
   ]
 }

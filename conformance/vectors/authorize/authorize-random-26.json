@@ -1,0 +1,44 @@
+{
+  "format": 1,
+  "name": "authorize-random-26",
+  "description": "Randomized authorization trace 26 of seed 20261102.",
+  "rules": [
+    {
+      "contract": "6332",
+      "functions": ["66"],
+      "conds": [
+        {"arg_eq": {"index": 0, "value": {"other": "00ff"}}},
+        {"arg_i128_at_most": {"index": 2147483648, "bound": "100"}}
+      ],
+      "signers": [
+        {"external": {"verifier": "76", "key": "6b32"}},
+        {"external": {"verifier": "76", "key": "6b"}},
+        {"external": {"verifier": "76", "key": "6b"}}
+      ],
+      "threshold": 0,
+      "cap": null
+    },
+    {
+      "contract": "63",
+      "functions": ["666f", "666f6f"],
+      "conds": [],
+      "signers": [
+        {"delegated": {"address": "61"}},
+        {"external": {"verifier": "76", "key": "6b32"}},
+        {"delegated": {"address": "6162"}}
+      ],
+      "threshold": 0,
+      "cap": null
+    }
+  ],
+  "start": [{"history": [], "total": "0"}, {"history": [], "total": "0"}],
+  "authorizations": [
+    {
+      "batch": [],
+      "choices": [],
+      "authenticated": [],
+      "now": 10,
+      "expected": {"ok": [{"history": [], "total": "0"}, {"history": [], "total": "0"}]}
+    }
+  ]
+}

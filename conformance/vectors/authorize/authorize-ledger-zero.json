@@ -1,0 +1,63 @@
+{
+  "format": 1,
+  "name": "authorize-ledger-zero",
+  "description": "At ledger 0 the cutoff saturates to 0 and evicts entries at ledger 0, so each charge of the whole limit at ledger 0 is accepted alone; at ledger 1 the entry at ledger 0 is still in the window.",
+  "rules": [
+    {
+      "contract": "746f6b656e",
+      "functions": ["7472616e73666572"],
+      "conds": [],
+      "signers": [],
+      "threshold": 0,
+      "cap": {"limit": "100", "period": 10, "amount_arg": 2}
+    }
+  ],
+  "start": [{"history": [], "total": "0"}],
+  "authorizations": [
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "100"}]
+          }
+        }
+      ],
+      "choices": [0],
+      "authenticated": [],
+      "now": 0,
+      "expected": {"ok": [{"history": [{"ledger": 0, "amount": "100"}], "total": "100"}]}
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "100"}]
+          }
+        }
+      ],
+      "choices": [0],
+      "authenticated": [],
+      "now": 0,
+      "expected": {"ok": [{"history": [{"ledger": 0, "amount": "100"}], "total": "100"}]}
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "1"}]
+          }
+        }
+      ],
+      "choices": [0],
+      "authenticated": [],
+      "now": 1,
+      "expected": {"ok": [{"history": [{"ledger": 1, "amount": "1"}], "total": "1"}]}
+    }
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "format": 1,
+  "name": "authorize-cap-refusals",
+  "description": "Each refusal of the cap check passes on as cap_ followed by its name: a negative amount, a ledger before the newest recorded spend, and an exceeded limit; a zero amount is accepted and records nothing.",
+  "rules": [
+    {
+      "contract": "746f6b656e",
+      "functions": ["7472616e73666572"],
+      "conds": [],
+      "signers": [],
+      "threshold": 0,
+      "cap": {"limit": "100", "period": 10, "amount_arg": 2}
+    }
+  ],
+  "start": [{"history": [{"ledger": 50, "amount": "10"}], "total": "10"}],
+  "authorizations": [
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "-1"}]
+          }
+        }
+      ],
+      "choices": [0],
+      "authenticated": [],
+      "now": 51,
+      "expected": {"error": "cap_negative_amount"}
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "1"}]
+          }
+        }
+      ],
+      "choices": [0],
+      "authenticated": [],
+      "now": 49,
+      "expected": {"error": "cap_ledger_before_newest"}
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "91"}]
+          }
+        }
+      ],
+      "choices": [0],
+      "authenticated": [],
+      "now": 51,
+      "expected": {"error": "cap_limit_exceeded"}
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "0"}]
+          }
+        }
+      ],
+      "choices": [0],
+      "authenticated": [],
+      "now": 49,
+      "expected": {"ok": [{"history": [{"ledger": 50, "amount": "10"}], "total": "10"}]}
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "90"}]
+          }
+        }
+      ],
+      "choices": [0],
+      "authenticated": [],
+      "now": 51,
+      "expected": {
+        "ok": [
+          {
+            "history": [{"ledger": 50, "amount": "10"}, {"ledger": 51, "amount": "90"}],
+            "total": "100"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "name": "signers-missing",
   "description": "Signers outside the rule, and signers whose bytes are a prefix or an extension of a rule signer's, do not count; a rule with no signers and threshold 1 allows nothing.",
   "rules": [
@@ -8,28 +8,32 @@
       "functions": ["7472616e73666572"],
       "conds": [],
       "signers": [{"delegated": {"address": "616c696365"}}],
-      "threshold": 1
+      "threshold": 1,
+      "cap": null
     },
     {
       "contract": "6b6579",
       "functions": ["7472616e73666572"],
       "conds": [],
       "signers": [{"external": {"verifier": "7665726966696572", "key": "6b6579"}}],
-      "threshold": 1
+      "threshold": 1,
+      "cap": null
     },
     {
       "contract": "6e6f626f6479",
       "functions": ["7472616e73666572"],
       "conds": [],
       "signers": [],
-      "threshold": 1
+      "threshold": 1,
+      "cap": null
     },
     {
       "contract": "66726565",
       "functions": ["7472616e73666572"],
       "conds": [],
       "signers": [],
-      "threshold": 0
+      "threshold": 0,
+      "cap": null
     }
   ],
   "batch": [
