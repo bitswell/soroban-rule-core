@@ -146,7 +146,7 @@ fn entries_from(history: &[SpendEntry], start: usize) -> Vec<SpendEntry> {
 }
 
 /// A fresh copy of `record`.
-fn record_copy(record: &SpendRecord) -> SpendRecord {
+pub(crate) fn record_copy(record: &SpendRecord) -> SpendRecord {
     SpendRecord {
         history: entries_from(&record.history, 0),
         total: record.total,

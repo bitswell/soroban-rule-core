@@ -1,0 +1,113 @@
+{
+  "format": 1,
+  "name": "authorize-no-such-rule",
+  "description": "A chosen index at the length, 2^31 or 2^32 - 1 is refused with no_such_rule, also after a context whose choice is valid.",
+  "rules": [
+    {
+      "contract": "746f6b656e",
+      "functions": ["7472616e73666572"],
+      "conds": [],
+      "signers": [],
+      "threshold": 0,
+      "cap": {"limit": "100", "period": 10, "amount_arg": 2}
+    },
+    {
+      "contract": "7661756c74",
+      "functions": ["6465706f736974"],
+      "conds": [],
+      "signers": [{"delegated": {"address": "616c696365"}}],
+      "threshold": 1,
+      "cap": null
+    }
+  ],
+  "start": [{"history": [], "total": "0"}, {"history": [], "total": "0"}],
+  "authorizations": [
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "1"}]
+          }
+        }
+      ],
+      "choices": [2],
+      "authenticated": [],
+      "now": 1,
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "1"}]
+          }
+        }
+      ],
+      "choices": [2147483648],
+      "authenticated": [],
+      "now": 1,
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "1"}]
+          }
+        }
+      ],
+      "choices": [4294967295],
+      "authenticated": [],
+      "now": 1,
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "1"}]
+          }
+        },
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "1"}]
+          }
+        }
+      ],
+      "choices": [0, 2],
+      "authenticated": [],
+      "now": 1,
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "1"}]
+          }
+        }
+      ],
+      "choices": [0],
+      "authenticated": [],
+      "now": 1,
+      "expected": {
+        "ok": [
+          {"history": [{"ledger": 1, "amount": "1"}], "total": "1"},
+          {"history": [], "total": "0"}
+        ]
+      }
+    }
+  ]
+}

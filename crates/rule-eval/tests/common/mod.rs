@@ -2,7 +2,7 @@
 //! by the integration tests.
 #![allow(dead_code)]
 
-use rule_eval::{Cond, Context, Rule, Signer, Val};
+use rule_eval::{Cap, Cond, Context, Rule, Signer, Val};
 
 pub fn b(s: &str) -> Vec<u8> {
     s.as_bytes().to_vec()
@@ -38,6 +38,34 @@ pub fn signed_rule(
         conds,
         signers,
         threshold,
+        cap: None,
+    }
+}
+
+pub fn cap(limit: i128, period: u32, amount_arg: u32) -> Cap {
+    Cap {
+        limit,
+        period,
+        amount_arg,
+    }
+}
+
+/// `r` with the cap `c`.
+pub fn capped(r: Rule, c: Cap) -> Rule {
+    Rule { cap: Some(c), ..r }
+}
+
+pub fn copy_cap(c: &Option<Cap>) -> Option<Cap> {
+    c.as_ref().map(|c| cap(c.limit, c.period, c.amount_arg))
+}
+
+pub fn cap_eq(x: &Option<Cap>, y: &Option<Cap>) -> bool {
+    match (x, y) {
+        (None, None) => true,
+        (Some(p), Some(q)) => {
+            p.limit == q.limit && p.period == q.period && p.amount_arg == q.amount_arg
+        }
+        _ => false,
     }
 }
 
@@ -61,6 +89,7 @@ pub fn rule_eq(x: &Rule, y: &Rule) -> bool {
             .zip(&y.signers)
             .all(|(p, q)| ref_signer_eq(p, q))
         && x.threshold == y.threshold
+        && cap_eq(&x.cap, &y.cap)
 }
 
 pub fn rules_eq(xs: &[Rule], ys: &[Rule]) -> bool {
@@ -199,6 +228,7 @@ impl RuleSpec {
             conds: self.conds.iter().flatten().map(|&k| cond(k)).collect(),
             signers: Vec::new(),
             threshold: 0,
+            cap: None,
         }
     }
 }
@@ -377,6 +407,7 @@ pub fn copy_rule(r: &Rule) -> Rule {
         conds: r.conds.iter().map(copy_cond).collect(),
         signers: r.signers.iter().map(copy_signer).collect(),
         threshold: r.threshold,
+        cap: copy_cap(&r.cap),
     }
 }
 

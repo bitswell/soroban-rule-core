@@ -2,22 +2,26 @@
 //!
 //! A vector (see `conformance/README.md`) holds a rule set, a batch of
 //! contexts, the signers the batch's authorization authenticated, attenuation
-//! step lists, and the results the Lean model computes for them. [`check`] decodes a vector into `rule-eval`'s types, evaluates it
-//! with `rule-eval`, and reports the first result that differs.
+//! step lists, and the results the Lean model computes for them. [`check`]
+//! decodes a vector into `rule-eval`'s types, evaluates it with `rule-eval`,
+//! and reports the first result that differs. [`caps`] checks the cap traces
+//! and [`authorize`] the authorization traces.
 
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use rule_eval::{
-    AttenuationError, Cond, Context, Rule, Signer, Val, add_cond, allows, allows_all, drop_rule,
-    raise_threshold, remove_functions, remove_signers, signer_eq, val_eq,
+    AttenuationError, Cap, Cond, Context, Rule, Signer, Val, add_cap, add_cond, allows, allows_all,
+    drop_rule, lengthen_cap_period, lower_cap_limit, raise_threshold, remove_functions,
+    remove_signers, signer_eq, val_eq,
 };
 use serde::Deserialize;
 
+pub mod authorize;
 pub mod caps;
 
 /// The vector format version this runner reads.
-pub const FORMAT: u32 = 2;
+pub const FORMAT: u32 = 3;
 
 /// One vector file.
 #[derive(Deserialize)]
@@ -63,11 +67,16 @@ pub enum Outcome {
     Error(JsonError),
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
 #[serde(rename_all = "snake_case")]
 pub enum JsonError {
     NoSuchRule,
     ThresholdLowered,
+    CapPresent,
+    NoCap,
+    InvalidCap,
+    LimitRaised,
+    PeriodShortened,
 }
 
 #[derive(Deserialize)]
@@ -78,6 +87,16 @@ pub struct JsonRule {
     pub conds: Vec<JsonCond>,
     pub signers: Vec<JsonSigner>,
     pub threshold: u32,
+    /// The rule's cap, or `null` when it has none.
+    pub cap: Option<JsonCap>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct JsonCap {
+    pub limit: String,
+    pub period: u32,
+    pub amount_arg: u32,
 }
 
 #[derive(Deserialize)]
@@ -148,6 +167,18 @@ pub enum JsonStep {
         index: u32,
         threshold: u32,
     },
+    AddCap {
+        index: u32,
+        cap: JsonCap,
+    },
+    LowerCapLimit {
+        index: u32,
+        limit: String,
+    },
+    LengthenCapPeriod {
+        index: u32,
+        period: u32,
+    },
 }
 
 /// An attenuation step in `rule-eval`'s types.
@@ -157,6 +188,9 @@ pub enum Step {
     RemoveFunctions(u32, Vec<Vec<u8>>),
     RemoveSigners(u32, Vec<Signer>),
     RaiseThreshold(u32, u32),
+    AddCap(u32, Cap),
+    LowerCapLimit(u32, i128),
+    LengthenCapPeriod(u32, u32),
 }
 
 // ---------------------------------------------------------------------------
@@ -301,7 +335,18 @@ pub fn decode_signers(list: &[JsonSigner]) -> Result<Vec<Signer>, String> {
 
 /// # Errors
 ///
-/// As [`decode_val`].
+/// If the limit is not a decimal `i128`.
+pub fn decode_cap(c: &JsonCap) -> Result<Cap, String> {
+    Ok(Cap {
+        limit: decode_decimal(&c.limit)?,
+        period: c.period,
+        amount_arg: c.amount_arg,
+    })
+}
+
+/// # Errors
+///
+/// As [`decode_val`] and [`decode_cap`].
 pub fn decode_rules(rules: &[JsonRule]) -> Result<Vec<Rule>, String> {
     rules
         .iter()
@@ -312,6 +357,7 @@ pub fn decode_rules(rules: &[JsonRule]) -> Result<Vec<Rule>, String> {
                 conds: r.conds.iter().map(decode_cond).collect::<Result<_, _>>()?,
                 signers: decode_signers(&r.signers)?,
                 threshold: r.threshold,
+                cap: r.cap.as_ref().map(decode_cap).transpose()?,
             })
         })
         .collect()
@@ -335,6 +381,11 @@ pub fn decode_step(s: &JsonStep) -> Result<Step, String> {
             Step::RemoveSigners(*index, decode_signers(signers)?)
         }
         JsonStep::RaiseThreshold { index, threshold } => Step::RaiseThreshold(*index, *threshold),
+        JsonStep::AddCap { index, cap } => Step::AddCap(*index, decode_cap(cap)?),
+        JsonStep::LowerCapLimit { index, limit } => {
+            Step::LowerCapLimit(*index, decode_decimal(limit)?)
+        }
+        JsonStep::LengthenCapPeriod { index, period } => Step::LengthenCapPeriod(*index, *period),
     })
 }
 
@@ -356,6 +407,9 @@ pub fn attenuate_all(rules: Vec<Rule>, steps: &[Step]) -> Result<Vec<Rule>, Atte
             Step::RemoveFunctions(i, fs) => remove_functions(&current, *i, fs)?,
             Step::RemoveSigners(i, ss) => remove_signers(&current, *i, ss)?,
             Step::RaiseThreshold(i, k) => raise_threshold(&current, *i, *k)?,
+            Step::AddCap(i, c) => add_cap(&current, *i, c)?,
+            Step::LowerCapLimit(i, limit) => lower_cap_limit(&current, *i, *limit)?,
+            Step::LengthenCapPeriod(i, period) => lengthen_cap_period(&current, *i, *period)?,
         };
     }
     Ok(current)
@@ -369,9 +423,33 @@ fn cond_eq(p: &Cond, q: &Cond) -> bool {
     }
 }
 
+fn cap_eq(p: Option<&Cap>, q: Option<&Cap>) -> bool {
+    match (p, q) {
+        (None, None) => true,
+        (Some(p), Some(q)) => {
+            p.limit == q.limit && p.period == q.period && p.amount_arg == q.amount_arg
+        }
+        _ => false,
+    }
+}
+
+/// The name `conformance/README.md` gives a refusal of an attenuation step.
+#[must_use]
+pub fn error_of(e: &AttenuationError) -> JsonError {
+    match e {
+        AttenuationError::NoSuchRule => JsonError::NoSuchRule,
+        AttenuationError::ThresholdLowered => JsonError::ThresholdLowered,
+        AttenuationError::CapPresent => JsonError::CapPresent,
+        AttenuationError::NoCap => JsonError::NoCap,
+        AttenuationError::InvalidCap => JsonError::InvalidCap,
+        AttenuationError::LimitRaised => JsonError::LimitRaised,
+        AttenuationError::PeriodShortened => JsonError::PeriodShortened,
+    }
+}
+
 /// Structural equality: same contract, same function list in the same order,
 /// same conditions in the same order, same signers in the same order, same
-/// threshold.
+/// threshold, same cap.
 #[must_use]
 pub fn rules_eq(xs: &[Rule], ys: &[Rule]) -> bool {
     xs.len() == ys.len()
@@ -386,6 +464,7 @@ pub fn rules_eq(xs: &[Rule], ys: &[Rule]) -> bool {
                     .zip(&y.signers)
                     .all(|(p, q)| signer_eq(p, q))
                 && x.threshold == y.threshold
+                && cap_eq(x.cap.as_ref(), y.cap.as_ref())
         })
 }
 
@@ -471,26 +550,21 @@ pub fn check(vector: &Vector) -> Result<(), String> {
                 }
                 check_verdicts(&what, &got, &batch, &authenticated, allows, *allows_all)?;
             }
-            (Err(AttenuationError::NoSuchRule), Outcome::Error(JsonError::NoSuchRule))
-            | (
-                Err(AttenuationError::ThresholdLowered),
-                Outcome::Error(JsonError::ThresholdLowered),
-            ) => {}
+            (Err(e), Outcome::Error(want)) => {
+                if error_of(&e) != *want {
+                    return Err(format!(
+                        "{what}: a step was refused with {:?}, expected {want:?}",
+                        error_of(&e)
+                    ));
+                }
+            }
             (Ok(_), Outcome::Error(_)) => {
                 return Err(format!("{what}: the steps were taken, expected a refusal"));
             }
-            (Err(e), expected) => {
-                let got = match e {
-                    AttenuationError::NoSuchRule => "NoSuchRule",
-                    AttenuationError::ThresholdLowered => "ThresholdLowered",
-                };
-                let want = match expected {
-                    Outcome::Ok { .. } => "a result",
-                    Outcome::Error(JsonError::NoSuchRule) => "no_such_rule",
-                    Outcome::Error(JsonError::ThresholdLowered) => "threshold_lowered",
-                };
+            (Err(e), Outcome::Ok { .. }) => {
                 return Err(format!(
-                    "{what}: a step was refused with {got}, expected {want}"
+                    "{what}: a step was refused with {:?}, expected a result",
+                    error_of(&e)
                 ));
             }
         }

@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "name": "authorize-random-25",
+  "description": "Randomized authorization trace 25 of seed 20261102.",
+  "rules": [],
+  "start": [],
+  "authorizations": [
+    {
+      "batch": [{"call": {"contract": "6331", "function": "666f6f", "args": [{"i128": "-1"}]}}],
+      "choices": [0],
+      "authenticated": [
+        {"external": {"verifier": "76", "key": "6b32"}},
+        {"external": {"verifier": "76", "key": "6b32"}}
+      ],
+      "now": 10,
+      "expected": {"error": "no_such_rule"}
+    }
+  ]
+}

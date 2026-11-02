@@ -1,15 +1,23 @@
 {
-  "format": 2,
+  "format": 3,
   "name": "empty-function-list",
   "description": "A rule with an empty function list allows nothing; a rule listing the empty name allows only the empty name.",
   "rules": [
-    {"contract": "6e6f6e65", "functions": [], "conds": [], "signers": [], "threshold": 0},
+    {
+      "contract": "6e6f6e65",
+      "functions": [],
+      "conds": [],
+      "signers": [],
+      "threshold": 0,
+      "cap": null
+    },
     {
       "contract": "656d7074792d6e616d65",
       "functions": [""],
       "conds": [],
       "signers": [],
-      "threshold": 0
+      "threshold": 0,
+      "cap": null
     }
   ],
   "batch": [

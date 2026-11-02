@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "name": "signers-repeated-in-authenticated",
   "description": "A signer authenticated twice counts once.",
   "rules": [
@@ -8,14 +8,16 @@
       "functions": ["7472616e73666572"],
       "conds": [],
       "signers": [{"delegated": {"address": "616c696365"}}, {"delegated": {"address": "626f62"}}],
-      "threshold": 2
+      "threshold": 2,
+      "cap": null
     },
     {
       "contract": "6f6e65",
       "functions": ["7472616e73666572"],
       "conds": [],
       "signers": [{"delegated": {"address": "616c696365"}}, {"delegated": {"address": "626f62"}}],
-      "threshold": 1
+      "threshold": 1,
+      "cap": null
     }
   ],
   "batch": [

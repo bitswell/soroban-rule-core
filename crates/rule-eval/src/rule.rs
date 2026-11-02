@@ -18,9 +18,21 @@ pub enum Cond {
     ArgI128AtMost(u32, i128),
 }
 
+/// A spending cap on the calls a rule allows: at most `limit` spent within
+/// `period` consecutive ledgers, each call spending its argument at index
+/// `amount_arg`. A cap may be added to a rule only when [`cap_valid`] holds.
+pub struct Cap {
+    pub limit: i128,
+    pub period: u32,
+    /// The index of the argument that holds the amount a call spends, an
+    /// `I128`.
+    pub amount_arg: u32,
+}
+
 /// A rule: calls to `contract` whose function is in `functions` and whose
 /// arguments satisfy every condition in `conds`, authorized by at least
-/// `threshold` distinct signers of `signers`.
+/// `threshold` distinct signers of `signers`, and spending within `cap` when
+/// the rule has one.
 pub struct Rule {
     pub contract: Vec<u8>,
     pub functions: Vec<Vec<u8>>,
@@ -30,6 +42,17 @@ pub struct Rule {
     /// How many distinct signers of `signers` must be among the
     /// authorization's authenticated signers. 0 puts no requirement on them.
     pub threshold: u32,
+    /// The rule's spending cap, if it has one. [`rule_allows`] does not read
+    /// it; [`authorize`](crate::authorize) charges it.
+    pub cap: Option<Cap>,
+}
+
+/// Whether `limits` may be added to a rule: a positive limit and a nonzero
+/// period, as [`params_valid`](crate::params_valid) requires of a cap's
+/// parameters.
+#[must_use]
+pub fn cap_valid(limits: &Cap) -> bool {
+    limits.limit > 0 && limits.period > 0
 }
 
 /// Whether `cond` holds on the arguments `args`.
@@ -100,6 +123,23 @@ pub(crate) fn conds_copy(conds: &[Cond]) -> Vec<Cond> {
     out
 }
 
+/// A fresh copy of `limits`.
+pub(crate) fn cap_copy(limits: &Cap) -> Cap {
+    Cap {
+        limit: limits.limit,
+        period: limits.period,
+        amount_arg: limits.amount_arg,
+    }
+}
+
+/// A fresh copy of a rule's cap.
+pub(crate) fn cap_option_copy(limits: &Option<Cap>) -> Option<Cap> {
+    if let Some(c) = limits {
+        return Some(cap_copy(c));
+    }
+    None
+}
+
 /// A fresh copy of `r`.
 pub(crate) fn rule_copy(r: &Rule) -> Rule {
     Rule {
@@ -108,5 +148,6 @@ pub(crate) fn rule_copy(r: &Rule) -> Rule {
         conds: conds_copy(&r.conds),
         signers: signers_copy(&r.signers),
         threshold: r.threshold,
+        cap: cap_option_copy(&r.cap),
     }
 }

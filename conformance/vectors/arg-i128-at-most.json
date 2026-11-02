@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "name": "arg-i128-at-most",
   "description": "argI128AtMost 100: below, at and above the bound, negative values, the extremes, a u64, and a missing argument.",
   "rules": [
@@ -8,7 +8,8 @@
       "functions": ["7472616e73666572"],
       "conds": [{"arg_i128_at_most": {"index": 0, "bound": "100"}}],
       "signers": [],
-      "threshold": 0
+      "threshold": 0,
+      "cap": null
     }
   ],
   "batch": [

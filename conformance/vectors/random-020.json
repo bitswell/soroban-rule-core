@@ -1,52 +1,56 @@
 {
-  "format": 2,
+  "format": 3,
   "name": "random-020",
   "description": "Randomized case 20 of seed 20261102.",
   "rules": [
-    {"contract": "6331", "functions": [], "conds": [], "signers": [], "threshold": 0},
+    {"contract": "6331", "functions": [], "conds": [], "signers": [], "threshold": 0, "cap": null},
     {
-      "contract": "",
-      "functions": ["666f"],
+      "contract": "63",
+      "functions": ["67"],
       "conds": [
-        {"arg_i128_at_most": {"index": 2, "bound": "-1"}},
-        {"arg_eq": {"index": 0, "value": {"symbol": "61"}}}
+        {"arg_eq": {"index": 2, "value": {"address": ""}}},
+        {"arg_i128_at_most": {"index": 0, "bound": "100"}}
       ],
       "signers": [],
-      "threshold": 0
+      "threshold": 0,
+      "cap": null
     }
   ],
-  "batch": [],
-  "authenticated": [{"delegated": {"address": "61"}}, {"delegated": {"address": "61"}}],
-  "expected": {"allows": [], "allows_all": true},
+  "batch": [
+    {"call": {"contract": "6331", "function": "", "args": []}},
+    {"call": {"contract": "6331", "function": "", "args": []}}
+  ],
+  "authenticated": [],
+  "expected": {"allows": [false, false], "allows_all": false},
   "attenuations": [
     {
-      "steps": [{"drop_rule": {"index": 0}}],
-      "expected": {
-        "ok": {
-          "rules": [
-            {
-              "contract": "",
-              "functions": ["666f"],
-              "conds": [
-                {"arg_i128_at_most": {"index": 2, "bound": "-1"}},
-                {"arg_eq": {"index": 0, "value": {"symbol": "61"}}}
-              ],
-              "signers": [],
-              "threshold": 0
-            }
-          ],
-          "allows": [],
-          "allows_all": true
+      "steps": [
+        {"add_cap": {"index": 0, "cap": {"limit": "5", "period": 0, "amount_arg": 2}}},
+        {"lower_cap_limit": {"index": 0, "limit": "10"}}
+      ],
+      "expected": {"error": "invalid_cap"}
+    },
+    {
+      "steps": [
+        {"lower_cap_limit": {"index": 1, "limit": "0"}},
+        {
+          "remove_signers": {
+            "index": 1,
+            "signers": [
+              {"external": {"verifier": "76", "key": "6b32"}},
+              {"external": {"verifier": "61", "key": ""}}
+            ]
+          }
         }
-      }
+      ],
+      "expected": {"error": "no_cap"}
     },
     {
-      "steps": [{"drop_rule": {"index": 1}}, {"drop_rule": {"index": 0}}],
-      "expected": {"ok": {"rules": [], "allows": [], "allows_all": true}}
-    },
-    {
-      "steps": [{"raise_threshold": {"index": 4294967295, "threshold": 0}}],
-      "expected": {"error": "no_such_rule"}
+      "steps": [
+        {"add_cap": {"index": 0, "cap": {"limit": "0", "period": 10, "amount_arg": 2}}},
+        {"remove_signers": {"index": 1, "signers": []}}
+      ],
+      "expected": {"error": "invalid_cap"}
     }
   ]
 }

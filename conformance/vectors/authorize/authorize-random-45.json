@@ -1,0 +1,50 @@
+{
+  "format": 1,
+  "name": "authorize-random-45",
+  "description": "Randomized authorization trace 45 of seed 20261102.",
+  "rules": [
+    {
+      "contract": "6331",
+      "functions": ["66"],
+      "conds": [],
+      "signers": [{"delegated": {"address": "61"}}],
+      "threshold": 0,
+      "cap": null
+    }
+  ],
+  "start": [{"history": [], "total": "0"}],
+  "authorizations": [
+    {
+      "batch": [{"call": {"contract": "6331", "function": "66", "args": []}}],
+      "choices": [0],
+      "authenticated": [],
+      "now": 1,
+      "expected": {"ok": [{"history": [], "total": "0"}]}
+    },
+    {
+      "batch": [
+        {"call": {"contract": "6331", "function": "66", "args": [{"symbol": ""}]}},
+        {"call": {"contract": "6331", "function": "66", "args": []}},
+        {"call": {"contract": "6331", "function": "66", "args": []}}
+      ],
+      "choices": [0, 0],
+      "authenticated": [],
+      "now": 10,
+      "expected": {"error": "choices_mismatch"}
+    },
+    {
+      "batch": [{"call": {"contract": "6331", "function": "", "args": []}}],
+      "choices": [0],
+      "authenticated": [{"delegated": {"address": "61"}}, {"delegated": {"address": "62"}}],
+      "now": 18,
+      "expected": {"error": "not_allowed"}
+    },
+    {
+      "batch": [],
+      "choices": [],
+      "authenticated": [{"delegated": {"address": "62"}}],
+      "now": 22,
+      "expected": {"ok": [{"history": [], "total": "0"}]}
+    }
+  ]
+}

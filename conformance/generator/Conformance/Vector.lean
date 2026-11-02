@@ -15,7 +15,7 @@ namespace Conformance
 open RuleCore RuleCore.Chain
 
 /-- The version of the vector format in `conformance/README.md`. -/
-def formatVersion : Nat := 2
+def formatVersion : Nat := 3
 
 structure Case where
   /-- The file name, without `.json`. -/

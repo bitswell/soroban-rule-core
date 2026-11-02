@@ -86,6 +86,11 @@ fn note_rule(seen: &mut BTreeSet<&'static str>, r: &JsonRule) {
     if r.functions.is_empty() {
         seen.insert("empty function list");
     }
+    seen.insert(if r.cap.is_some() {
+        "rule with a cap"
+    } else {
+        "rule without a cap"
+    });
     for c in &r.conds {
         note_cond(seen, c);
     }
@@ -167,13 +172,19 @@ fn vectors_cover_every_kind() {
                         seen.insert("step remove_signers")
                     }
                     JsonStep::RaiseThreshold { .. } => seen.insert("step raise_threshold"),
+                    JsonStep::AddCap { .. } => seen.insert("step add_cap"),
+                    JsonStep::LowerCapLimit { .. } => seen.insert("step lower_cap_limit"),
+                    JsonStep::LengthenCapPeriod { .. } => seen.insert("step lengthen_cap_period"),
                 };
                 let index = match s {
                     JsonStep::DropRule { index }
                     | JsonStep::AddCond { index, .. }
                     | JsonStep::RemoveFunctions { index, .. }
                     | JsonStep::RemoveSigners { index, .. }
-                    | JsonStep::RaiseThreshold { index, .. } => *index,
+                    | JsonStep::RaiseThreshold { index, .. }
+                    | JsonStep::AddCap { index, .. }
+                    | JsonStep::LowerCapLimit { index, .. }
+                    | JsonStep::LengthenCapPeriod { index, .. } => *index,
                 };
                 if index == u32::MAX {
                     seen.insert("rule index u32::MAX");
@@ -182,10 +193,20 @@ fn vectors_cover_every_kind() {
             if a.steps.len() > 1 {
                 seen.insert("step chain");
             }
-            seen.insert(match a.expected {
+            if let Outcome::Ok { rules, .. } = &a.expected {
+                for r in rules {
+                    note_rule(&mut seen, r);
+                }
+            }
+            seen.insert(match &a.expected {
                 Outcome::Ok { .. } => "outcome ok",
                 Outcome::Error(JsonError::NoSuchRule) => "outcome no_such_rule",
                 Outcome::Error(JsonError::ThresholdLowered) => "outcome threshold_lowered",
+                Outcome::Error(JsonError::CapPresent) => "outcome cap_present",
+                Outcome::Error(JsonError::NoCap) => "outcome no_cap",
+                Outcome::Error(JsonError::InvalidCap) => "outcome invalid_cap",
+                Outcome::Error(JsonError::LimitRaised) => "outcome limit_raised",
+                Outcome::Error(JsonError::PeriodShortened) => "outcome period_shortened",
             });
         }
     }
@@ -197,6 +218,8 @@ fn vectors_cover_every_kind() {
         "empty rule set",
         "several rules",
         "empty function list",
+        "rule with a cap",
+        "rule without a cap",
         "create",
         "val i128",
         "val u64",
@@ -223,11 +246,19 @@ fn vectors_cover_every_kind() {
         "step remove_functions",
         "step remove_signers",
         "step raise_threshold",
+        "step add_cap",
+        "step lower_cap_limit",
+        "step lengthen_cap_period",
         "step chain",
         "rule index u32::MAX",
         "outcome ok",
         "outcome no_such_rule",
         "outcome threshold_lowered",
+        "outcome cap_present",
+        "outcome no_cap",
+        "outcome invalid_cap",
+        "outcome limit_raised",
+        "outcome period_shortened",
     ];
     let missing: Vec<&str> = want.into_iter().filter(|k| !seen.contains(k)).collect();
     assert!(missing.is_empty(), "no vector covers: {missing:?}");
@@ -271,6 +302,25 @@ fn a_wrong_expectation_is_reported() {
         }
     }
     assert!(check(&v).is_err(), "a changed attenuation result passed");
+
+    let (_, capped) = vectors
+        .iter()
+        .find(|(_, v)| v.rules.iter().any(|r| r.cap.is_some()))
+        .expect("a vector with a capped rule");
+    let text = vector_text(capped);
+    let mut v: Vector = serde_json::from_str(&text).unwrap();
+    for a in &mut v.attenuations {
+        if let Outcome::Ok { rules, .. } = &mut a.expected
+            && let Some(c) = rules.iter_mut().find_map(|r| r.cap.as_mut())
+        {
+            c.period += 1;
+            break;
+        }
+    }
+    assert!(
+        check(&v).is_err(),
+        "a changed cap in an attenuation result passed"
+    );
 }
 
 #[test]

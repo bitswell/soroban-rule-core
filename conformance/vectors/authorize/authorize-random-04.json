@@ -1,0 +1,77 @@
+{
+  "format": 1,
+  "name": "authorize-random-04",
+  "description": "Randomized authorization trace 4 of seed 20261102.",
+  "rules": [
+    {
+      "contract": "633130",
+      "functions": ["66"],
+      "conds": [],
+      "signers": [{"delegated": {"address": "61"}}],
+      "threshold": 0,
+      "cap": {"limit": "100", "period": 2, "amount_arg": 4294967295}
+    }
+  ],
+  "start": [{"history": [], "total": "0"}],
+  "authorizations": [
+    {
+      "batch": [],
+      "choices": [],
+      "authenticated": [],
+      "now": 100,
+      "expected": {"ok": [{"history": [], "total": "0"}]}
+    },
+    {
+      "batch": [{"call": {"contract": "633130", "function": "66", "args": []}}],
+      "choices": [0],
+      "authenticated": [
+        {"delegated": {"address": "61"}},
+        {"external": {"verifier": "76", "key": "6b32"}},
+        {"delegated": {"address": "62"}}
+      ],
+      "now": 110,
+      "expected": {"error": "no_amount"}
+    },
+    {
+      "batch": [{"call": {"contract": "633130", "function": "66", "args": []}}],
+      "choices": [0],
+      "authenticated": [
+        {"external": {"verifier": "76", "key": "6b32"}},
+        {"delegated": {"address": "61"}}
+      ],
+      "now": 110,
+      "expected": {"error": "no_amount"}
+    },
+    {
+      "batch": [{"call": {"contract": "633130", "function": "66", "args": []}}],
+      "choices": [0],
+      "authenticated": [],
+      "now": 116,
+      "expected": {"error": "no_amount"}
+    },
+    {
+      "batch": [
+        {"call": {"contract": "633130", "function": "66", "args": []}},
+        {"call": {"contract": "633130", "function": "66", "args": []}}
+      ],
+      "choices": [0, 0],
+      "authenticated": [],
+      "now": 119,
+      "expected": {"error": "no_amount"}
+    },
+    {
+      "batch": [],
+      "choices": [],
+      "authenticated": [{"delegated": {"address": "61"}}],
+      "now": 119,
+      "expected": {"ok": [{"history": [], "total": "0"}]}
+    },
+    {
+      "batch": [{"call": {"contract": "633130", "function": "66", "args": []}}],
+      "choices": [0],
+      "authenticated": [{"delegated": {"address": "61"}}, {"delegated": {"address": "62"}}],
+      "now": 130,
+      "expected": {"error": "no_amount"}
+    }
+  ]
+}

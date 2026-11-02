@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "name": "attenuate-remove-signers",
   "description": "removeSigners removes every occurrence of each listed signer, keeps the threshold and the order, matches signers exactly, can empty the list, and is refused at the length, 2^31 and 2^32 - 1.",
   "rules": [
@@ -13,14 +13,16 @@
         {"external": {"verifier": "7665726966696572", "key": "6b6579"}},
         {"delegated": {"address": "616c696365"}}
       ],
-      "threshold": 2
+      "threshold": 2,
+      "cap": null
     },
     {
       "contract": "706f6f6c",
       "functions": ["6465706f736974"],
       "conds": [],
       "signers": [],
-      "threshold": 0
+      "threshold": 0,
+      "cap": null
     }
   ],
   "batch": [
@@ -48,14 +50,16 @@
                 {"delegated": {"address": "626f62"}},
                 {"external": {"verifier": "7665726966696572", "key": "6b6579"}}
               ],
-              "threshold": 2
+              "threshold": 2,
+              "cap": null
             },
             {
               "contract": "706f6f6c",
               "functions": ["6465706f736974"],
               "conds": [],
               "signers": [],
-              "threshold": 0
+              "threshold": 0,
+              "cap": null
             }
           ],
           "allows": [false, true],
@@ -77,14 +81,16 @@
                 {"external": {"verifier": "7665726966696572", "key": "6b6579"}},
                 {"delegated": {"address": "616c696365"}}
               ],
-              "threshold": 2
+              "threshold": 2,
+              "cap": null
             },
             {
               "contract": "706f6f6c",
               "functions": ["6465706f736974"],
               "conds": [],
               "signers": [],
-              "threshold": 0
+              "threshold": 0,
+              "cap": null
             }
           ],
           "allows": [true, true],
@@ -107,14 +113,16 @@
                 {"external": {"verifier": "7665726966696572", "key": "6b6579"}},
                 {"delegated": {"address": "616c696365"}}
               ],
-              "threshold": 2
+              "threshold": 2,
+              "cap": null
             },
             {
               "contract": "706f6f6c",
               "functions": ["6465706f736974"],
               "conds": [],
               "signers": [],
-              "threshold": 0
+              "threshold": 0,
+              "cap": null
             }
           ],
           "allows": [true, true],
@@ -148,14 +156,16 @@
                 {"external": {"verifier": "7665726966696572", "key": "6b6579"}},
                 {"delegated": {"address": "616c696365"}}
               ],
-              "threshold": 2
+              "threshold": 2,
+              "cap": null
             },
             {
               "contract": "706f6f6c",
               "functions": ["6465706f736974"],
               "conds": [],
               "signers": [],
-              "threshold": 0
+              "threshold": 0,
+              "cap": null
             }
           ],
           "allows": [true, true],
@@ -184,14 +194,16 @@
               "functions": ["7472616e73666572"],
               "conds": [],
               "signers": [],
-              "threshold": 2
+              "threshold": 2,
+              "cap": null
             },
             {
               "contract": "706f6f6c",
               "functions": ["6465706f736974"],
               "conds": [],
               "signers": [],
-              "threshold": 0
+              "threshold": 0,
+              "cap": null
             }
           ],
           "allows": [false, true],
@@ -216,14 +228,16 @@
                 {"external": {"verifier": "7665726966696572", "key": "6b6579"}},
                 {"delegated": {"address": "616c696365"}}
               ],
-              "threshold": 2
+              "threshold": 2,
+              "cap": null
             },
             {
               "contract": "706f6f6c",
               "functions": ["6465706f736974"],
               "conds": [],
               "signers": [],
-              "threshold": 0
+              "threshold": 0,
+              "cap": null
             }
           ],
           "allows": [true, true],

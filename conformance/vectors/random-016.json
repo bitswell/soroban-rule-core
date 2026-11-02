@@ -1,49 +1,47 @@
 {
-  "format": 2,
+  "format": 3,
   "name": "random-016",
   "description": "Randomized case 16 of seed 20261102.",
-  "rules": [{"contract": "", "functions": ["66"], "conds": [], "signers": [], "threshold": 0}],
-  "batch": [
-    {"call": {"contract": "", "function": "666f", "args": []}},
-    {"call": {"contract": "", "function": "66", "args": [{"other": "00ff"}]}},
-    {"call": {"contract": "", "function": "666f", "args": []}},
-    {"call": {"contract": "", "function": "66", "args": []}}
+  "rules": [
+    {
+      "contract": "",
+      "functions": ["66"],
+      "conds": [],
+      "signers": [],
+      "threshold": 0,
+      "cap": {
+        "limit": "170141183460469231731687303715884105727",
+        "period": 4294967295,
+        "amount_arg": 2
+      }
+    }
   ],
-  "authenticated": [],
-  "expected": {"allows": [false, true, false, true], "allows_all": false},
+  "batch": [],
+  "authenticated": [{"delegated": {"address": "61"}}],
+  "expected": {"allows": [], "allows_all": true},
   "attenuations": [
     {
       "steps": [
-        {"drop_rule": {"index": 2147483648}},
-        {"remove_functions": {"index": 0, "functions": ["66", "67"]}}
+        {"add_cond": {"index": 0, "cond": {"arg_i128_at_most": {"index": 2, "bound": "100"}}}},
+        {
+          "add_cond": {
+            "index": 4294967295,
+            "cond": {"arg_eq": {"index": 2, "value": {"bytes": "61"}}}
+          }
+        }
       ],
-      "expected": {"error": "no_such_rule"}
-    },
-    {
-      "steps": [{"remove_signers": {"index": 1, "signers": []}}],
       "expected": {"error": "no_such_rule"}
     },
     {
       "steps": [
-        {
-          "remove_signers": {
-            "index": 0,
-            "signers": [
-              {"external": {"verifier": "76", "key": "6b32"}},
-              {"external": {"verifier": "61", "key": ""}}
-            ]
-          }
-        }
+        {"lengthen_cap_period": {"index": 0, "period": 0}},
+        {"raise_threshold": {"index": 0, "threshold": 1}}
       ],
-      "expected": {
-        "ok": {
-          "rules": [
-            {"contract": "", "functions": ["66"], "conds": [], "signers": [], "threshold": 0}
-          ],
-          "allows": [false, true, false, true],
-          "allows_all": false
-        }
-      }
+      "expected": {"error": "period_shortened"}
+    },
+    {
+      "steps": [{"drop_rule": {"index": 0}}, {"raise_threshold": {"index": 0, "threshold": 1}}],
+      "expected": {"error": "no_such_rule"}
     }
   ]
 }

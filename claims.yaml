@@ -50,9 +50,11 @@ claims:
   - id: model.steps-narrow
     claim: >-
       Each attenuation step (drop a rule, add a condition to a rule, restrict a
-      rule's scope, remove signers from a rule, raise a rule's threshold)
-      yields a rule set narrower than the one it started from, under every
-      list of authenticated signers.
+      rule's scope, remove signers from a rule, raise a rule's threshold, add
+      a cap to a rule, lower a cap's limit, lengthen a cap's period) yields a
+      rule set narrower than the one it started from, under every list of
+      authenticated signers; the cap steps change only a rule's cap, which
+      allows does not read.
     status: proven
     evidence:
       - theorem: RuleCore.RuleSet.dropRule_narrower
@@ -60,6 +62,10 @@ claims:
       - theorem: RuleCore.RuleSet.restrictScope_narrower
       - theorem: RuleCore.RuleSet.removeSigners_narrower
       - theorem: RuleCore.RuleSet.raiseThreshold_narrower
+      - theorem: RuleCore.RuleSet.addCap_narrower
+      - theorem: RuleCore.RuleSet.lowerCapLimit_narrower
+      - theorem: RuleCore.RuleSet.lengthenCapPeriod_narrower
+      - theorem: RuleCore.RuleSet.set_cap_narrower
       - theorem: RuleCore.RuleSet.attenuate_narrower
       - theorem: RuleCore.RuleSet.modifyRule_narrower
       - theorem: RuleCore.Rule.allows_of_allows_addCond
@@ -70,7 +76,7 @@ claims:
 
   - id: model.chains-stay-inside-root
     claim: >-
-      Every rule set reached from a root by any chain of the five attenuation
+      Every rule set reached from a root by any chain of the eight attenuation
       steps is narrower than the root.
     status: proven
     evidence:
@@ -95,7 +101,30 @@ claims:
       - theorem: RuleCore.RuleSet.restrictScope_eq_error_iff
       - theorem: RuleCore.RuleSet.removeSigners_eq_error_iff
       - theorem: RuleCore.RuleSet.raiseThreshold_eq_noSuchRule_iff
+      - theorem: RuleCore.RuleSet.addCap_eq_noSuchRule_iff
+      - theorem: RuleCore.RuleSet.lowerCapLimit_eq_noSuchRule_iff
+      - theorem: RuleCore.RuleSet.lengthenCapPeriod_eq_noSuchRule_iff
       - theorem: RuleCore.RuleSet.modifyRule_eq_error_iff
+
+  - id: model.cap-step-refusals
+    claim: >-
+      addCap is refused with capPresent exactly when the rule has a cap, and
+      with invalidCap exactly when it has none and the new cap is not valid;
+      lowerCapLimit is refused with noCap exactly when the rule has no cap,
+      with limitRaised exactly when the new limit is above the current one,
+      and with invalidCap exactly when it is at most the current one and not
+      positive; lengthenCapPeriod is refused with noCap exactly when the rule
+      has no cap, and with periodShortened exactly when the new period is
+      below the current one.
+    status: proven
+    evidence:
+      - theorem: RuleCore.RuleSet.addCap_eq_capPresent_iff
+      - theorem: RuleCore.RuleSet.addCap_eq_invalidCap_iff
+      - theorem: RuleCore.RuleSet.lowerCapLimit_eq_noCap_iff
+      - theorem: RuleCore.RuleSet.lowerCapLimit_eq_limitRaised_iff
+      - theorem: RuleCore.RuleSet.lowerCapLimit_eq_invalidCap_iff
+      - theorem: RuleCore.RuleSet.lengthenCapPeriod_eq_noCap_iff
+      - theorem: RuleCore.RuleSet.lengthenCapPeriod_eq_periodShortened_iff
 
   - id: model.threshold-lowered
     claim: >-
@@ -195,8 +224,9 @@ claims:
   - id: chain.steps-narrow
     claim: >-
       Each chain attenuation step (dropRule, addCond, removeFunctions,
-      removeSigners, raiseThreshold) yields a narrower rule set, and each
-      denotes the generic step of the same kind.
+      removeSigners, raiseThreshold, addCap, lowerCapLimit,
+      lengthenCapPeriod) yields a narrower rule set, and each step and each
+      list of steps denotes the generic step of the same kind.
     status: proven
     evidence:
       - theorem: RuleCore.Chain.RuleSet.dropRule_narrower
@@ -204,7 +234,15 @@ claims:
       - theorem: RuleCore.Chain.RuleSet.removeFunctions_narrower
       - theorem: RuleCore.Chain.RuleSet.removeSigners_narrower
       - theorem: RuleCore.Chain.RuleSet.raiseThreshold_narrower
+      - theorem: RuleCore.Chain.RuleSet.addCap_narrower
+      - theorem: RuleCore.Chain.RuleSet.lowerCapLimit_narrower
+      - theorem: RuleCore.Chain.RuleSet.lengthenCapPeriod_narrower
       - theorem: RuleCore.Chain.RuleSet.attenuate_narrower
+      - theorem: RuleCore.Chain.RuleSet.denote_addCap
+      - theorem: RuleCore.Chain.RuleSet.denote_lowerCapLimit
+      - theorem: RuleCore.Chain.RuleSet.denote_lengthenCapPeriod
+      - theorem: RuleCore.Chain.RuleSet.denote_attenuateAll
+      - theorem: RuleCore.Chain.Cap.valid_denote
       - theorem: RuleCore.Chain.RuleSet.denote_dropRule
       - theorem: RuleCore.Chain.RuleSet.denote_addCond
       - theorem: RuleCore.Chain.RuleSet.denote_removeFunctions
@@ -495,6 +533,151 @@ claims:
       - theorem: RuleCore.Cap.filter_cutoff_suffix
       - theorem: RuleCore.Cap.Params.narrower_refl
       - theorem: RuleCore.Cap.Params.narrower_trans
+      - theorem: RuleCore.Cap.check_of_narrower_suffix
+
+  # Caps on rules and authorize (formal/RuleCore/Model/Authorize.lean,
+  # theorems in RuleCore and RuleCore.Chain).
+
+  - id: authorize.sound
+    claim: >-
+      An authorization authorize accepts has one choice per context and one
+      record per rule, every context is allowed by the rule chosen for it
+      under the authorization's signers, and so the rule set allows the whole
+      batch under them: the stateful check is sound with respect to
+      allowsAll.
+    status: proven
+    evidence:
+      - theorem: RuleCore.RuleSet.authorize_eq_ok_iff
+      - theorem: RuleCore.RuleSet.checkChoice_ok_iff
+      - theorem: RuleCore.RuleSet.authorize_chosen
+      - theorem: RuleCore.RuleSet.authorize_allowsAll
+      - theorem: RuleCore.Chain.RuleSet.authorize_allowsAll
+      - theorem: RuleCore.Authorization.map_fst_chosen
+      - theorem: RuleCore.forM_except_ok_iff
+
+  - id: authorize.refusal-changes-nothing
+    claim: >-
+      A refused authorization leaves the records as they were, the charges of
+      its earlier contexts included; an accepted one keeps one record per
+      rule.
+    status: proven
+    evidence:
+      - theorem: RuleCore.RuleSet.step_of_error
+      - theorem: RuleCore.RuleSet.authorize_length
+      - theorem: RuleCore.RuleSet.charge_length
+      - theorem: RuleCore.RuleSet.foldlM_charge_length
+
+  - id: authorize.records
+    claim: >-
+      Each charge touches only the record of its context's chosen rule; after
+      any run, the stored record of a capped rule is the cap check's own run
+      over the calls the run charged to that rule, every one of which the
+      check accepted, two contexts on one rule accumulating; a rule without a
+      cap keeps its record.
+    status: proven
+    evidence:
+      - theorem: RuleCore.RuleSet.charge_get_ne
+      - theorem: RuleCore.RuleSet.charge_get_capped
+      - theorem: RuleCore.RuleSet.charge_of_cap_none
+      - theorem: RuleCore.RuleSet.foldlM_charge_get
+      - theorem: RuleCore.RuleSet.foldlM_charge_get_of_cap_none
+      - theorem: RuleCore.RuleSet.run_get
+      - theorem: RuleCore.RuleSet.runAll_charged
+      - theorem: RuleCore.RuleSet.spent_eq_recorded
+      - theorem: RuleCore.RuleSet.run_get_of_cap_none
+      - theorem: RuleCore.Cap.run_of_runAll
+      - theorem: RuleCore.Cap.recorded_of_runAll
+      - theorem: RuleCore.Cap.runAll_append
+      - theorem: RuleCore.Cap.run_append
+
+  - id: authorize.window-safety
+    claim: >-
+      For every capped rule with a non-negative limit and every run of
+      authorizations from empty records, the spends recorded for that rule in
+      the window eviction leaves at any ledger sum to at most its limit, and
+      so do those in every window of period consecutive ledgers starting at
+      ledger 1 or later. No assumption is made about the ledgers of the
+      authorizations.
+    status: proven
+    evidence:
+      - theorem: RuleCore.RuleSet.window_le_limit
+      - theorem: RuleCore.RuleSet.period_le_limit_of_pos
+      - theorem: RuleCore.RuleSet.emptyRecords_get
+      - theorem: RuleCore.RuleSet.emptyRecords_length
+
+  - id: authorize.consecutive-windows
+    claim: >-
+      When every authorization of a run from empty records is at ledger 1 or
+      later, every window of period consecutive ledgers holds spends of a
+      capped rule summing to at most its limit.
+    status: proven
+    assumes: [rule.ledgers-start-at-1]
+    evidence:
+      - theorem: RuleCore.RuleSet.period_le_limit
+      - theorem: RuleCore.RuleSet.mem_charged
+
+  - id: authorize.refinement
+    claim: >-
+      From empty records, with a nonzero period and the last spend at ledger 1
+      or later, the stored record of a capped rule is exactly the spends the
+      run recorded for it in the window at that spend's ledger, with their sum
+      as total; and it never holds more than 1000 entries.
+    status: proven
+    evidence:
+      - theorem: RuleCore.RuleSet.run_eq_window
+      - theorem: RuleCore.RuleSet.run_history_length_le
+
+  - id: authorize.trace-narrowing
+    claim: >-
+      Narrowing is trace inclusion: for each of the eight attenuation steps
+      and every chain of them, every run of authorizations the derived rule
+      set accepts from its empty records, the root accepts from its own empty
+      records, with each choice renumbered by the map the steps induce
+      (dropRule i moves every rule after i down by one; every other step keeps
+      each index). Trace inclusion is reflexive and composes.
+    status: proven
+    evidence:
+      - theorem: RuleCore.RuleSet.attenuate_traceNarrower
+      - theorem: RuleCore.RuleSet.attenuateAll_traceNarrower
+      - theorem: RuleCore.Chain.RuleSet.attenuate_traceNarrower
+      - theorem: RuleCore.Chain.RuleSet.attenuateAll_traceNarrower
+      - theorem: RuleCore.RuleSet.Refines.traceNarrower
+      - theorem: RuleCore.RuleSet.Refines.authorize
+      - theorem: RuleCore.RuleSet.Refines.authorizeAll
+      - theorem: RuleCore.RuleSet.Refines.charge
+      - theorem: RuleCore.RuleSet.Refines.foldlM_charge
+      - theorem: RuleCore.RuleSet.RecordsRel.empty
+      - theorem: RuleCore.RuleSet.attenuate_refines
+      - theorem: RuleCore.RuleSet.attenuateAll_refines
+      - theorem: RuleCore.RuleSet.dropRule_refines
+      - theorem: RuleCore.RuleSet.modifyRule_refines
+      - theorem: RuleCore.RuleSet.raiseThreshold_refines
+      - theorem: RuleCore.RuleSet.addCap_refines
+      - theorem: RuleCore.RuleSet.lowerCapLimit_refines
+      - theorem: RuleCore.RuleSet.lengthenCapPeriod_refines
+      - theorem: RuleCore.RuleSet.Refines.set
+      - theorem: RuleCore.RuleSet.Refines.refl
+      - theorem: RuleCore.RuleSet.Refines.trans
+      - theorem: RuleCore.RuleSet.TraceNarrower.refl
+      - theorem: RuleCore.RuleSet.TraceNarrower.trans
+      - theorem: RuleCore.Attenuation.source_dropRule
+      - theorem: RuleCore.Attenuation.source_eq_of_ne_dropRule
+      - theorem: RuleCore.Chain.Attenuation.source_denote_dropRule
+      - theorem: RuleCore.Chain.Attenuation.source_denote_of_ne
+      - theorem: RuleCore.Chain.RuleSet.emptyRecords_denote
+      - theorem: RuleCore.Chain.RuleSet.authorizeAll_denote
+
+  - id: authorize.caps-valid
+    claim: >-
+      The attenuation steps keep every cap valid (a positive limit and a
+      nonzero period): a step from a rule set whose caps are all valid yields
+      one whose caps are all valid, and so does every list of steps.
+    status: proven
+    evidence:
+      - theorem: RuleCore.RuleSet.attenuate_capsValid
+      - theorem: RuleCore.RuleSet.attenuateAll_capsValid
+      - theorem: RuleCore.Chain.RuleSet.attenuate_capsValid
+      - theorem: RuleCore.Chain.RuleSet.attenuateAll_capsValid
 
   # The translation of crates/rule-eval (formal/RuleCore/Extracted) and its
   # equivalence to the chain vocabulary (formal/RuleCore/Equiv).
@@ -637,6 +820,60 @@ claims:
       - theorem: RuleCore.Equiv.checked_sub_eq
       - theorem: RuleCore.Equiv.saturating_sub_val
 
+  - id: equiv.cap-steps
+    claim: >-
+      On every input, the translated add_cap, lower_cap_limit and
+      lengthen_cap_period return ok of a result that denotes the chain
+      model's step on the denotations, every refusal included; cap_valid is
+      the chain cap's validity, and the copies of a cap return their input.
+    status: proven
+    assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel, trusted.denotations]
+    evidence:
+      - theorem: RuleCore.Equiv.add_cap_eq
+      - theorem: RuleCore.Equiv.lower_cap_limit_eq
+      - theorem: RuleCore.Equiv.lengthen_cap_period_eq
+      - theorem: RuleCore.Equiv.add_cap_ok
+      - theorem: RuleCore.Equiv.lower_cap_limit_ok
+      - theorem: RuleCore.Equiv.lengthen_cap_period_ok
+      - theorem: RuleCore.Equiv.loop_set_eq
+      - theorem: RuleCore.Equiv.cap_valid_eq
+      - theorem: RuleCore.Equiv.cap_copy_eq
+      - theorem: RuleCore.Equiv.cap_option_copy_eq
+
+  - id: equiv.authorize
+    claim: >-
+      On every input, the translated authorize returns ok of the chain
+      model's authorize on the denotations, every refusal included, so it
+      terminates and never panics; its first pass is the model's forM of
+      checkChoice, its second the model's foldlM of charge, writing each new
+      record back through get_mut; spend_amount is the denoted cap's amount
+      and the copy of the records returns the records.
+    status: proven
+    assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel, trusted.denotations]
+    evidence:
+      - theorem: RuleCore.Equiv.authorize_eq
+      - theorem: RuleCore.Equiv.check_choices_loop_eq
+      - theorem: RuleCore.Equiv.charge_all_loop_eq
+      - theorem: RuleCore.Equiv.records_copy_eq
+      - theorem: RuleCore.Equiv.records_copy_loop_eq
+      - theorem: RuleCore.Equiv.spend_amount_eq
+      - theorem: RuleCore.Equiv.slice_get_mut_eq
+      - theorem: RuleCore.Equiv.list_set_opt_some
+      - theorem: RuleCore.Equiv.chosen_denoteAuthorization
+      - theorem: RuleCore.Equiv.chosenOf_drop
+      - theorem: RuleCore.Equiv.denoteRules_rules_get
+      - theorem: RuleCore.Equiv.denoteRule_denote_cap
+
+  - id: equiv.authorize-denotations-injective
+    claim: >-
+      The denotations of a cap, of a refusal and of authorize's result are
+      injective.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Equiv.denoteCap_injective
+      - theorem: RuleCore.Equiv.denoteRefusal_injective
+      - theorem: RuleCore.Equiv.denoteAuthorized_injective
+
   - id: equiv.cap-denotations-injective
     claim: >-
       The denotations of the cap types (entries, records, parameters, errors
@@ -654,8 +891,9 @@ claims:
 
   - id: extracted.steps-narrow
     claim: >-
-      Each translated attenuation step that returns Ok yields a narrower rule
-      set; an add_cond that returned Ok had room for its condition.
+      Each of the eight translated attenuation steps that returns Ok yields a
+      narrower rule set; an add_cond that returned Ok had room for its
+      condition.
     status: proven
     assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel]
     evidence:
@@ -664,6 +902,9 @@ claims:
       - theorem: RuleCore.Extracted.remove_functions_narrower
       - theorem: RuleCore.Extracted.remove_signers_narrower
       - theorem: RuleCore.Extracted.raise_threshold_narrower
+      - theorem: RuleCore.Extracted.add_cap_narrower
+      - theorem: RuleCore.Extracted.lower_cap_limit_narrower
+      - theorem: RuleCore.Extracted.lengthen_cap_period_narrower
       - theorem: RuleCore.Extracted.Step.narrower
       - theorem: RuleCore.Extracted.add_cond_room
 
@@ -800,6 +1041,45 @@ claims:
       - theorem: RuleCore.Extracted.check_spend_negative
       - theorem: RuleCore.Extracted.check_spend_zero
       - theorem: RuleCore.Extracted.check_spend_before_newest
+
+  - id: extracted.authorize
+    claim: >-
+      An authorize that returns Ok means the translated allows_all accepts the
+      same contexts under the same signers. A run of the translated authorize,
+      keeping the records after a refusal, returns ok of records denoting the
+      model's run and accepts a run exactly when the model does; from empty
+      records, every window of a capped rule's spends sums to at most its
+      non-negative limit, the stored record is the in-window spends with
+      their sum as total, and it holds at most MAX_HISTORY_ENTRIES entries.
+    status: proven
+    assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel, trusted.denotations]
+    evidence:
+      - theorem: RuleCore.Extracted.authorize_allows_all
+      - theorem: RuleCore.Extracted.runAuthorizations_eq
+      - theorem: RuleCore.Extracted.runAuthorizations_of_err
+      - theorem: RuleCore.Extracted.authorizeAll_eq
+      - theorem: RuleCore.Extracted.accepts_iff
+      - theorem: RuleCore.Extracted.runAuthorizations_window
+      - theorem: RuleCore.Extracted.runAuthorizations_window_le_limit
+      - theorem: RuleCore.Extracted.runAuthorizations_length_le
+      - theorem: RuleCore.Extracted.emptyRecords_denote
+
+  - id: extracted.trace-narrowing
+    claim: >-
+      Each translated attenuation step, and every chain of them, is narrowing
+      as trace inclusion on the translated authorize: every run the derived
+      rule set accepts from its empty records, the root accepts from its own,
+      with each choice renumbered by the map the steps induce, for every
+      renumbered run whose choices are u32 values.
+    status: proven
+    assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel, trusted.denotations]
+    evidence:
+      - theorem: RuleCore.Extracted.StepAlong.traceNarrower
+      - theorem: RuleCore.Extracted.DerivesAlong.traceNarrower
+      - theorem: RuleCore.Extracted.StepAlong.denote_traceNarrower
+      - theorem: RuleCore.Extracted.traceNarrower_of_denote
+      - theorem: RuleCore.Extracted.renumbered_map
+      - theorem: RuleCore.Extracted.DerivesAlong.derives
 
   # Stated rules: what the theorems take as given about their callers.
 
@@ -995,12 +1275,51 @@ claims:
       - test: rule-eval/caps::the_history_holds_at_most_max_entries
       - test: rule-eval/caps::sums_that_overflow_are_refused
 
+  - id: tested.authorize
+    claim: >-
+      authorize agrees with a plain Rust reading on 28,024 inputs (every rule
+      set of up to two rules from five capped and uncapped rules, 113 batches
+      with their choices, two signer lists, two ledgers and two starting
+      records), and every batch it accepts allows_all accepts; over 8,653 runs
+      of up to three authorizations, each step agrees with the reading, every
+      window stays within its limit and every stored record is the in-window
+      spends; each cap step, drop_rule with its renumbering and a chain are
+      trace inclusion over those runs; unit tests cover each refusal and its
+      precedence, charges accumulating, refusals discarding a batch, the
+      window rolling, the empty batch, and what each cap step builds and
+      refuses.
+    status: tested
+    evidence:
+      - test: rule-eval/authorize::authorize_agrees_with_the_reference_reading
+      - test: rule-eval/authorize::every_short_run_stays_within_every_window
+      - test: rule-eval/authorize::every_step_is_trace_inclusion
+      - test: rule-eval/authorize::choices_and_records_must_match_their_lists
+      - test: rule-eval/authorize::a_chosen_rule_must_exist_and_allow_its_context
+      - test: rule-eval/authorize::every_choice_is_checked_before_any_charge
+      - test: rule-eval/authorize::a_capped_rule_needs_an_i128_amount
+      - test: rule-eval/authorize::a_cap_refusal_is_passed_on
+      - test: rule-eval/authorize::two_contexts_charging_one_rule_accumulate
+      - test: rule-eval/authorize::rules_with_their_own_caps_keep_their_own_records
+      - test: rule-eval/authorize::a_refused_authorization_discards_the_charges_before_it
+      - test: rule-eval/authorize::the_window_rolls
+      - test: rule-eval/authorize::an_empty_batch_is_authorized_and_changes_nothing
+      - test: rule-eval/authorize::caps_hold_across_contexts_that_choose_different_rules
+      - test: rule-eval/authorize::a_rule_without_a_cap_keeps_its_record
+      - test: rule-eval/authorize::a_cap_reads_only_its_own_amount_argument
+      - test: rule-eval/authorize::caps_are_valid_with_a_positive_limit_and_a_nonzero_period
+      - test: rule-eval/authorize::add_cap_caps_that_rule_only_and_refuses_a_capped_rule_or_an_invalid_cap
+      - test: rule-eval/authorize::lower_cap_limit_lowers_that_limit_only
+      - test: rule-eval/authorize::lengthen_cap_period_lengthens_that_period_only
+      - test: rule-eval/authorize::the_other_steps_keep_each_rule_cap
+      - test: rule-eval/authorize::cap_steps_leave_every_verdict_as_it_was
+
   # Conformance vectors (conformance/).
 
   - id: conformance.from-model
     claim: >-
-      The committed vectors in conformance/vectors and cap traces in
-      conformance/vectors/caps are exactly what the Lean model computes:
+      The committed vectors in conformance/vectors, cap traces in
+      conformance/vectors/caps and authorization traces in
+      conformance/vectors/authorize are exactly what the Lean model computes:
       regenerating them into an empty directory gives no difference.
     status: tested
     evidence:
@@ -1011,8 +1330,9 @@ claims:
     claim: >-
       rule-eval returns every verdict and attenuation result of every vector;
       the vectors cover every value constructor, condition, signer kind,
-      repeated signers, each threshold case, step kind and outcome; a vector
-      with a changed expectation is reported.
+      repeated signers, each threshold case, rules with and without caps,
+      each of the eight step kinds and every outcome; a vector with a changed
+      expectation is reported.
     status: tested
     evidence:
       - test: rule-eval-conformance/vectors::rule_eval_agrees_with_every_vector
@@ -1035,6 +1355,21 @@ claims:
       - test: rule-eval-conformance/caps::cap_traces_cover_every_outcome
       - test: rule-eval-conformance/caps::a_wrong_cap_expectation_is_reported
       - file: conformance/vectors/caps
+
+  - id: conformance.authorize-agrees
+    claim: >-
+      rule-eval's authorize reproduces every outcome and record of every
+      authorization trace; the traces cover every refusal, accepted
+      authorizations, one rule charged twice in a batch, eviction, capped and
+      uncapped rules, starting records of the wrong length, batches of several
+      contexts and the empty batch; a trace with a changed expectation is
+      reported.
+    status: tested
+    evidence:
+      - test: rule-eval-conformance/authorize::rule_eval_agrees_with_every_authorization_trace
+      - test: rule-eval-conformance/authorize::authorization_traces_cover_every_outcome
+      - test: rule-eval-conformance/authorize::a_wrong_authorization_expectation_is_reported
+      - file: conformance/vectors/authorize
 
   - id: conformance.encoding
     claim: >-
@@ -1201,6 +1536,32 @@ claims:
     evidence:
       - file: ARCHITECTURE.md
         contains: "`check_spend` follows the same steps in the same order."
+
+  - id: unproven.openzeppelin-authorization
+    claim: >-
+      authorize checks what OpenZeppelin's do_check_auth checks of the rule
+      choice and the spending-limit policy, at the theahaco fork commit Perch
+      pins: one rule per context aligned by index, every context validated
+      before any policy is enforced, and each rule's spending record charged
+      in context order. This is read from that source, recorded with the
+      M4 mapping notes, and neither proven nor tested against it.
+    status: unproven
+    evidence:
+      - file: ARCHITECTURE.md
+        contains: "`authorize` keeps that order"
+
+  - id: unproven.openzeppelin-spending-limit-metering
+    claim: >-
+      OpenZeppelin's spending-limit policy meters only transfer calls whose
+      argument 2 is an i128, and refuses every other context, so a
+      policy-capped OpenZeppelin rule corresponds to a rule here whose
+      functions are transfer and whose cap reads argument 2; and upstream
+      OpenZeppelin bounds the history at 815 entries where Perch's pin and
+      rule-eval bound it at 1000. Read from source and recorded for M4.
+    status: unproven
+    evidence:
+      - file: ARCHITECTURE.md
+        contains: "meters only `transfer` at argument 2"
 
   - id: unproven.history-bound-on-mainnet
     claim: >-

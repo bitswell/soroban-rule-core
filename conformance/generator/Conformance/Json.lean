@@ -18,6 +18,7 @@ namespace Conformance
 open RuleCore RuleCore.Chain
 
 inductive Json where
+  | null
   | str (s : String)
   | num (n : Int)
   | bool (b : Bool)
@@ -31,6 +32,7 @@ def quote (s : String) : String :=
 mutual
 
 def Json.compact : Json → String
+  | .null => "null"
   | .str s => quote s
   | .num n => toString n
   | .bool b => toString b
@@ -142,13 +144,24 @@ def encodeSigners (ss : List Signer) : Json :=
 def encodeThreshold (k : UInt32) : Json :=
   .num k.toNat
 
+/-- An `i128` limit, written like an `i128` value. -/
+def encodeLimit (n : I128) : Json :=
+  .str (toString n.toInt)
+
+def encodeCap (k : Cap) : Json :=
+  .obj [("limit", encodeLimit k.limit), ("period", .num k.period.toNat),
+    ("amount_arg", encodeIndex k.amountArg)]
+
 def encodeRule (r : Rule) : Json :=
   .obj [
     ("contract", .str (hex r.contract)),
     ("functions", encodeBytesList r.functions),
     ("conds", .arr (r.conds.map encodeCond)),
     ("signers", encodeSigners r.signers),
-    ("threshold", encodeThreshold r.threshold)]
+    ("threshold", encodeThreshold r.threshold),
+    ("cap", match r.cap with
+      | some k => encodeCap k
+      | none => .null)]
 
 def encodeRuleSet (rs : RuleSet) : Json :=
   .arr (rs.map encodeRule)
@@ -162,9 +175,19 @@ def encodeStep : Attenuation → Json
     tagged "remove_signers" (.obj [("index", encodeIndex i), ("signers", encodeSigners ss)])
   | .raiseThreshold i k =>
     tagged "raise_threshold" (.obj [("index", encodeIndex i), ("threshold", encodeThreshold k)])
+  | .addCap i k => tagged "add_cap" (.obj [("index", encodeIndex i), ("cap", encodeCap k)])
+  | .lowerCapLimit i limit =>
+    tagged "lower_cap_limit" (.obj [("index", encodeIndex i), ("limit", encodeLimit limit)])
+  | .lengthenCapPeriod i period =>
+    tagged "lengthen_cap_period" (.obj [("index", encodeIndex i), ("period", .num period.toNat)])
 
 def encodeError : AttenuationError → Json
   | .noSuchRule => .str "no_such_rule"
   | .thresholdLowered => .str "threshold_lowered"
+  | .capPresent => .str "cap_present"
+  | .noCap => .str "no_cap"
+  | .invalidCap => .str "invalid_cap"
+  | .limitRaised => .str "limit_raised"
+  | .periodShortened => .str "period_shortened"
 
 end Conformance

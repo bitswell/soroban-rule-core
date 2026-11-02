@@ -5,8 +5,8 @@ import RuleCore.Equiv.Eval
 
 The extracted copies return their input: a fresh Rust copy is the same Lean
 value (`bytes_copy_deref`, `val_copy_eq`, `cond_copy_eq`, `conds_copy_deref`,
-`bytes_list_copy_deref`, `signer_copy_eq`, `signers_copy_deref`,
-`rule_copy_eq`). So each extracted attenuation step builds exactly the model's
+`bytes_list_copy_deref`, `signer_copy_eq`, `signers_copy_deref`, `cap_copy_eq`,
+`cap_option_copy_eq`, `rule_copy_eq`). So each extracted attenuation step builds exactly the model's
 list of rules:
 
 * `drop_rule_eq`: `drop_rule rules index` returns `ok` of an outcome whose
@@ -14,7 +14,10 @@ list of rules:
 * `remove_functions_eq`, `remove_signers_eq`, `raise_threshold_eq`: likewise
   for `RuleSet.removeFunctions`, `RuleSet.removeSigners` and
   `RuleSet.raiseThreshold`, `thresholdLowered` included;
-* `add_cond_eq`: likewise for `RuleSet.addCond`, under `CondRoom`.
+* `add_cond_eq`: likewise for `RuleSet.addCond`, under `CondRoom`;
+* `add_cap_eq`, `lower_cap_limit_eq`, `lengthen_cap_period_eq`: likewise for
+  `RuleSet.addCap`, `RuleSet.lowerCapLimit` and `RuleSet.lengthenCapPeriod`,
+  every refusal included.
 
 `add_cond` is the one step whose `Vec::push` is not bounded by a slice it
 walks: it appends to the condition vector of the rule at `index`. Aeneas's
@@ -174,9 +177,15 @@ theorem signers_copy_deref (v : alloc.vec.Vec rule_eval.signer.Signer) :
   congr 1
   exact vec_eq_of_val (by simpa [pushedFrom_map] using hv)
 
+theorem cap_copy_eq (c : rule_eval.rule.Cap) : rule_eval.rule.cap_copy c = ok c := rfl
+
+theorem cap_option_copy_eq (c : Option rule_eval.rule.Cap) :
+    rule_eval.rule.cap_option_copy c = ok c := by
+  cases c <;> simp [rule_eval.rule.cap_option_copy, cap_copy_eq]
+
 theorem rule_copy_eq (r : rule_eval.rule.Rule) : rule_eval.rule.rule_copy r = ok r := by
   simp [rule_eval.rule.rule_copy, bytes_copy_deref, bytes_list_copy_deref, conds_copy_deref,
-    signers_copy_deref]
+    signers_copy_deref, cap_option_copy_eq]
 
 /-! ## Removing functions from a rule -/
 
@@ -241,7 +250,7 @@ theorem rule_without_functions_eq (r : rule_eval.rule.Rule)
   obtain ⟨fs, hfs, hv⟩ := bytes_list_without_eq (alloc.vec.Vec.deref r.functions) functions
   refine ⟨{ r with functions := fs }, ?_, ?_⟩
   · simp [rule_eval.attenuate.rule_without_functions, bytes_copy_deref, hfs, conds_copy_deref,
-      signers_copy_deref]
+      signers_copy_deref, cap_option_copy_eq]
   · simp only [denoteRule, Chain.Rule.removeFunctions, hv, vec_deref_val,
       denote_filter_inList]
 
@@ -301,7 +310,7 @@ theorem rule_without_signers_eq (r : rule_eval.rule.Rule)
   obtain ⟨ss, hss, hv⟩ := signers_without_eq (alloc.vec.Vec.deref r.signers) signers
   refine ⟨{ r with signers := ss }, ?_, ?_⟩
   · simp [rule_eval.attenuate.rule_without_signers, bytes_copy_deref, bytes_list_copy_deref,
-      conds_copy_deref, hss]
+      conds_copy_deref, hss, cap_option_copy_eq]
   · simp only [denoteRule, Chain.Rule.removeSigners, hv, vec_deref_val,
       denote_filter_signerInList]
 
@@ -725,5 +734,322 @@ theorem add_cond_full (rules : Slice rule_eval.rule.Rule) (index : Std.U32)
         rule_copy_eq, cond_copy_eq, hri, push_full _ _ hfull]
   have : ¬ rules.length ≤ index.val := by simp only [Slice.length]; omega
   simp [rule_eval.attenuate.add_cond, lift, this, hloop]
+
+/-! ## Caps -/
+
+theorem cap_valid_eq (c : rule_eval.rule.Cap) :
+    rule_eval.rule.cap_valid c = ok (denoteCap c).valid := by
+  simp only [rule_eval.rule.cap_valid, denoteCap, Chain.Cap.valid, Chain.Cap.params,
+    Cap.Params.valid, denoteU32_toNat]
+  by_cases h : (0 : Int) < c.limit.val
+  · have : c.limit > 0#i128 := by simpa using h
+    by_cases hp : 0 < c.period.val <;> simp [this, h, hp]
+  · have : ¬ c.limit > 0#i128 := by simpa using h
+    simp [this, h]
+
+/-- The loop of a step that rebuilds every rule and applies `g` to the denotation
+of the rule at `index`, given what its body does at `index` and elsewhere. -/
+theorem loop_set_eq (rules : Slice rule_eval.rule.Rule) (index : Usize)
+    (g : Chain.Rule → Chain.Rule)
+    (body : alloc.vec.Vec rule_eval.rule.Rule × Usize →
+      Result (ControlFlow (alloc.vec.Vec rule_eval.rule.Rule × Usize)
+        (alloc.vec.Vec rule_eval.rule.Rule)))
+    (hat : ∀ (out : alloc.vec.Vec rule_eval.rule.Rule) (i : Usize) (hi : i.val < rules.length),
+      out.val.length ≤ i.val → i = index →
+      ∃ (r' : rule_eval.rule.Rule) (out' : alloc.vec.Vec rule_eval.rule.Rule) (j : Usize),
+        denoteRule r' = g (denoteRule rules.val[i.val]) ∧ out'.val = out.val ++ [r'] ∧
+        j.val = i.val + 1 ∧ body (out, i) = ok (cont (out', j)))
+    (hne : ∀ (out : alloc.vec.Vec rule_eval.rule.Rule) (i : Usize) (hi : i.val < rules.length),
+      out.val.length ≤ i.val → i ≠ index →
+      ∃ (out' : alloc.vec.Vec rule_eval.rule.Rule) (j : Usize),
+        out'.val = out.val ++ [rules.val[i.val]] ∧ j.val = i.val + 1 ∧
+        body (out, i) = ok (cont (out', j)))
+    (hge : ∀ (out : alloc.vec.Vec rule_eval.rule.Rule) (i : Usize), rules.length ≤ i.val →
+      body (out, i) = ok (done out))
+    (h : index.val < rules.length) :
+    ∃ out, loop body (alloc.vec.Vec.new rule_eval.rule.Rule, 0#usize) = ok out ∧
+      denoteRules out.val =
+        (denoteRules rules.val).set index.val (g (denoteRule rules.val[index.val])) := by
+  obtain ⟨out, hl, hv⟩ := loop_build rules.val
+    (fun j a => some (if j = index.val then g (denoteRule a) else denoteRule a)) denoteRule body
+    (by
+      intro out i hi hout
+      by_cases hii : i = index
+      · obtain ⟨r', out', j, hr', hval, hj, hb⟩ := hat out i hi hout hii
+        subst hii
+        exact ⟨out', j, hj, by simp [hval, hr'], hb⟩
+      · have hv : i.val ≠ index.val := fun h => hii (usize_val_eq_iff.mp h)
+        obtain ⟨out', j, hval, hj, hb⟩ := hne out i hi hout hii
+        exact ⟨out', j, hj, by simp [hval, hv], hb⟩)
+    hge (alloc.vec.Vec.new rule_eval.rule.Rule) 0#usize (by simp)
+  refine ⟨out, hl, ?_⟩
+  have h0 : (0#usize).val = 0 := by simp
+  simp only [vec_new_val, List.map_nil, List.nil_append, h0, List.drop_zero] at hv
+  have key := pushedFrom_set denoteRule g rules.val index.val h
+  beta_reduce at key
+  rw [show denoteRules out.val = out.val.map denoteRule from rfl, hv, key]
+  rfl
+
+theorem add_cap_ok (rules : Slice rule_eval.rule.Rule) (index : Std.U32)
+    (new_cap : rule_eval.rule.Cap) (h : index.val < rules.length)
+    (hc : rules.val[index.val].cap = none) (hv : (denoteCap new_cap).valid = true) :
+    ∃ out, rule_eval.attenuate.add_cap rules index new_cap = ok (.Ok out) ∧
+      denoteRules out.val =
+        (denoteRules rules.val).set index.val
+          { denoteRule rules.val[index.val] with cap := some (denoteCap new_cap) } := by
+  obtain ⟨idx, hidx⟩ : ∃ idx : Usize, UScalar.cast .Usize index = idx := ⟨_, rfl⟩
+  have hidxv : idx.val = index.val := by rw [← hidx]; exact cast_usize_val index
+  obtain ⟨out, hl, hden⟩ := loop_set_eq rules idx
+    (fun r => { r with cap := some (denoteCap new_cap) })
+    (fun p => rule_eval.attenuate.add_cap_loop.body rules new_cap idx p.1 p.2)
+    (by
+      intro out i hi hout hii
+      subst hii
+      obtain ⟨out', hp, hval⟩ := push_eq out { rules.val[i.val] with cap := some new_cap }
+        (room_of_lt rules out i hi hout)
+      obtain ⟨j, hj, hj'⟩ := incr_eq rules i hi
+      refine ⟨_, out', j, by simp [denoteRule], hval, hj', ?_⟩
+      simp [rule_eval.attenuate.add_cap_loop.body, hi, index_usize_eq _ _ hi, rule_copy_eq,
+        cap_copy_eq, hp, hj])
+    (by
+      intro out i hi hout hii
+      obtain ⟨out', hp, hval⟩ := push_eq out rules.val[i.val] (room_of_lt rules out i hi hout)
+      obtain ⟨j, hj, hj'⟩ := incr_eq rules i hi
+      refine ⟨out', j, hval, hj', ?_⟩
+      simp [rule_eval.attenuate.add_cap_loop.body, hi, hii, index_usize_eq _ _ hi, rule_copy_eq,
+        hp, hj])
+    (by
+      intro out i hi
+      have : ¬ i.val < rules.length := Nat.not_lt.mpr hi
+      simp [rule_eval.attenuate.add_cap_loop.body, this])
+    (by rw [hidxv]; exact h)
+  refine ⟨out, ?_, by simpa [hidxv] using hden⟩
+  have hget : rules.val[index.val]? = some rules.val[index.val] := List.getElem?_eq_getElem h
+  have hv' : rule_eval.rule.cap_valid new_cap = ok true := by rw [cap_valid_eq, hv]
+  simp only [rule_eval.attenuate.add_cap, lift, bind_ok, slice_get_eq, hidx, hidxv, hget, hc,
+    hv', ↓reduceIte]
+  unfold rule_eval.attenuate.add_cap_loop
+  rw [hl, bind_ok]
+
+/-- The extracted `add_cap` returns `ok` on every input, and its outcome is
+`RuleSet.addCap` of the denotations, every refusal included. -/
+theorem add_cap_eq (rules : Slice rule_eval.rule.Rule) (index : Std.U32)
+    (new_cap : rule_eval.rule.Cap) :
+    ∃ res, rule_eval.attenuate.add_cap rules index new_cap = ok res ∧
+      denoteOutcome res = (denoteRules rules.val).addCap (denoteU32 index) (denoteCap new_cap) := by
+  by_cases h : index.val < rules.length
+  · have hlen : index.val < rules.val.length := h
+    have hget : rules.val[index.val]? = some rules.val[index.val] := List.getElem?_eq_getElem h
+    have hgetd : (denoteRules rules.val)[index.val]? = some (denoteRule rules.val[index.val]) := by
+      simp [denoteRules, hlen]
+    cases hc : rules.val[index.val].cap with
+    | some c =>
+      refine ⟨.Err .CapPresent, ?_, ?_⟩
+      · simp [rule_eval.attenuate.add_cap, lift, slice_get_eq, hget, hc]
+      · simp [denoteOutcome, denoteError, Chain.RuleSet.addCap, hgetd, denoteRule, hc]
+    | none =>
+      have hcd : (denoteRule rules.val[index.val]).cap = none := by simp [denoteRule, hc]
+      cases hv : (denoteCap new_cap).valid with
+      | false =>
+        refine ⟨.Err .InvalidCap, ?_, ?_⟩
+        · have hv' : rule_eval.rule.cap_valid new_cap = ok false := by rw [cap_valid_eq, hv]
+          simp [rule_eval.attenuate.add_cap, lift, slice_get_eq, hget, hc, hv']
+        · simp [denoteOutcome, denoteError, Chain.RuleSet.addCap, hgetd, hcd, hv]
+      | true =>
+        obtain ⟨out, hd, hden⟩ := add_cap_ok rules index new_cap h hc hv
+        refine ⟨_, hd, ?_⟩
+        simp only [denoteRules] at hden
+        simp [denoteOutcome, Chain.RuleSet.addCap, hget, hcd, hv, hden, denoteRules]
+  · have hlen : rules.val.length ≤ index.val := by simp only [Slice.length] at h; omega
+    have hget : rules.val[index.val]? = none := List.getElem?_eq_none_iff.mpr hlen
+    refine ⟨.Err .NoSuchRule, by simp [rule_eval.attenuate.add_cap, lift, slice_get_eq, hget], ?_⟩
+    simp [denoteOutcome, denoteError, Chain.RuleSet.addCap, denoteRules, hlen]
+
+theorem lower_cap_limit_ok (rules : Slice rule_eval.rule.Rule) (index : Std.U32)
+    (limit : Std.I128) (h : index.val < rules.length) {c : rule_eval.rule.Cap}
+    (hc : rules.val[index.val].cap = some c) (hl : ¬ c.limit.val < limit.val)
+    (hz : ¬ limit.val ≤ 0) :
+    ∃ out, rule_eval.attenuate.lower_cap_limit rules index limit = ok (.Ok out) ∧
+      denoteRules out.val =
+        (denoteRules rules.val).set index.val
+          { denoteRule rules.val[index.val] with
+            cap := some { denoteCap c with limit := limit.bv } } := by
+  obtain ⟨idx, hidx⟩ : ∃ idx : Usize, UScalar.cast .Usize index = idx := ⟨_, rfl⟩
+  have hidxv : idx.val = index.val := by rw [← hidx]; exact cast_usize_val index
+  obtain ⟨out, hloop, hden⟩ := loop_set_eq rules idx
+    (fun r => { r with cap := r.cap.map fun k => { k with limit := limit.bv } })
+    (fun p => rule_eval.attenuate.lower_cap_limit_loop.body rules limit idx p.1 p.2)
+    (by
+      intro out i hi hout hii
+      subst hii
+      obtain ⟨j, hj, hj'⟩ := incr_eq rules i hi
+      cases hrc : rules.val[i.val].cap with
+      | none =>
+        obtain ⟨out', hp, hval⟩ := push_eq out rules.val[i.val] (room_of_lt rules out i hi hout)
+        refine ⟨_, out', j, by simp [denoteRule, hrc], hval, hj', ?_⟩
+        have : { rules.val[i.val] with cap := none } = rules.val[i.val] := by
+          rw [← hrc]
+        simp [rule_eval.attenuate.lower_cap_limit_loop.body, hi, index_usize_eq _ _ hi,
+          rule_copy_eq, hrc, hp, hj, this]
+      | some k =>
+        obtain ⟨out', hp, hval⟩ := push_eq out
+          { rules.val[i.val] with cap := some { k with limit } } (room_of_lt rules out i hi hout)
+        refine ⟨_, out', j, by simp [denoteRule, denoteCap, hrc], hval, hj', ?_⟩
+        simp [rule_eval.attenuate.lower_cap_limit_loop.body, hi, index_usize_eq _ _ hi,
+          rule_copy_eq, hrc, hp, hj])
+    (by
+      intro out i hi hout hii
+      obtain ⟨out', hp, hval⟩ := push_eq out rules.val[i.val] (room_of_lt rules out i hi hout)
+      obtain ⟨j, hj, hj'⟩ := incr_eq rules i hi
+      refine ⟨out', j, hval, hj', ?_⟩
+      simp [rule_eval.attenuate.lower_cap_limit_loop.body, hi, hii, index_usize_eq _ _ hi,
+        rule_copy_eq, hp, hj])
+    (by
+      intro out i hi
+      have : ¬ i.val < rules.length := Nat.not_lt.mpr hi
+      simp [rule_eval.attenuate.lower_cap_limit_loop.body, this])
+    (by rw [hidxv]; exact h)
+  refine ⟨out, ?_, ?_⟩
+  · have hget : rules.val[index.val]? = some rules.val[index.val] := List.getElem?_eq_getElem h
+    have hgt : ¬ limit > c.limit := by simpa using hl
+    have hle : ¬ limit <= 0#i128 := by simpa using hz
+    simp only [rule_eval.attenuate.lower_cap_limit, lift, bind_ok, slice_get_eq, hidx, hidxv,
+      hget, hc, hgt, hle, ↓reduceIte]
+    unfold rule_eval.attenuate.lower_cap_limit_loop
+    rw [hloop, bind_ok]
+  · simpa [denoteRule, hc, hidxv] using hden
+
+/-- The extracted `lower_cap_limit` returns `ok` on every input, and its
+outcome is `RuleSet.lowerCapLimit` of the denotations, every refusal
+included. -/
+theorem lower_cap_limit_eq (rules : Slice rule_eval.rule.Rule) (index : Std.U32)
+    (limit : Std.I128) :
+    ∃ res, rule_eval.attenuate.lower_cap_limit rules index limit = ok res ∧
+      denoteOutcome res = (denoteRules rules.val).lowerCapLimit (denoteU32 index) limit.bv := by
+  by_cases h : index.val < rules.length
+  · have hlen : index.val < rules.val.length := h
+    have hget : rules.val[index.val]? = some rules.val[index.val] := List.getElem?_eq_getElem h
+    have hgetd : (denoteRules rules.val)[index.val]? = some (denoteRule rules.val[index.val]) := by
+      simp [denoteRules, hlen]
+    cases hc : rules.val[index.val].cap with
+    | none =>
+      refine ⟨.Err .NoCap, ?_, ?_⟩
+      · simp [rule_eval.attenuate.lower_cap_limit, lift, slice_get_eq, hget, hc]
+      · simp [denoteOutcome, denoteError, Chain.RuleSet.lowerCapLimit, hgetd, denoteRule, hc]
+    | some c =>
+      have hcd : (denoteRule rules.val[index.val]).cap = some (denoteCap c) := by
+        simp [denoteRule, hc]
+      have hcl : (denoteCap c).limit.toInt = c.limit.val := rfl
+      have hll : limit.bv.toInt = limit.val := rfl
+      by_cases hl : c.limit.val < limit.val
+      · refine ⟨.Err .LimitRaised, ?_, ?_⟩
+        · simp [rule_eval.attenuate.lower_cap_limit, lift, slice_get_eq, hget, hc, hl]
+        · simp [denoteOutcome, denoteError, Chain.RuleSet.lowerCapLimit, hgetd, hcd, hcl, hll, hl]
+      · by_cases hz : limit.val ≤ 0
+        · have hle : limit <= 0#i128 := by simpa using hz
+          refine ⟨.Err .InvalidCap, ?_, ?_⟩
+          · simp [rule_eval.attenuate.lower_cap_limit, lift, slice_get_eq, hget, hc, hle,
+              Int.not_lt.mp hl]
+          · simp [denoteOutcome, denoteError, Chain.RuleSet.lowerCapLimit, hgetd, hcd, hcl, hll,
+              hl, hz]
+        · obtain ⟨out, hd, hden⟩ := lower_cap_limit_ok rules index limit h hc hl hz
+          refine ⟨_, hd, ?_⟩
+          simp only [denoteRules] at hden
+          simp [denoteOutcome, Chain.RuleSet.lowerCapLimit, hget, hcd, hcl, hll, hl, hz, hden,
+            denoteRules]
+  · have hlen : rules.val.length ≤ index.val := by simp only [Slice.length] at h; omega
+    have hget : rules.val[index.val]? = none := List.getElem?_eq_none_iff.mpr hlen
+    refine ⟨.Err .NoSuchRule, by simp [rule_eval.attenuate.lower_cap_limit, lift, slice_get_eq,
+      hget], ?_⟩
+    simp [denoteOutcome, denoteError, Chain.RuleSet.lowerCapLimit, denoteRules, hlen]
+
+theorem lengthen_cap_period_ok (rules : Slice rule_eval.rule.Rule) (index period : Std.U32)
+    (h : index.val < rules.length) {c : rule_eval.rule.Cap}
+    (hc : rules.val[index.val].cap = some c) (hp : ¬ period.val < c.period.val) :
+    ∃ out, rule_eval.attenuate.lengthen_cap_period rules index period = ok (.Ok out) ∧
+      denoteRules out.val =
+        (denoteRules rules.val).set index.val
+          { denoteRule rules.val[index.val] with
+            cap := some { denoteCap c with period := denoteU32 period } } := by
+  obtain ⟨idx, hidx⟩ : ∃ idx : Usize, UScalar.cast .Usize index = idx := ⟨_, rfl⟩
+  have hidxv : idx.val = index.val := by rw [← hidx]; exact cast_usize_val index
+  obtain ⟨out, hloop, hden⟩ := loop_set_eq rules idx
+    (fun r => { r with cap := r.cap.map fun k => { k with period := denoteU32 period } })
+    (fun p => rule_eval.attenuate.lengthen_cap_period_loop.body rules period idx p.1 p.2)
+    (by
+      intro out i hi hout hii
+      subst hii
+      obtain ⟨j, hj, hj'⟩ := incr_eq rules i hi
+      cases hrc : rules.val[i.val].cap with
+      | none =>
+        obtain ⟨out', hpu, hval⟩ := push_eq out rules.val[i.val] (room_of_lt rules out i hi hout)
+        refine ⟨_, out', j, by simp [denoteRule, hrc], hval, hj', ?_⟩
+        have : { rules.val[i.val] with cap := none } = rules.val[i.val] := by
+          rw [← hrc]
+        simp [rule_eval.attenuate.lengthen_cap_period_loop.body, hi, index_usize_eq _ _ hi,
+          rule_copy_eq, hrc, hpu, hj, this]
+      | some k =>
+        obtain ⟨out', hpu, hval⟩ := push_eq out
+          { rules.val[i.val] with cap := some { k with period } } (room_of_lt rules out i hi hout)
+        refine ⟨_, out', j, by simp [denoteRule, denoteCap, hrc], hval, hj', ?_⟩
+        simp [rule_eval.attenuate.lengthen_cap_period_loop.body, hi, index_usize_eq _ _ hi,
+          rule_copy_eq, hrc, hpu, hj])
+    (by
+      intro out i hi hout hii
+      obtain ⟨out', hpu, hval⟩ := push_eq out rules.val[i.val] (room_of_lt rules out i hi hout)
+      obtain ⟨j, hj, hj'⟩ := incr_eq rules i hi
+      refine ⟨out', j, hval, hj', ?_⟩
+      simp [rule_eval.attenuate.lengthen_cap_period_loop.body, hi, hii, index_usize_eq _ _ hi,
+        rule_copy_eq, hpu, hj])
+    (by
+      intro out i hi
+      have : ¬ i.val < rules.length := Nat.not_lt.mpr hi
+      simp [rule_eval.attenuate.lengthen_cap_period_loop.body, this])
+    (by rw [hidxv]; exact h)
+  refine ⟨out, ?_, ?_⟩
+  · have hget : rules.val[index.val]? = some rules.val[index.val] := List.getElem?_eq_getElem h
+    have hlt : ¬ period < c.period := by simpa using hp
+    simp only [rule_eval.attenuate.lengthen_cap_period, lift, bind_ok, slice_get_eq, hidx, hidxv,
+      hget, hc, hlt, ↓reduceIte]
+    unfold rule_eval.attenuate.lengthen_cap_period_loop
+    rw [hloop, bind_ok]
+  · simpa [denoteRule, hc, hidxv] using hden
+
+/-- The extracted `lengthen_cap_period` returns `ok` on every input, and its
+outcome is `RuleSet.lengthenCapPeriod` of the denotations, every refusal
+included. -/
+theorem lengthen_cap_period_eq (rules : Slice rule_eval.rule.Rule) (index period : Std.U32) :
+    ∃ res, rule_eval.attenuate.lengthen_cap_period rules index period = ok res ∧
+      denoteOutcome res =
+        (denoteRules rules.val).lengthenCapPeriod (denoteU32 index) (denoteU32 period) := by
+  by_cases h : index.val < rules.length
+  · have hlen : index.val < rules.val.length := h
+    have hget : rules.val[index.val]? = some rules.val[index.val] := List.getElem?_eq_getElem h
+    have hgetd : (denoteRules rules.val)[index.val]? = some (denoteRule rules.val[index.val]) := by
+      simp [denoteRules, hlen]
+    cases hc : rules.val[index.val].cap with
+    | none =>
+      refine ⟨.Err .NoCap, ?_, ?_⟩
+      · simp [rule_eval.attenuate.lengthen_cap_period, lift, slice_get_eq, hget, hc]
+      · simp [denoteOutcome, denoteError, Chain.RuleSet.lengthenCapPeriod, hgetd, denoteRule, hc]
+    | some c =>
+      have hcd : (denoteRule rules.val[index.val]).cap = some (denoteCap c) := by
+        simp [denoteRule, hc]
+      have hpd : (denoteU32 period < (denoteCap c).period) = (period.val < c.period.val) := by
+        simp [denoteCap, UInt32.lt_iff_toNat_lt]
+      by_cases hp : period.val < c.period.val
+      · refine ⟨.Err .PeriodShortened, ?_, ?_⟩
+        · simp [rule_eval.attenuate.lengthen_cap_period, lift, slice_get_eq, hget, hc, hp]
+        · simp [denoteOutcome, denoteError, Chain.RuleSet.lengthenCapPeriod, hgetd, hcd, hpd, hp]
+      · obtain ⟨out, hd, hden⟩ := lengthen_cap_period_ok rules index period h hc hp
+        refine ⟨_, hd, ?_⟩
+        simp only [denoteRules] at hden
+        simp [denoteOutcome, Chain.RuleSet.lengthenCapPeriod, hget, hcd, hpd, hp, hden,
+          denoteRules]
+  · have hlen : rules.val.length ≤ index.val := by simp only [Slice.length] at h; omega
+    have hget : rules.val[index.val]? = none := List.getElem?_eq_none_iff.mpr hlen
+    refine ⟨.Err .NoSuchRule, by simp [rule_eval.attenuate.lengthen_cap_period, lift,
+      slice_get_eq, hget], ?_⟩
+    simp [denoteOutcome, denoteError, Chain.RuleSet.lengthenCapPeriod, denoteRules, hlen]
 
 end RuleCore.Equiv

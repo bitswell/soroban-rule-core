@@ -1,0 +1,32 @@
+{
+  "format": 1,
+  "name": "authorize-random-17",
+  "description": "Randomized authorization trace 17 of seed 20261102.",
+  "rules": [
+    {
+      "contract": "",
+      "functions": ["66"],
+      "conds": [{"arg_eq": {"index": 2147483648, "value": {"i128": "1"}}}],
+      "signers": [{"delegated": {"address": "62"}}, {"delegated": {"address": "62"}}],
+      "threshold": 3,
+      "cap": null
+    }
+  ],
+  "start": [{"history": [], "total": "0"}],
+  "authorizations": [
+    {
+      "batch": [{"call": {"contract": "", "function": "66", "args": []}}],
+      "choices": [0],
+      "authenticated": [],
+      "now": 3,
+      "expected": {"error": "not_allowed"}
+    },
+    {
+      "batch": [{"call": {"contract": "", "function": "", "args": []}}],
+      "choices": [0],
+      "authenticated": [{"delegated": {"address": "62"}}, {"delegated": {"address": "62"}}],
+      "now": 8,
+      "expected": {"error": "not_allowed"}
+    }
+  ]
+}

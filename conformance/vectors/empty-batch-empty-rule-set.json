@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "name": "empty-batch-empty-rule-set",
   "description": "The empty rule set allows the empty batch.",
   "rules": [],

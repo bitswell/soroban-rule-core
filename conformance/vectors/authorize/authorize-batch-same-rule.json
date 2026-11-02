@@ -1,0 +1,113 @@
+{
+  "format": 1,
+  "name": "authorize-batch-same-rule",
+  "description": "Two contexts choosing one capped rule are charged one after the other: 60 then 40 reach the limit together, one more is refused, and once the window has passed both are evicted.",
+  "rules": [
+    {
+      "contract": "746f6b656e",
+      "functions": ["7472616e73666572"],
+      "conds": [],
+      "signers": [],
+      "threshold": 0,
+      "cap": {"limit": "100", "period": 10, "amount_arg": 2}
+    }
+  ],
+  "start": [{"history": [], "total": "0"}],
+  "authorizations": [
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "60"}]
+          }
+        },
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "40"}]
+          }
+        }
+      ],
+      "choices": [0, 0],
+      "authenticated": [],
+      "now": 1,
+      "expected": {
+        "ok": [
+          {
+            "history": [{"ledger": 1, "amount": "60"}, {"ledger": 1, "amount": "40"}],
+            "total": "100"
+          }
+        ]
+      }
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "1"}]
+          }
+        }
+      ],
+      "choices": [0],
+      "authenticated": [],
+      "now": 2,
+      "expected": {"error": "cap_limit_exceeded"}
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "50"}]
+          }
+        },
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "51"}]
+          }
+        }
+      ],
+      "choices": [0, 0],
+      "authenticated": [],
+      "now": 11,
+      "expected": {"error": "cap_limit_exceeded"}
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "50"}]
+          }
+        },
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "50"}]
+          }
+        }
+      ],
+      "choices": [0, 0],
+      "authenticated": [],
+      "now": 11,
+      "expected": {
+        "ok": [
+          {
+            "history": [{"ledger": 11, "amount": "50"}, {"ledger": 11, "amount": "50"}],
+            "total": "100"
+          }
+        ]
+      }
+    }
+  ]
+}

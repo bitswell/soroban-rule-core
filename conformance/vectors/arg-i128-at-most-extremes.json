@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "name": "arg-i128-at-most-extremes",
   "description": "Bounds at the i128 extremes and at -1: the comparison is signed.",
   "rules": [
@@ -10,7 +10,8 @@
         {"arg_i128_at_most": {"index": 0, "bound": "-170141183460469231731687303715884105728"}}
       ],
       "signers": [],
-      "threshold": 0
+      "threshold": 0,
+      "cap": null
     },
     {
       "contract": "6d6178",
@@ -19,14 +20,16 @@
         {"arg_i128_at_most": {"index": 0, "bound": "170141183460469231731687303715884105727"}}
       ],
       "signers": [],
-      "threshold": 0
+      "threshold": 0,
+      "cap": null
     },
     {
       "contract": "6e6567",
       "functions": ["66"],
       "conds": [{"arg_i128_at_most": {"index": 0, "bound": "-1"}}],
       "signers": [],
-      "threshold": 0
+      "threshold": 0,
+      "cap": null
     }
   ],
   "batch": [

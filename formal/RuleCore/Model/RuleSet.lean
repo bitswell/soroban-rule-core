@@ -1,3 +1,5 @@
+import RuleCore.Model.Cap
+
 /-!
 # Rule sets
 
@@ -19,6 +21,10 @@ rule are among them. The count takes the rule's signers without repeats
 listed twice in the rule, or authenticated twice, counts once. A threshold of
 0 is no requirement.
 
+A rule may carry a spending cap (`RuleCap`): the cap's parameters and the
+amount a context spends, read from the context. `Rule.allows` does not read
+the cap; `RuleSet.authorize` (`RuleCore.Model.Authorize`) charges it.
+
 A rule allows a context when its scope matches, every condition holds and its
 signer requirement holds. A rule set allows a context when some rule allows
 it, and allows a batch (every context of a Soroban authorization tree) when it
@@ -31,11 +37,19 @@ namespace RuleCore
 
 variable {Ctx Sig : Type}
 
+/-- A rule's spending cap: at most `params.limit` spent within `params.period`
+consecutive ledgers, each context spending `amount` of it, or naming no amount
+when `amount` is `none`. -/
+structure RuleCap (Ctx : Type) where
+  params : Cap.Params
+  amount : Ctx → Option Int
+
 structure Rule (Ctx Sig : Type) where
   scope : Ctx → Bool          -- contract and function match
   conds : List (Ctx → Bool)   -- conditions on this call's arguments
   signers : List Sig          -- the signers that count towards the threshold
   threshold : Nat             -- how many distinct signers must be authenticated
+  cap : Option (RuleCap Ctx) := none  -- the rule's spending cap, if it has one
 
 def RuleSet (Ctx Sig : Type) := List (Rule Ctx Sig)
 

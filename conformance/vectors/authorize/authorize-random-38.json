@@ -1,0 +1,53 @@
+{
+  "format": 1,
+  "name": "authorize-random-38",
+  "description": "Randomized authorization trace 38 of seed 20261102.",
+  "rules": [],
+  "start": [],
+  "authorizations": [
+    {
+      "batch": [
+        {"call": {"contract": "", "function": "66", "args": []}},
+        {"create": {"wasm_hash": "63"}}
+      ],
+      "choices": [0, 0],
+      "authenticated": [],
+      "now": 106,
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "batch": [
+        {"create": {"wasm_hash": ""}},
+        {"call": {"contract": "6331", "function": "666f", "args": []}}
+      ],
+      "choices": [0, 0],
+      "authenticated": [],
+      "now": 109,
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "batch": [{"call": {"contract": "633130", "function": "66", "args": []}}],
+      "choices": [0],
+      "authenticated": [],
+      "now": 114,
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "batch": [
+        {"call": {"contract": "6332", "function": "67", "args": [{"bool": false}]}},
+        {
+          "call": {
+            "contract": "6331",
+            "function": "66",
+            "args": [{"bytes": "6162"}, {"bytes": "62"}, {"other": "00ff"}]
+          }
+        },
+        {"call": {"contract": "6331", "function": "666f6f", "args": []}}
+      ],
+      "choices": [0, 0, 0],
+      "authenticated": [],
+      "now": 114,
+      "expected": {"error": "no_such_rule"}
+    }
+  ]
+}

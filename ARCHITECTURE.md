@@ -19,10 +19,10 @@ rule sets:
 Each link of the chain is a theorem about rule sets, or about the code that
 builds, stores and checks them:
 
-- **Grant inside scope.** A delegated grant is reached from its scope by attenuation steps, so it allows only what the scope allows, under any signers. Milestones 1 and 2 prove this for rule matching and signer requirements (`Derives.narrower`, `Derives.allows_all`). The spending-cap check is proven on its own ([Milestone 2: spending caps](#milestone-2-spending-caps)). Caps on rules come next, and budgets on the delegation tree in M3.
+- **Grant inside scope.** A delegated grant is reached from its scope by attenuation steps, so it allows only what the scope allows, under any signers. Milestones 1 and 2 prove this for rule matching and signer requirements (`Derives.narrower`, `Derives.allows_all`), and for spending caps on rules as trace inclusion: every run of authorizations a derived rule set accepts from empty records, its root accepts from its own ([Milestone 2: caps on rules](#milestone-2-caps-on-rules)). Budgets on the delegation tree come in M3.
 - **Scope inside the owner's authority.** A scoped document compiles to rules that reach none of the account, its recovery or the ZK adapter. That is M4.
 - **Recovery.** A completed recovery bumps a generation, and every scoped rule issued under an older generation then authorizes nothing. That is also M4.
-- **The code is the model.** The Rust that Perch's smart account, the grant signer, the agent host and the relay run is proven equal to the Lean model the theorems are about (M1 for rule matching and attenuation, M2 for signers). Soroban's own behaviour enters through Lean models that are tested against the host (M5).
+- **The code is the model.** The Rust that Perch's smart account, the grant signer, the agent host and the relay run is proven equal to the Lean model the theorems are about (M1 for rule matching and attenuation, M2 for signers, spending caps and the stateful `authorize`). Soroban's own behaviour enters through Lean models that are tested against the host (M5).
 
 ## Dependency direction
 
@@ -107,8 +107,8 @@ evidence, and `tools/check-claims` fails CI when evidence is missing.
 ### How later milestones extend it
 
 - **New conditions** are new constructors of `Cond`, each matched by `cond_holds`, with its meaning in `Chain.Cond.holds` and its denotation in `Equiv/Denote.lean`. The generic theorems do not change, because a chain condition denotes a generic one.
-- **New rule fields** (caps) extend `Rule` and `Chain.Rule`, as signers do in Milestone 2. Keeping `Rule.denote` a generic rule keeps every attenuation theorem.
-- **Stateful checks** stay pure in `rule-eval`, as the spending-cap check does. The function takes the state as data and returns the new state or an error, and the shell does the storage.
+- **New rule fields** extend `Rule` and `Chain.Rule`, as signers and caps do in Milestone 2. Keeping `Rule.denote` a generic rule keeps every attenuation theorem.
+- **Stateful checks** stay pure in `rule-eval`, as `check_spend` and `authorize` do. The function takes the state as data and returns the new state or an error, and the shell does the storage.
 
 ## Milestone 2: signers
 
@@ -127,7 +127,7 @@ chain vocabulary (`Chain.Signer`) and the generic model (`Rule.signed`).
 
 ### Attenuation
 
-There are five attenuation steps and nothing else: the three of Milestone 1 and these two.
+Signers add two attenuation steps to the three of Milestone 1; [Milestone 2: caps on rules](#milestone-2-caps-on-rules) adds three more, and nothing else is a step.
 
 - `remove_signers(rules, i, signers)` removes every occurrence of each listed signer from rule `i`'s signers. The threshold is unchanged, so the requirement only gets harder to meet.
 - `raise_threshold(rules, i, k)` sets rule `i`'s threshold to `k`. It refuses with `AttenuationError::ThresholdLowered` when `k` is below the current threshold.
@@ -139,7 +139,7 @@ index is checked first, so `raise_threshold` on a missing rule is
 ### Theorems
 
 - `narrower` quantifies over authenticated signer lists as well as contexts, and every Milestone 1 theorem holds under that definition.
-- `removeSigners_narrower` and `raiseThreshold_narrower`: each signer step yields a narrower rule set. `Derives.narrower` covers chains of all five steps.
+- `removeSigners_narrower` and `raiseThreshold_narrower`: each signer step yields a narrower rule set. `Derives.narrower` covers chains of all eight steps.
 - `allows_of_subset`, `allowsAll_of_subset`: authenticating more signers never turns an allow into a refusal.
 - `allows_congr`, `allowsAll_congr`, `allows_eraseDups`, `allows_congr_signers`: the verdict depends only on which signers are in each list, so repeats and order in either list change nothing.
 - `signed_of_threshold_zero`, `signed_iff_of_threshold_eq`, `allows_false_of_lt`: threshold 0, all signers, and a threshold above the signers (on the translation: `rule_allows_threshold_zero`, `signers_met_all_iff`, `rule_allows_false_of_lt`).
@@ -172,18 +172,19 @@ read at commit `ddc327eb`) checks signers in two ways:
 The mapping is not exact in every respect. These differences are recorded for
 M4 and not decided here:
 
-- OpenZeppelin's caller names one rule per context (`context_rule_ids`). Here a context is allowed when some rule allows it.
+- OpenZeppelin's caller names one rule per context (`context_rule_ids`). Here `allows` and `allows_all` accept a context when some rule allows it, and `authorize` takes one rule per context as OpenZeppelin does ([Milestone 2: caps on rules](#milestone-2-caps-on-rules)).
 - OpenZeppelin has rule kinds this model does not have: a `Default` context type that matches any contract, contract-creation rules, and `valid_until` expiry.
 - OpenZeppelin finds duplicate external signers through the verifier's canonical key (`batch_canonicalize_key`). Here two external signers are the same signer only when their bytes are equal.
-- The `weighted_threshold` policy gives signers weights, and `spending_limit` caps amounts. There is no counterpart to weights here; spending caps are the other half of M2.
+- The `weighted_threshold` policy gives signers weights, and `spending_limit` caps amounts. There is no counterpart to weights here; spending caps on rules are [Milestone 2: caps on rules](#milestone-2-caps-on-rules).
 
 ## Milestone 2: spending caps
 
 A cap bounds what one rule may spend: at most `limit` within `period`
 consecutive ledgers, Perch's `periodLedgers`. The check is
 `crates/rule-eval/src/cap.rs`, its model `formal/RuleCore/Model/Cap.lean`, and
-its theorems `formal/RuleCore/Theorems/Cap.lean`. The check is a function of
-its own: `Rule`, `allows` and the attenuation steps do not mention caps.
+its theorems `formal/RuleCore/Theorems/Cap.lean`. The check works on one
+record; [Milestone 2: caps on rules](#milestone-2-caps-on-rules) puts caps on
+rules and charges them through `authorize`.
 
 ### The record and the check
 
@@ -260,18 +261,113 @@ run recorded: the accepted calls with a positive amount.
 - `entries_from` copies the history from the first entry kept. It pushes fewer than 1000 entries before the new one, so no push can reach `Vec`'s bound, and no stated rule is needed.
 - The other arithmetic is `u32::saturating_sub` for the cutoff, `i128::checked_sub` and `i128::checked_add` for the totals, and `len - kept_from` on `usize` under `kept_from <= len`.
 
+## Milestone 2: caps on rules
+
+A rule may carry a spending cap, and `authorize` checks an authorization the
+way OpenZeppelin's smart account does: one chosen rule per context, every
+chosen rule allowing its context, and each capped rule's record charged with
+`check_spend`. The code is `crates/rule-eval/src/authorize.rs` and the cap
+steps in `attenuate.rs`; the model is `formal/RuleCore/Model/Authorize.lean`
+and the cap steps in `Model/Attenuation.lean`; the theorems are
+`Theorems/Authorize.lean` and, on the translation,
+`Theorems/ExtractedAuthorize.lean`.
+
+### The cap and the check
+
+- A `Rule` has `cap: Option<Cap>`, where `Cap { limit: i128, period: u32, amount_arg: u32 }` caps spends at `limit` within `period` consecutive ledgers and names the argument that holds a call's amount. `cap_valid` holds when `limit > 0` and `period > 0`, what `params_valid` requires of a cap's parameters.
+- `allows` and `allows_all` do not read the cap. They stay the cap-free view of a rule set, and every Milestone 1 theorem about them is unchanged.
+- `authorize(rules, records, contexts, choices, authenticated, now)` returns the records after the authorization, or a `Refusal` that changes nothing. `records[j]` is the record of `rules[j]`, one per rule, and `choices[i]` is the rule chosen for `contexts[i]`. In order:
+  1. `choices` must hold one index per context (`ChoicesMismatch`), and `records` one record per rule (`RecordsMismatch`);
+  2. in context order, every chosen rule must exist (`NoSuchRule`) and allow its context under `authenticated` (`NotAllowed`);
+  3. in context order, for every chosen rule with a cap, the context's argument at `amount_arg` must be an `I128` (`NoAmount`) and is charged to that rule's record with `check_spend` at ledger `now` (`Cap(e)` when the check refuses). Each charge starts from the record the charges before it left, so two contexts choosing one rule accumulate within the batch.
+- A rule without a cap reads no amount and keeps its record. A refusal returns no records: the shell stores the result only on `Ok`, so the charges of a refused batch's earlier contexts are discarded with it, as a failed Soroban invocation rolls back.
+
+### Mirroring OpenZeppelin
+
+At the fork commit Perch pins (`theahaco/stellar-contracts-OZ@33726766`),
+[`smart_account/storage.rs`](https://github.com/theahaco/stellar-contracts-OZ/blob/33726766a1fd5e7e3d2977d79f64ee29e1ea3ca9/packages/accounts/src/smart_account/storage.rs)
+carries the rule choice in `AuthPayload::context_rule_ids` (lines 133–138),
+aligned by index with the authorization contexts and bound into the digest the
+signers sign (line 498). `do_check_auth` (lines 466–525) refuses a length
+mismatch first (line 472), validates every context against its chosen rule
+(lines 477–485), and only then enforces each rule's policies in context order
+(lines 511–522). `authorize` keeps that order: its second step is the
+validation and its third the enforcement, so a batch with both a disallowed
+context and an exceeded cap is refused with `NotAllowed`. The spending-limit
+policy stores one record per context rule (`SpendingLimitStorageKey::AccountContext`,
+[`policies/spending_limit.rs`](https://github.com/theahaco/stellar-contracts-OZ/blob/33726766a1fd5e7e3d2977d79f64ee29e1ea3ca9/packages/accounts/src/policies/spending_limit.rs)
+line 236) and writes it after each enforcement (line 281), so two contexts on
+one rule accumulate there too. Binding the choices into the signed digest is the
+shell's job: `authorize` receives the choices the signatures covered.
+
+### Attenuation
+
+There are eight steps: the five of Milestones 1 and 2 and these three. Each
+refuses an index out of range with `NoSuchRule` before anything else.
+
+- `add_cap(rules, i, cap)` gives rule `i` the cap. It refuses a rule that already has one (`CapPresent`) and a cap that is not valid (`InvalidCap`).
+- `lower_cap_limit(rules, i, limit)` sets the limit of rule `i`'s cap. It refuses a rule without a cap (`NoCap`), a limit above the current one (`LimitRaised`), and a limit that is not positive (`InvalidCap`).
+- `lengthen_cap_period(rules, i, period)` sets the period of rule `i`'s cap. It refuses a rule without a cap (`NoCap`) and a period below the current one (`PeriodShortened`).
+
+The steps never make a valid cap invalid (`attenuate_capsValid`). `authorize`
+does not check validity: a root rule set is installed by the shell, which
+checks its caps, and the cap check behaves monotonically in its parameters
+whether or not they are valid, so narrowing holds for every cap.
+
+### Narrowing as trace inclusion
+
+`TraceNarrower rs' rs f` says: every run of authorizations that `rs'` accepts,
+each authorization in turn from `rs'`'s empty records, `rs` accepts from its
+own empty records, with each choice `j` renumbered to `f j`. Each side keeps
+its own records. The renumbering is the one the steps induce:
+`dropRule i` moves every rule after `i` down by one, so `f j` is `j` below `i`
+and `j + 1` from `i` on (`Attenuation.source`); every other step keeps each
+index; a list of steps composes them (`Attenuation.chainSource`).
+
+The proof goes through `Refines rs' rs f`: `f` sends the rules of `rs'` one to
+one to rules of `rs`, each rule of `rs'` allows no more than its image, and its
+cap is at least as narrow, reading the same amount with a lower or equal limit
+and a longer or equal period, or there is a cap where the image has none. Along
+a run, the history of each image's record stays a suffix of the record it
+corresponds to (`check_of_narrower_suffix`, the single step of the cap trace
+inclusion), so every charge `rs'` accepts, `rs` accepts. Each of the eight
+steps refines along its renumbering, refinement composes, and so every chain of
+steps is trace inclusion (`attenuateAll_traceNarrower`).
+
+### Theorems
+
+- **Soundness** (`authorize_allowsAll`, `authorize_chosen`): an accepted authorization's every context is allowed by the rule chosen for it, so the rule set allows the batch under its signers.
+- **Refusals change nothing** (`step_of_error`): a run keeps the records after a refused authorization.
+- **One record per capped rule** (`run_get`, `run_get_of_cap_none`): after any run, the stored record of a capped rule is the cap check's own run over the calls the run charged to that rule, and a rule without a cap keeps its record.
+- **Window safety** (`RuleSet.window_le_limit`, `RuleSet.period_le_limit_of_pos`, `RuleSet.period_le_limit`): from empty records, for every capped rule with a non-negative limit and every run, the spends recorded for that rule in every window of eviction, and in every window of `period` consecutive ledgers from ledger 1 on, sum to at most its limit.
+- **The stored record is the in-window spends** (`RuleSet.run_eq_window`), and never holds more than 1000 entries (`RuleSet.run_history_length_le`).
+- **Narrowing** (`attenuate_traceNarrower`, `attenuateAll_traceNarrower`, `TraceNarrower.trans`), and each cap step leaves every `allows` verdict as it was (`addCap_narrower`, `lowerCapLimit_narrower`, `lengthenCapPeriod_narrower`).
+- **On the translation**: `authorize_eq` proves that the translated `authorize` returns `ok` of the model's result on every input, so it terminates and never panics; `add_cap_eq`, `lower_cap_limit_eq` and `lengthen_cap_period_eq` do the same for the steps. `authorize_allows_all`, `runAuthorizations_window`, `runAuthorizations_window_le_limit`, `runAuthorizations_length_le`, `StepAlong.traceNarrower` and `DerivesAlong.traceNarrower` carry the theorems to the Rust functions.
+
+### Edges
+
+- **Renumbered choices are `u32`s.** On the translation, a renumbered run exists only when every renumbered index fits a `u32`. A rule set of more than `2^32` rules that drops a rule has rules no `u32` choice can name in the root, and the Rust statement says nothing about runs that choose them. The model's statement has no such limit.
+- **Ledger 0** behaves as in [Milestone 2: spending caps](#edges): only the statement over every window of consecutive ledgers needs every authorization at ledger 1 or later.
+- **Records of rules without a cap** are carried and returned unchanged. A shell may store only the records of capped rules and pass empty ones for the rest.
+
+### In the restricted subset
+
+- Each pass is one `while i < contexts.len()` loop. A choice is read with `choices.get(i)`, a rule with `rules.get(index)`, and a context with `contexts[i]` under `i < contexts.len()`.
+- The second pass copies the records once and charges in place through `out.get_mut(index)`. Aeneas models `get_mut` on a `Vec` as `DerefMut` to a slice and `<[T]>::get_mut`, which returns the element and a function writing a new one back at the index.
+- `charge_all_loop_eq` and `check_choices_loop_eq` prove that the loops compute the model's `foldlM` of `charge` and `forM` of `checkChoice` over the contexts with their choices.
+
+### Caps on rules, as input for M4
+
+These are mapping notes for M4, not decisions:
+
+- **OpenZeppelin's spending-limit policy meters only `transfer` at argument 2.** At Perch's pin, `enforce` accepts a call only when its function is `transfer` and its argument 2 is an `i128`, and refuses every other context with `NotAllowed` (`policies/spending_limit.rs` lines 242–244, 298 and 301); it also refuses an empty set of authenticated signers (line 232). Here a cap names its argument (`amount_arg`), and which functions a rule covers is its function list, so a policy-capped OpenZeppelin rule corresponds to a rule whose functions are `["transfer"]` and whose cap reads argument 2.
+- **The history bound differs between upstream and Perch's pin.** Upstream OpenZeppelin bounds the history at 815 entries ([`stellar-contracts@ddc327eb`](https://github.com/OpenZeppelin/stellar-contracts/blob/ddc327eb92d63709436da3a8455f641c2d5476c5/packages/accounts/src/policies/spending_limit.rs) line 169), and Perch's pin at 1000 (line 158 of the fork). `rule-eval` follows the pin, so a record past 815 entries is one the pin accepts and upstream refuses.
+
 ## Later milestones
 
 These are design notes for work that is not built. Where the brief leaves a
 choice open, it is listed under [Open questions](#open-questions) and not
 decided here.
-
-### M2: caps on rules
-
-A rule gains an optional cap, and its record is stored per rule.
-
-- **Evaluation.** A capped rule allows a call when it matches and `check_spend` accepts the call's amount. The amount is the argument the rule names, an `i128`, so the conditions already read it.
-- **Attenuation.** "Add a cap" and "lower a cap" become steps. `capNarrower` and `capAccepts_of_capNarrower` are the narrowing they rest on: every run a narrower cap accepts, the wider cap accepts, and a rule without a cap accepts every run.
 
 ### M3: the budget tree
 
