@@ -1,0 +1,26 @@
+[workspace]
+resolver = "3"
+members = ["crates/rule-eval"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/bitswell/soroban-rule-core"
+
+# Arithmetic overflow traps in release builds as it does in debug builds.
+[profile.release]
+overflow-checks = true
+
+# The profile Soroban contract shells build with: small wasm, no unwinding,
+# overflow still trapping.
+[profile.contract]
+inherits = "release"
+opt-level = "z"
+overflow-checks = true
+debug = 0
+strip = "symbols"
+debug-assertions = false
+panic = "abort"
+codegen-units = 1
+lto = true
