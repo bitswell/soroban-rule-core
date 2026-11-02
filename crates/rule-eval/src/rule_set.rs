@@ -3,12 +3,12 @@
 use crate::context::Context;
 use crate::rule::{Rule, rule_allows};
 
-/// Whether some rule in `rules` allows `context`.
+/// Whether some rule in `rules` allows `ctx`.
 #[must_use]
-pub fn allows(rules: &[Rule], context: &Context) -> bool {
+pub fn allows(rules: &[Rule], ctx: &Context) -> bool {
     let mut i = 0;
     while i < rules.len() {
-        if rule_allows(&rules[i], context) {
+        if rule_allows(&rules[i], ctx) {
             return true;
         }
         i += 1;

@@ -52,20 +52,20 @@ fn conds_hold(conds: &[Cond], args: &[Val]) -> bool {
     true
 }
 
-/// Whether `rule` allows `context`: it is a call to the rule's contract, its
-/// function is in the rule's list, and every condition holds on its
-/// arguments. No rule allows a creation.
+/// Whether `r` allows `ctx`: it is a call to the rule's contract, its function
+/// is in the rule's list, and every condition holds on its arguments. No rule
+/// allows a creation.
 #[must_use]
-pub fn rule_allows(rule: &Rule, context: &Context) -> bool {
-    match context {
+pub fn rule_allows(r: &Rule, ctx: &Context) -> bool {
+    match ctx {
         Context::Call {
             contract,
             function,
             args,
         } => {
-            bytes_eq(contract, &rule.contract)
-                && bytes_in(function, &rule.functions)
-                && conds_hold(&rule.conds, args)
+            bytes_eq(contract, &r.contract)
+                && bytes_in(function, &r.functions)
+                && conds_hold(&r.conds, args)
         }
         Context::Create { .. } => false,
     }
@@ -90,11 +90,11 @@ pub(crate) fn conds_copy(conds: &[Cond]) -> Vec<Cond> {
     out
 }
 
-/// A fresh copy of `rule`.
-pub(crate) fn rule_copy(rule: &Rule) -> Rule {
+/// A fresh copy of `r`.
+pub(crate) fn rule_copy(r: &Rule) -> Rule {
     Rule {
-        contract: bytes_copy(&rule.contract),
-        functions: bytes_list_copy(&rule.functions),
-        conds: conds_copy(&rule.conds),
+        contract: bytes_copy(&r.contract),
+        functions: bytes_list_copy(&r.functions),
+        conds: conds_copy(&r.conds),
     }
 }

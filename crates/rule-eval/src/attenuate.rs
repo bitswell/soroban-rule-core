@@ -50,11 +50,11 @@ pub fn add_cond(rules: &[Rule], index: u32, cond: &Cond) -> Result<Vec<Rule>, At
     let mut out = Vec::new();
     let mut i = 0;
     while i < rules.len() {
-        let mut rule = rule_copy(&rules[i]);
+        let mut r = rule_copy(&rules[i]);
         if i == index {
-            rule.conds.push(cond_copy(cond));
+            r.conds.push(cond_copy(cond));
         }
-        out.push(rule);
+        out.push(r);
         i += 1;
     }
     Ok(out)
@@ -88,11 +88,11 @@ pub fn remove_functions(
     Ok(out)
 }
 
-/// A copy of `rule` without the functions in `functions`.
-fn rule_without_functions(rule: &Rule, functions: &[Vec<u8>]) -> Rule {
+/// A copy of `r` without the functions in `functions`.
+fn rule_without_functions(r: &Rule, functions: &[Vec<u8>]) -> Rule {
     Rule {
-        contract: bytes_copy(&rule.contract),
-        functions: bytes_list_without(&rule.functions, functions),
-        conds: conds_copy(&rule.conds),
+        contract: bytes_copy(&r.contract),
+        functions: bytes_list_without(&r.functions, functions),
+        conds: conds_copy(&r.conds),
     }
 }
