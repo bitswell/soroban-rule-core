@@ -1,0 +1,46 @@
+{
+  "format": 1,
+  "name": "cap-same-ledger",
+  "description": "Several spends in one ledger are each recorded and count together against the limit.",
+  "limit": "10",
+  "period": 5,
+  "params_valid": true,
+  "start": {"history": [], "total": "0"},
+  "calls": [
+    {
+      "now": 7,
+      "amount": "3",
+      "expected": {"ok": {"history": [{"ledger": 7, "amount": "3"}], "total": "3"}}
+    },
+    {
+      "now": 7,
+      "amount": "3",
+      "expected": {
+        "ok": {
+          "history": [{"ledger": 7, "amount": "3"}, {"ledger": 7, "amount": "3"}],
+          "total": "6"
+        }
+      }
+    },
+    {
+      "now": 7,
+      "amount": "4",
+      "expected": {
+        "ok": {
+          "history": [
+            {"ledger": 7, "amount": "3"},
+            {"ledger": 7, "amount": "3"},
+            {"ledger": 7, "amount": "4"}
+          ],
+          "total": "10"
+        }
+      }
+    },
+    {"now": 7, "amount": "1", "expected": {"error": "limit_exceeded"}},
+    {
+      "now": 12,
+      "amount": "10",
+      "expected": {"ok": {"history": [{"ledger": 12, "amount": "10"}], "total": "10"}}
+    }
+  ]
+}

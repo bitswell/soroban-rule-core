@@ -1,0 +1,62 @@
+{
+  "format": 1,
+  "name": "cap-random-35",
+  "description": "Randomized trace 35 of seed 20261102.",
+  "limit": "10",
+  "period": 2,
+  "params_valid": true,
+  "start": {"history": [], "total": "0"},
+  "calls": [
+    {
+      "now": 8,
+      "amount": "5",
+      "expected": {"ok": {"history": [{"ledger": 8, "amount": "5"}], "total": "5"}}
+    },
+    {
+      "now": 12,
+      "amount": "-170141183460469231731687303715884105728",
+      "expected": {"error": "negative_amount"}
+    },
+    {
+      "now": 13,
+      "amount": "170141183460469231731687303715884105727",
+      "expected": {"error": "limit_exceeded"}
+    },
+    {
+      "now": 16,
+      "amount": "5",
+      "expected": {"ok": {"history": [{"ledger": 16, "amount": "5"}], "total": "5"}}
+    },
+    {
+      "now": 20,
+      "amount": "5",
+      "expected": {"ok": {"history": [{"ledger": 20, "amount": "5"}], "total": "5"}}
+    },
+    {"now": 18, "amount": "3", "expected": {"error": "ledger_before_newest"}},
+    {
+      "now": 19,
+      "amount": "-170141183460469231731687303715884105728",
+      "expected": {"error": "negative_amount"}
+    },
+    {
+      "now": 23,
+      "amount": "3",
+      "expected": {"ok": {"history": [{"ledger": 23, "amount": "3"}], "total": "3"}}
+    },
+    {
+      "now": 27,
+      "amount": "10",
+      "expected": {"ok": {"history": [{"ledger": 27, "amount": "10"}], "total": "10"}}
+    },
+    {
+      "now": 31,
+      "amount": "1",
+      "expected": {"ok": {"history": [{"ledger": 31, "amount": "1"}], "total": "1"}}
+    },
+    {
+      "now": 34,
+      "amount": "5",
+      "expected": {"ok": {"history": [{"ledger": 34, "amount": "5"}], "total": "5"}}
+    }
+  ]
+}

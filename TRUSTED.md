@@ -21,7 +21,11 @@ overflowing arithmetic trap, as Aeneas's model of it fails. The evaluator's
 only arithmetic is the loop counter's `i += 1`, under `i < s.len()`, and the
 signer count's `count += 1`, which runs at most once per position of its loop,
 so `count` stays at most `i`. The equivalence theorems prove that neither
-overflows.
+overflows. The spending-cap check sums with `i128::checked_add` and
+`i128::checked_sub`, which return `None` instead of trapping, and takes its
+cutoff with `u32::saturating_sub`. Its two subtractions on `usize`, `len - 1`
+and `len - kept_from`, run under `len > 0` and `kept_from <= len`, and
+`check_spend_eq` proves that neither fails.
 
 ## Charon
 
@@ -73,18 +77,23 @@ each is trusted to match the Rust item.
 | `Vec<T>` | `alloc.vec.Vec` | A list of at most `Usize.max` elements. |
 | `Vec::new` | `alloc.vec.Vec.new` | The empty vector. |
 | `Vec::push` | `alloc.vec.Vec.push` | Appends. Fails with `maximumSizeExceeded` when the vector already holds `Usize.max` elements. Allocation failure, which aborts in Rust, is outside the model. |
+| `Vec::len` | `alloc.vec.Vec.len` | The list's length. |
 | `Deref` of `Vec<T>` to `&[T]` | `alloc.vec.Vec.deref` | The same list. |
 | `<[T]>::len` | `Slice.len` | The list's length. |
 | `s[i]` on a slice (`Index<usize>`) | `Slice.index_usize` | Element `i`, or `fail` when `i` is out of range. |
 | `<[T]>::get(i)` | `core.slice.Slice.get` with `core.slice.index.SliceIndexUsizeSlice` | `some` element `i`, or `none` when `i` is out of range. Called on a rule's arguments and, in `raise_threshold`, on the rules. |
 | `u32 as usize` | `UScalar.cast` | The same value. Lossless because `usize` has at least 32 bits. Widens indices and, in `signers_met`, the threshold. |
 | `i += 1` and `count += 1` on `usize` | `+` on `Usize` | Checked addition: `fail` on overflow. |
+| `len - 1` and `len - kept_from` on `usize` | `-` on `Usize` | Checked subtraction: `fail` when the result would be negative. |
 | `<`, `<=`, `>=`, `==`, `!=` on `usize` | the order and equality of `Usize` | On the values. |
 | `!=` on `u8` | equality of `U8` | On the values. |
 | `==` on `u64` | equality of `U64` | On the values. |
-| `==` and `<=` on `i128` | equality and order of `I128` | On the values, as signed integers. |
+| `==`, `<`, `<=` and `>` on `i128` | equality and order of `I128` | On the values, as signed integers. |
+| `i128::checked_add`, `i128::checked_sub` | `I128.checked_add`, `I128.checked_sub` | `some` of the sum or difference when it lies between `i128::MIN` and `i128::MAX`, `none` otherwise. |
+| `Option<T>` (`Some`, `None`) | Lean's `Option` | The two-constructor inductive. |
+| `u32::saturating_sub` | `core.num.U32.saturating_sub` | The difference when it is not negative, `0` otherwise. |
 | `usize::BITS` | `core.num.Usize.BITS` | `System.Platform.numBits`, as a `U32`. |
-| `<` and `>=` on `u32` | the order of `U32` | On the values. |
+| `<`, `>` and `>=` on `u32` | the order of `U32` | On the values. |
 | `const _: () = assert!(usize::BITS >= 32)` | `massert` | `ok ()` when the condition holds, `fail` otherwise. |
 
 `==` on `bool` translates to Lean's own `Bool` equality, which needs no
@@ -111,6 +120,13 @@ structural:
 - each enum constructor maps to the constructor of the same name, so `Signer::Delegated` is `Signer.delegated` and `Signer::External` is `Signer.external`;
 - each struct field maps to the field of the same name, so a rule's `threshold` is the same `u32`;
 - a slice or vector maps to the list of its elements' denotations, so the authenticated signers are the list of their denotations.
+
+`formal/RuleCore/Equiv/DenoteCap.lean` maps the types of the `cap` module to
+the cap model of `formal/RuleCore/Model/Cap.lean` in the same way:
+
+- a `u32` ledger or period is its value as a natural number, and an `i128` amount, total or limit its value as an integer;
+- `SpendEntry`, `SpendRecord` and `CapParams` map each field to the field of the same name, and the history to the list of its entries' denotations;
+- each `CapError` constructor maps to the constructor of the same name.
 
 Each one is proven injective, so two Rust values that differ never have the
 same meaning.
@@ -146,11 +162,26 @@ model makes no such claim: a generic scope is an arbitrary predicate. The
 no-creation guarantee therefore covers rule sets built in the chain vocabulary,
 which is the vocabulary `rule-eval` implements.
 
+### Ledgers start at 1
+
+`period_le_limit`, which bounds every window of `period` consecutive ledgers,
+assumes that every call is made at ledger 1 or later. Stellar's ledgers start
+at 1: the genesis ledger has sequence 1 (`GENESIS_LEDGER_SEQ`,
+[stellar-core `src/ledger/LedgerManagerImpl.cpp` line 112](https://github.com/stellar/stellar-core/blob/b8c4f12d6f1159d67be8743c87a3c7df839ae7f4/src/ledger/LedgerManagerImpl.cpp#L112)),
+and a contract runs in a later ledger, so `e.ledger().sequence()` is never 0.
+Without the rule the statement is false. For `now < period` the cutoff
+`now.saturating_sub(period)` is 0 and evicts entries at ledger 0, so two spends
+of the whole limit at ledger 0 are both accepted (`period_ledger_zero`). The
+window that eviction leaves at each ledger is bounded without the rule
+(`window_le_limit`), and so is every window starting at ledger 1 or later
+(`period_le_limit_of_pos`).
+
 ## The conformance encoding
 
-The vectors in `conformance/vectors` are computed by the Lean model and
-written as JSON by the generator's own encoder
-(`conformance/generator/Conformance/Json.lean`). The Rust runner decodes them
-into `rule-eval`'s types (`conformance/runner/src/lib.rs`). Neither the
+The vectors in `conformance/vectors` and the cap traces in
+`conformance/vectors/caps` are computed by the Lean model and written as JSON
+by the generator's own encoder (`conformance/generator/Conformance/Json.lean`
+and `Conformance/Caps.lean`). The Rust runner decodes them into `rule-eval`'s
+types (`conformance/runner/src/lib.rs` and `src/caps.rs`). Neither the
 encoding nor the decoding is verified. A mismatch in either one shows up as a
 failing vector, unless both get the same field wrong in the same way.

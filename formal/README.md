@@ -6,11 +6,11 @@ and the theorems relating them. The Lake package is `rule-core`
 
 | Directory | Contents |
 | --- | --- |
-| `RuleCore/Model/` | The generic model: rules with their signers and threshold, rule sets, `narrower`, and the five attenuation steps, over any context and signer type. |
+| `RuleCore/Model/` | The generic model: rules with their signers and threshold, rule sets, `narrower`, and the five attenuation steps, over any context and signer type. `Cap.lean` models spending caps: the spend record, the check, runs and windows. |
 | `RuleCore/Vocab/` | The chain vocabulary (contexts, values, conditions, signers, rules) and its denotation into the generic model. |
 | `RuleCore/Extracted/` | `RuleEval.lean`, the translation of `crates/rule-eval` that Charon and Aeneas generate. Never edited by hand. |
-| `RuleCore/Equiv/` | Denotations from the translated types to the chain vocabulary, and theorems that the translated functions compute the model's results. |
-| `RuleCore/Theorems/` | The theorems below, including the model's theorems carried over to the translation (`Extracted.lean`), and kernel-checked examples of concrete verdicts. |
+| `RuleCore/Equiv/` | Denotations from the translated types to the chain vocabulary and the cap model (`DenoteCap.lean`), and theorems that the translated functions compute the model's results (`Cap.lean` for the cap check). |
+| `RuleCore/Theorems/` | The theorems below, including the model's theorems carried over to the translation (`Extracted.lean`, `ExtractedCap.lean`), the cap theorems (`Cap.lean`), and kernel-checked examples of concrete verdicts. |
 | `RuleCore/Axioms.lean` | The axioms each theorem depends on, pinned under `#guard_msgs`. |
 
 ## Building
@@ -219,6 +219,47 @@ already holding `Usize.max` conditions, the translated `add_cond` fails with
 not depend on `CondRoom`: an `add_cond` that returned `Ok` had room
 (`add_cond_room`).
 
+## Spending caps
+
+`RuleCore/Model/Cap.lean` models the spending-cap check of `crates/rule-eval`'s
+`cap` module. Ledgers are natural numbers and amounts integers. `addI128` and
+`subI128` are `i128::checked_add` and `i128::checked_sub`, and `now - period`
+is truncated subtraction, which is `u32::saturating_sub`.
+
+* `Entry` is `{ ledger, amount }` and `Record` is `{ history, total }`;
+  `Record.empty` has no entries and total 0.
+* `Params` is `{ limit, period }`, and `Params.valid` holds for `limit > 0` and
+  `period > 0`.
+* `evict cutoff h removed` drops entries from the front of `h` while their
+  ledger is at most `cutoff`, adding their amounts to `removed` with `addI128`.
+* `Params.check p r now amount` is the check: `negativeAmount` for a negative
+  amount; `r` itself for a zero amount; `ledgerBeforeNewest` when `now` is
+  earlier than the ledger of the history's last entry; then eviction at
+  `now - p.period`, `overflow` for a sum outside `i128`, `limitExceeded` when the
+  kept total plus the amount exceeds the limit, `historyFull` when the kept
+  entries number `maxHistory` (1000), and otherwise the kept entries followed by
+  `(now, amount)`, with their total.
+* A run is a list of `Call`s `{ now, amount }`. `Params.run` keeps the record
+  after a refused call, `Params.runAll` fails at the first refusal, and
+  `Params.Accepts p r calls` says every call is accepted. `Params.recorded`
+  lists the spends a run recorded, the accepted calls with a positive amount.
+* `Params.inWindow p t e` holds when `t - period < e.ledger ≤ t`: the window
+  eviction leaves at `t`. `Params.inPeriodFrom p s e` holds when
+  `s ≤ e.ledger < s + period`: `period` consecutive ledgers from `s`.
+* `Params.narrower q p` is `q.limit ≤ p.limit ∧ p.period ≤ q.period`, and
+  `capNarrower` extends it to a rule that may have no cap.
+* `Record.Valid r`: the history is in ledger order, its amounts are positive,
+  and the total is their sum and at most `i128Max`.
+
+`RuleCore/Equiv/DenoteCap.lean` maps `SpendEntry`, `SpendRecord`, `CapParams`
+and `CapError` field for field and constructor for constructor, a `u32` to its
+value as a natural number and an `i128` to its value as an integer. Every
+denotation is injective. `check_spend_eq` proves that the translated
+`check_spend` returns `ok` of `Params.check` on the denotations, on every input
+and with no stated bound: every push copies from a slice or follows the
+history-bound check. The eviction loop, whose state carries the running total
+of the evicted amounts, has its own induction (`evict_loop_eq`).
+
 ## Theorems
 
 Generic model (`RuleCore`):
@@ -334,6 +375,33 @@ rs'` says one of the translated `drop_rule`, `add_cond`, `remove_functions`,
 | `allows_of_subset`, `allows_all_of_subset`, `denoteSigners_subset` | Authenticating more signers never turns an allow into a refusal. |
 | `allows_congr`, `allows_all_congr`, `rule_allows_congr_signers`, `denoteSigners_mem_iff` | Repeats and order in the authenticated signers, or in a rule's signers, do not change the verdict. |
 | `rule_allows_threshold_zero`, `signers_met_all_iff`, `rule_allows_false_of_lt` | With threshold 0 a rule's verdict does not depend on the authenticated signers; a threshold equal to the number of distinct signers is met exactly when every signer is authenticated; a threshold above it allows nothing. |
+
+Spending caps (`RuleCore.Cap`):
+
+| Theorem | Statement |
+| --- | --- |
+| `check_negative`, `check_zero` | A negative amount is refused; a zero amount returns the record unchanged, whatever its total. |
+| `check_ledgerBeforeNewest_iff`, `beforeNewest_eq_false_iff` | A positive spend is refused with `ledgerBeforeNewest` iff `now` is earlier than the ledger of the newest entry; on a history in ledger order, iff some entry is after `now`. |
+| `check_valid`, `check_pos_ok` | On a valid record, the check keeps the entries after `now - period` and refuses with `overflow`, `limitExceeded` or `historyFull` exactly as the kept total and count say. |
+| `evict_eq`, `evict_error`, `dropWhile_eq_filter` | Eviction on positive amounts drops the entries at or before the cutoff and sums them, and only ever fails with `overflow`; on a history in ledger order, the kept entries are the entries after the cutoff. |
+| `step_of_error`, `run_cons_of_error` | A refused call leaves the record as it was. |
+| `Record.empty_valid`, `check_preserves_valid`, `run_valid` | The empty record is valid, and the check keeps a record valid. |
+| `window_le_limit` | From the empty record, for every run and ledger `t`, the recorded spends in the window at `t` sum to at most the limit. |
+| `window_le_limit_of_valid` | From any valid record, every window holding a spend the run recorded sums to at most the limit. |
+| `period_le_limit_of_pos`, `period_le_limit`, `inPeriodFrom_eq_inWindow` | Every window of `period` consecutive ledgers from ledger 1 or later sums to at most the limit, and every window does when every call is at ledger 1 or later. |
+| `period_ledger_zero` | Two spends of the whole limit at ledger 0 are both recorded under a valid cap. |
+| `run_history`, `run_total`, `run_eq_window`, `run_eq_of_recorded_nil`, `mem_recorded` | The stored history is the recorded spends eviction left at the last spend's ledger, followed by that spend, and the total is their sum; with a nonzero period and that spend at ledger 1 or later, exactly the recorded spends in its window. |
+| `run_history_length_le` | A record never holds more than `maxHistory` entries. |
+| `Params.accepts_of_narrower`, `accepts_of_limit_le`, `accepts_of_period_le`, `capAccepts_of_capNarrower` | Every run a narrower cap accepts from a valid record, the wider one accepts; a rule without a cap accepts every run. |
+| `run_spec`, `RunInv.start`, `RunInv.step_pos`, `accepts_of_narrower_suffix`, `filter_cutoff_suffix` | The invariants these rest on: the windows of the recorded spends at ledgers the clock check lets through are the record's, and a narrower cap's history ends with the wider cap's. |
+
+The cap check on the translation (`RuleCore.Extracted`):
+
+| Theorem | Statement |
+| --- | --- |
+| `runSpends_eq` | A run of the translated `check_spend`, keeping the record after a refusal, returns `ok` of a record denoting `Params.run`. |
+| `runSpends_window`, `runSpends_length_le` | From the empty record, that record holds the recorded spends in its window and at most `MAX_HISTORY_ENTRIES` entries. |
+| `check_spend_negative`, `check_spend_zero`, `check_spend_before_newest` | The translated check refuses a negative amount, returns the record unchanged on a zero amount, and refuses a positive spend before the newest recorded ledger. |
 
 The empty batch is allowed by every rule set (`RuleCore.RuleSet.allowsAll_nil`;
 chain `allowsAll` is the generic one on the denotation, and the translated

@@ -1,0 +1,17 @@
+{
+  "format": 1,
+  "name": "cap-random-47",
+  "description": "Randomized trace 47 of seed 20261102.",
+  "limit": "1",
+  "period": 1,
+  "params_valid": true,
+  "start": {"history": [], "total": "0"},
+  "calls": [
+    {"now": 3, "amount": "0", "expected": {"ok": {"history": [], "total": "0"}}},
+    {
+      "now": 6,
+      "amount": "170141183460469231731687303715884105727",
+      "expected": {"error": "limit_exceeded"}
+    }
+  ]
+}

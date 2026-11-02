@@ -1,0 +1,41 @@
+{
+  "format": 1,
+  "name": "cap-within-limit",
+  "description": "Spends at successive ledgers are recorded until their total reaches the limit; the next is refused.",
+  "limit": "100",
+  "period": 10,
+  "params_valid": true,
+  "start": {"history": [], "total": "0"},
+  "calls": [
+    {
+      "now": 1,
+      "amount": "40",
+      "expected": {"ok": {"history": [{"ledger": 1, "amount": "40"}], "total": "40"}}
+    },
+    {
+      "now": 2,
+      "amount": "30",
+      "expected": {
+        "ok": {
+          "history": [{"ledger": 1, "amount": "40"}, {"ledger": 2, "amount": "30"}],
+          "total": "70"
+        }
+      }
+    },
+    {
+      "now": 3,
+      "amount": "30",
+      "expected": {
+        "ok": {
+          "history": [
+            {"ledger": 1, "amount": "40"},
+            {"ledger": 2, "amount": "30"},
+            {"ledger": 3, "amount": "30"}
+          ],
+          "total": "100"
+        }
+      }
+    },
+    {"now": 4, "amount": "1", "expected": {"error": "limit_exceeded"}}
+  ]
+}

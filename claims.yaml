@@ -369,6 +369,133 @@ claims:
       - ci: {workflow: .github/workflows/lean.yml, job: lean, step: lake build, runs: lake build}
       - file: formal/RuleCore/Theorems/Examples.lean
 
+  # Spending caps (formal/RuleCore/Model/Cap.lean, theorems in RuleCore.Cap).
+
+  - id: cap.check
+    claim: >-
+      The cap check refuses a negative amount, passes a zero amount with the
+      record unchanged whatever its total, and on a valid record keeps the
+      entries after the cutoff now - period and refuses with overflow,
+      limitExceeded or historyFull exactly when the kept total plus the amount
+      does not fit in an i128, exceeds the limit, or the kept entries number
+      1000; eviction only ever refuses with overflow.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Cap.check_negative
+      - theorem: RuleCore.Cap.check_zero
+      - theorem: RuleCore.Cap.check_valid
+      - theorem: RuleCore.Cap.check_pos_ok
+      - theorem: RuleCore.Cap.evict_eq
+      - theorem: RuleCore.Cap.evict_error
+      - theorem: RuleCore.Cap.dropWhile_eq_filter
+
+  - id: cap.clock-check
+    claim: >-
+      A positive spend is refused with ledgerBeforeNewest exactly when the
+      current ledger is earlier than the ledger of the newest recorded entry;
+      on a history in ledger order, exactly when some entry is after it.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Cap.check_ledgerBeforeNewest_iff
+      - theorem: RuleCore.Cap.beforeNewest_eq_false_iff
+
+  - id: cap.refusal-changes-nothing
+    claim: >-
+      A refused call leaves the record as it was, and changes nothing in the
+      rest of a run.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Cap.step_of_error
+      - theorem: RuleCore.Cap.run_cons_of_error
+
+  - id: cap.valid
+    claim: >-
+      The empty record is valid, and the check keeps a record valid: its
+      history in ledger order, its amounts positive, its total their sum and
+      within an i128.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Cap.Record.empty_valid
+      - theorem: RuleCore.Cap.check_preserves_valid
+      - theorem: RuleCore.Cap.run_valid
+
+  - id: cap.window-safety
+    claim: >-
+      For every run from the empty record and every ledger t, the recorded
+      spends in the window eviction leaves at t (ledger after t - period and
+      at most t) sum to at most the limit. No assumption is made about the
+      ledgers of the calls. From any valid record, every window holding a
+      spend the run recorded sums to at most the limit, so a cap installed
+      over an existing record bounds every window holding a spend made under
+      it.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Cap.window_le_limit
+      - theorem: RuleCore.Cap.window_le_limit_of_valid
+      - theorem: RuleCore.Cap.run_spec
+      - theorem: RuleCore.Cap.RunInv.start
+      - theorem: RuleCore.Cap.RunInv.step_pos
+
+  - id: cap.consecutive-windows
+    claim: >-
+      Every window of period consecutive ledgers starting at ledger 1 or
+      later holds recorded spends summing to at most the limit; when every
+      call is at ledger 1 or later, every window does.
+    status: proven
+    assumes: [rule.ledgers-start-at-1]
+    evidence:
+      - theorem: RuleCore.Cap.period_le_limit_of_pos
+      - theorem: RuleCore.Cap.period_le_limit
+      - theorem: RuleCore.Cap.inPeriodFrom_eq_inWindow
+
+  - id: cap.ledger-zero
+    claim: >-
+      Without calls at ledger 1 or later the consecutive-window statement is
+      false: under a valid cap, two spends of the whole limit at ledger 0 are
+      both recorded, because the cutoff saturates to 0 and evicts entries at
+      ledger 0.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Cap.period_ledger_zero
+
+  - id: cap.refinement
+    claim: >-
+      After a run, the stored history is the recorded spends eviction left at
+      the last recorded spend's ledger followed by that spend, and the stored
+      total is their sum; with a nonzero period and that spend at ledger 1 or
+      later, the history is exactly the recorded spends in the window at its
+      ledger. A run that records nothing leaves the record as it was.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Cap.run_history
+      - theorem: RuleCore.Cap.run_total
+      - theorem: RuleCore.Cap.run_eq_window
+      - theorem: RuleCore.Cap.run_eq_of_recorded_nil
+      - theorem: RuleCore.Cap.mem_recorded
+
+  - id: cap.history-bound
+    claim: A record never holds more than 1000 entries.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Cap.run_history_length_le
+
+  - id: cap.narrowing
+    claim: >-
+      Narrowing a cap is trace inclusion: every run a narrower cap (a lower
+      limit, a longer period, or a cap where there was none) accepts from a
+      valid record, the wider one accepts. Narrower on caps is reflexive and
+      transitive.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Cap.Params.accepts_of_narrower
+      - theorem: RuleCore.Cap.accepts_of_limit_le
+      - theorem: RuleCore.Cap.accepts_of_period_le
+      - theorem: RuleCore.Cap.capAccepts_of_capNarrower
+      - theorem: RuleCore.Cap.accepts_of_narrower_suffix
+      - theorem: RuleCore.Cap.filter_cutoff_suffix
+      - theorem: RuleCore.Cap.Params.narrower_refl
+      - theorem: RuleCore.Cap.Params.narrower_trans
+
   # The translation of crates/rule-eval (formal/RuleCore/Extracted) and its
   # equivalence to the chain vocabulary (formal/RuleCore/Equiv).
 
@@ -487,6 +614,40 @@ claims:
       - theorem: RuleCore.Equiv.incr_eq_of_le
       - theorem: RuleCore.Equiv.index_usize_eq
       - theorem: RuleCore.Equiv.slice_get_eq
+
+  - id: equiv.caps
+    claim: >-
+      On every input, the translated check_spend returns ok of the cap model's
+      check on the denotations, so it terminates and never panics, with no
+      stated bound; the same holds for params_valid, empty_record,
+      before_newest, the eviction loop, entries_from and record_copy, and the
+      library's checked_add, checked_sub and saturating_sub agree with the
+      model's arithmetic.
+    status: proven
+    assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel, trusted.denotations]
+    evidence:
+      - theorem: RuleCore.Equiv.check_spend_eq
+      - theorem: RuleCore.Equiv.params_valid_eq
+      - theorem: RuleCore.Equiv.empty_record_eq
+      - theorem: RuleCore.Equiv.before_newest_eq
+      - theorem: RuleCore.Equiv.evict_loop_eq
+      - theorem: RuleCore.Equiv.entries_from_eq
+      - theorem: RuleCore.Equiv.record_copy_eq
+      - theorem: RuleCore.Equiv.checked_add_eq
+      - theorem: RuleCore.Equiv.checked_sub_eq
+      - theorem: RuleCore.Equiv.saturating_sub_val
+
+  - id: equiv.cap-denotations-injective
+    claim: >-
+      The denotations of the cap types (entries, records, parameters, errors
+      and check_spend's result) are injective.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Equiv.denoteEntry_injective
+      - theorem: RuleCore.Equiv.denoteRecord_injective
+      - theorem: RuleCore.Equiv.denoteParams_injective
+      - theorem: RuleCore.Equiv.denoteCapError_injective
+      - theorem: RuleCore.Equiv.denoteSpend_injective
 
   # The model's theorems carried over to the translation, stated on the
   # translated functions alone (formal/RuleCore/Theorems/Extracted.lean).
@@ -619,6 +780,27 @@ claims:
       - theorem: RuleCore.Extracted.signers_met_all_iff
       - theorem: RuleCore.Extracted.rule_allows_false_of_lt
 
+  - id: extracted.caps
+    claim: >-
+      A run of the translated check_spend, keeping the record after a
+      refusal, returns ok of a record denoting the model's run; from the
+      empty record that record holds at most MAX_HISTORY_ENTRIES entries and,
+      with a nonzero period and the last recorded spend at ledger 1 or later,
+      denotes exactly the recorded spends in its window with their sum as
+      total. The translated check refuses a negative amount, returns the
+      record unchanged on a zero amount, and refuses a positive spend before
+      the newest recorded ledger.
+    status: proven
+    assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel, trusted.denotations]
+    evidence:
+      - theorem: RuleCore.Extracted.runSpends_eq
+      - theorem: RuleCore.Extracted.runSpends_window
+      - theorem: RuleCore.Extracted.runSpends_length_le
+      - theorem: RuleCore.Extracted.empty_record_denote
+      - theorem: RuleCore.Extracted.check_spend_negative
+      - theorem: RuleCore.Extracted.check_spend_zero
+      - theorem: RuleCore.Extracted.check_spend_before_newest
+
   # Stated rules: what the theorems take as given about their callers.
 
   - id: rule.cond-room
@@ -647,6 +829,14 @@ claims:
     status: assumed
     evidence:
       - trusted: No creation is a vocabulary property
+
+  - id: rule.ledgers-start-at-1
+    claim: >-
+      Every call of the cap check is made at ledger 1 or later: Stellar's
+      genesis ledger has sequence 1 and contracts run in later ledgers.
+    status: assumed
+    evidence:
+      - trusted: Ledgers start at 1
 
   # Trusted: what the proofs rest on and nothing here checks.
 
@@ -696,8 +886,8 @@ claims:
   - id: trusted.denotations
     claim: >-
       The denotation functions from the translated types to the chain
-      vocabulary say what the Rust types mean; they are part of the
-      specification.
+      vocabulary and to the cap model say what the Rust types mean; they are
+      part of the specification.
     status: assumed
     evidence:
       - trusted: The denotation functions
@@ -779,13 +969,39 @@ claims:
       - test: rule-eval/attenuate::raise_threshold_sets_that_rule_and_refuses_to_lower
       - test: rule-eval/attenuate::signer_steps_only_narrow_under_every_authenticated_list
 
+  - id: tested.caps
+    claim: >-
+      check_spend agrees with a plain Rust reading of the check on every run
+      of up to three calls drawn from 25 calls under 16 small caps, and every
+      such run keeps every window within the limit and its total equal to its
+      history's sum; unit tests cover each refusal and its precedence,
+      eviction at and beside the cutoff, the cutoff at ledger 0 and at
+      u32::MAX, the history bound and each checked sum.
+    status: tested
+    evidence:
+      - test: rule-eval/caps::check_spend_agrees_with_the_reference_reading
+      - test: rule-eval/caps::every_short_run_stays_within_every_window
+      - test: rule-eval/caps::params_need_a_positive_limit_and_a_nonzero_period
+      - test: rule-eval/caps::the_empty_record_holds_nothing
+      - test: rule-eval/caps::a_negative_amount_is_refused
+      - test: rule-eval/caps::a_zero_amount_passes_and_changes_nothing
+      - test: rule-eval/caps::a_spend_within_the_limit_is_appended
+      - test: rule-eval/caps::the_limit_is_inclusive
+      - test: rule-eval/caps::eviction_drops_entries_at_or_before_the_cutoff
+      - test: rule-eval/caps::a_refusal_does_not_keep_the_eviction
+      - test: rule-eval/caps::eviction_stops_at_the_first_entry_after_the_cutoff
+      - test: rule-eval/caps::the_cutoff_saturates_at_ledger_zero
+      - test: rule-eval/caps::a_spend_before_the_newest_entry_is_refused
+      - test: rule-eval/caps::the_history_holds_at_most_max_entries
+      - test: rule-eval/caps::sums_that_overflow_are_refused
+
   # Conformance vectors (conformance/).
 
   - id: conformance.from-model
     claim: >-
-      The committed vectors in conformance/vectors are exactly what the Lean
-      model computes: regenerating them into an empty directory gives no
-      difference.
+      The committed vectors in conformance/vectors and cap traces in
+      conformance/vectors/caps are exactly what the Lean model computes:
+      regenerating them into an empty directory gives no difference.
     status: tested
     evidence:
       - ci: {workflow: .github/workflows/conformance.yml, job: regenerate, step: Regenerate the vectors and compare, runs: diff -r conformance/vectors}
@@ -805,6 +1021,20 @@ claims:
       - test: rule-eval-conformance/vectors::hex_is_lowercase_and_even
       - ci: {workflow: .github/workflows/rust.yml, job: pinned, step: cargo test, runs: cargo test --workspace}
       - ci: {workflow: .github/workflows/rust.yml, job: stable, step: cargo test, runs: test --workspace}
+
+  - id: conformance.caps-agree
+    claim: >-
+      rule-eval's check_spend reproduces every outcome and record of every cap
+      trace; the traces cover every refusal, accepted spends, zero amounts,
+      ledger 0, u32::MAX ledgers and periods, non-empty starting records and
+      caps that are not valid to install; a trace with a changed expectation
+      is reported.
+    status: tested
+    evidence:
+      - test: rule-eval-conformance/caps::rule_eval_agrees_with_every_cap_trace
+      - test: rule-eval-conformance/caps::cap_traces_cover_every_outcome
+      - test: rule-eval-conformance/caps::a_wrong_cap_expectation_is_reported
+      - file: conformance/vectors/caps
 
   - id: conformance.encoding
     claim: >-
@@ -959,3 +1189,26 @@ claims:
     evidence:
       - file: ARCHITECTURE.md
         contains: "A context rule without policies requires all of its signers."
+
+  - id: unproven.openzeppelin-spending-limit
+    claim: >-
+      check_spend computes what the spending-limit policy's enforce in
+      OpenZeppelin's stellar-accounts computes, at the theahaco fork commit
+      Perch pins, except for the clock check, typed overflow refusals and
+      purity. This is read from that source, and neither proven nor tested
+      against it.
+    status: unproven
+    evidence:
+      - file: ARCHITECTURE.md
+        contains: "`check_spend` follows the same steps in the same order."
+
+  - id: unproven.history-bound-on-mainnet
+    claim: >-
+      A record of 816 or more entries does not fit in one mainnet contract-data
+      entry, so on mainnet a shell's write fails before the 1000-entry bound
+      refuses. This is read from upstream OpenZeppelin's source comment, and
+      neither proven nor tested here.
+    status: unproven
+    evidence:
+      - file: ARCHITECTURE.md
+        contains: "past mainnet's `contractDataEntrySizeBytes` of 65,536 bytes"

@@ -1,0 +1,20 @@
+{
+  "format": 1,
+  "name": "cap-overflow-evicted",
+  "description": "Evicted amounts that do not sum within an i128 are refused with overflow; the record is not one the check builds.",
+  "limit": "100",
+  "period": 10,
+  "params_valid": true,
+  "start": {
+    "history": [
+      {"ledger": 1, "amount": "170141183460469231731687303715884105727"},
+      {"ledger": 2, "amount": "1"},
+      {"ledger": 30, "amount": "1"}
+    ],
+    "total": "1"
+  },
+  "calls": [
+    {"now": 30, "amount": "1", "expected": {"error": "overflow"}},
+    {"now": 11, "amount": "1", "expected": {"error": "ledger_before_newest"}}
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "format": 1,
+  "name": "cap-u32-extremes",
+  "description": "The largest ledger and period: at ledger u32::MAX with period u32::MAX the cutoff is 0.",
+  "limit": "100",
+  "period": 4294967295,
+  "params_valid": true,
+  "start": {
+    "history": [{"ledger": 0, "amount": "50"}, {"ledger": 1, "amount": "50"}],
+    "total": "100"
+  },
+  "calls": [
+    {"now": 4294967295, "amount": "51", "expected": {"error": "limit_exceeded"}},
+    {
+      "now": 4294967295,
+      "amount": "50",
+      "expected": {
+        "ok": {
+          "history": [{"ledger": 1, "amount": "50"}, {"ledger": 4294967295, "amount": "50"}],
+          "total": "100"
+        }
+      }
+    },
+    {"now": 4294967295, "amount": "1", "expected": {"error": "limit_exceeded"}}
+  ]
+}

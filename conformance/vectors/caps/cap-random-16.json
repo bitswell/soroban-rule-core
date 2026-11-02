@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "name": "cap-random-16",
+  "description": "Randomized trace 16 of seed 20261102.",
+  "limit": "1",
+  "period": 10,
+  "params_valid": true,
+  "start": {"history": [], "total": "0"},
+  "calls": [
+    {"now": 2, "amount": "0", "expected": {"ok": {"history": [], "total": "0"}}},
+    {
+      "now": 2,
+      "amount": "-170141183460469231731687303715884105728",
+      "expected": {"error": "negative_amount"}
+    },
+    {"now": 14, "amount": "2", "expected": {"error": "limit_exceeded"}}
+  ]
+}

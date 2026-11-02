@@ -1,0 +1,31 @@
+{
+  "format": 1,
+  "name": "cap-ledger-zero",
+  "description": "At ledger 0 the cutoff saturates to 0 and evicts entries at ledger 0, so each spend of the whole limit at ledger 0 is recorded alone.",
+  "limit": "100",
+  "period": 10,
+  "params_valid": true,
+  "start": {"history": [], "total": "0"},
+  "calls": [
+    {
+      "now": 0,
+      "amount": "100",
+      "expected": {"ok": {"history": [{"ledger": 0, "amount": "100"}], "total": "100"}}
+    },
+    {
+      "now": 0,
+      "amount": "100",
+      "expected": {"ok": {"history": [{"ledger": 0, "amount": "100"}], "total": "100"}}
+    },
+    {
+      "now": 0,
+      "amount": "100",
+      "expected": {"ok": {"history": [{"ledger": 0, "amount": "100"}], "total": "100"}}
+    },
+    {
+      "now": 1,
+      "amount": "1",
+      "expected": {"ok": {"history": [{"ledger": 1, "amount": "1"}], "total": "1"}}
+    }
+  ]
+}
