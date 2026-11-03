@@ -7,14 +7,24 @@ import RuleCore.Vocab.Bytes
 The concrete rules installed on chain, and their meaning as generic rules.
 
 A context is a contract call (contract, function, arguments) or a contract
-creation. A rule names one contract, a list of its functions, conditions on the
-call's arguments, a list of signers, a threshold and, optionally, a spending
-cap. `Rule.denote` gives each rule's meaning as a generic
+creation. A rule names one contract, the functions it matches there
+(`Functions`), conditions on the call's arguments, a list of signers, a
+threshold and, optionally, a spending cap, a last ledger and the generation it
+was issued under. `Rule.denote` gives each rule's meaning as a generic
 `RuleCore.Rule Context Signer`: its scope matches a call to the rule's contract
 and one of its functions, each condition reads the arguments of the call it is
-evaluated against, and its signers, threshold and cap are the rule's own. A
-creation has no arguments, every scope is false on it, and so no rule allows a
-creation.
+evaluated against, and its signers, threshold, cap, last ledger (a `u32`) and
+generation (a `u64`) are the rule's own, the last two read as natural numbers.
+A creation has no arguments, every scope is false on it, and so no rule allows
+a creation.
+
+A rule's functions are a list (`only`), or every function except a list
+(`anyExcept`). The wildcard, every function on the contract, is `anyExcept []`
+(`Functions.any`). Removing functions from a list drops them; removing them
+from `anyExcept removed` adds them to `removed`, so removal never refuses and
+the result matches exactly the functions it matched before but the removed
+ones. Restricting functions to a list `fs` keeps the functions also in `fs`;
+on `anyExcept removed` it gives the list of `fs` not in `removed`.
 
 A cap (`Cap`) is a limit, an `i128`, a period in ledgers and the index of the
 argument that holds the amount, both `u32`. Its meaning (`Cap.denote`) is the
@@ -32,7 +42,8 @@ signers it authenticated, one list for every context of its batch.
 
 Argument values follow Soroban's: `i128` is `BitVec 128` compared as a signed
 two's-complement integer and `u64` is `UInt64`, matching the bit-vector
-representation Aeneas gives Rust's `i128` and `u64`. Argument and rule indices
+representation Aeneas gives Rust's `i128` and `u64`. A `string` is its bytes,
+and a `symbol` with the same bytes is a different value. Argument and rule indices
 and thresholds are `UInt32`, as in the Rust evaluator; indices are read as list
 positions and thresholds as counts through `toNat`: an index past the end of
 the arguments is a missing argument, and one past the end of the rule set is
@@ -43,10 +54,11 @@ another.
 
 `allows`, `allowsAll` and `narrower` on chain rule sets are the generic ones on
 the denotation, and each chain attenuation operation denotes the generic step of
-the same kind (`Attenuation.denote`). `RuleSet.authorize` is the generic
-authorization of `RuleCore.Model.Authorize` on the denotation, with an
-authorization's choices and ledger, `u32` here, read as natural numbers; the
-records are the cap model's own. The theorems in `RuleCore.Theorems.Chain`
+the same kind (`Attenuation.denote`): removing or restricting functions denotes
+restricting the scope. `RuleSet.authorize` is the generic authorization of
+`RuleCore.Model.Authorize` on the denotation, with an authorization's choices
+and ledger, `u32` here, and its generation, a `u64`, read as natural numbers;
+the records are the cap model's own. The theorems in `RuleCore.Theorems.Chain`
 carry the generic results over and state the vocabulary's own properties.
 -/
 
@@ -62,6 +74,8 @@ inductive Val where
   | bytes (v : Bytes)
   | address (v : Bytes)
   | symbol (v : Bytes)
+  /-- A string, as its bytes. -/
+  | string (v : Bytes)
   /-- An argument of a type the other constructors do not model, as its full
   XDR. -/
   | other (xdr : Bytes)
@@ -69,7 +83,7 @@ inductive Val where
 
 /-- A value's constructor, without its payload. -/
 inductive Kind where
-  | i128 | u64 | bool | bytes | address | symbol | other
+  | i128 | u64 | bool | bytes | address | symbol | string | other
   deriving DecidableEq, Repr
 
 def Val.kind : Val → Kind
@@ -79,6 +93,7 @@ def Val.kind : Val → Kind
   | .bytes _ => .bytes
   | .address _ => .address
   | .symbol _ => .symbol
+  | .string _ => .string
   | .other _ => .other
 
 /-- A signer: an address that authorizes for itself, or a key checked by a
@@ -102,6 +117,11 @@ inductive Cond where
   | argEq (index : UInt32) (val : Val)
   /-- Argument `index` exists, is an `i128`, and is at most `n` (signed). -/
   | argI128AtMost (index : UInt32) (n : I128)
+  /-- Argument `index` exists and equals one of `vals`. -/
+  | argIn (index : UInt32) (vals : List Val)
+  /-- Argument `index` exists, is a `string`, and starts with the bytes
+  `pre`. -/
+  | argStrPrefix (index : UInt32) (pre : Bytes)
   deriving DecidableEq, Repr
 
 def Cond.holds : Cond → List Val → Bool
@@ -110,6 +130,54 @@ def Cond.holds : Cond → List Val → Bool
     match args[i.toNat]? with
     | some (.i128 v) => decide (v.toInt ≤ n.toInt)
     | _ => false
+  | .argIn i vals, args =>
+    match args[i.toNat]? with
+    | some v => decide (v ∈ vals)
+    | none => false
+  | .argStrPrefix i pre, args =>
+    match args[i.toNat]? with
+    | some (.string v) => decide (pre <+: v)
+    | _ => false
+
+/-- The functions a rule matches on its contract: every function except the
+listed ones, or only the listed ones. -/
+inductive Functions where
+  | anyExcept (removed : List Bytes)
+  | only (listed : List Bytes)
+  deriving DecidableEq, Repr
+
+/-- The wildcard: every function. -/
+def Functions.any : Functions := .anyExcept []
+
+/-- Function `f` is one of `fs`. -/
+def Functions.Mem (fs : Functions) (f : Bytes) : Prop :=
+  match fs with
+  | .anyExcept removed => f ∉ removed
+  | .only listed => f ∈ listed
+
+instance : Membership Bytes Functions := ⟨Functions.Mem⟩
+
+@[simp] theorem Functions.mem_anyExcept {f : Bytes} {removed : List Bytes} :
+    f ∈ Functions.anyExcept removed ↔ f ∉ removed := Iff.rfl
+
+@[simp] theorem Functions.mem_only {f : Bytes} {listed : List Bytes} :
+    f ∈ Functions.only listed ↔ f ∈ listed := Iff.rfl
+
+instance (f : Bytes) : (fs : Functions) → Decidable (f ∈ fs)
+  | .anyExcept removed => inferInstanceAs (Decidable (f ∉ removed))
+  | .only listed => inferInstanceAs (Decidable (f ∈ listed))
+
+/-- `fs` without the functions in `gs`. -/
+def Functions.remove (fs : Functions) (gs : List Bytes) : Functions :=
+  match fs with
+  | .anyExcept removed => .anyExcept (removed ++ gs)
+  | .only listed => .only (listed.filter fun f => decide (f ∉ gs))
+
+/-- `fs` restricted to the functions in `gs`. -/
+def Functions.restrict (fs : Functions) (gs : List Bytes) : Functions :=
+  match fs with
+  | .anyExcept removed => .only (gs.filter fun f => decide (f ∉ removed))
+  | .only listed => .only (listed.filter fun f => decide (f ∈ gs))
 
 /-- A spending cap: at most `limit` spent within `period` consecutive ledgers,
 each call spending its argument at index `amountArg`. -/
@@ -121,11 +189,13 @@ structure Cap where
 
 structure Rule where
   contract : Bytes
-  functions : List Bytes
+  functions : Functions
   conds : List Cond
   signers : List Signer
   threshold : UInt32
   cap : Option Cap := none
+  validUntil : Option UInt32 := none
+  generation : Option UInt64 := none
   deriving DecidableEq, Repr
 
 abbrev RuleSet := List Rule
@@ -168,7 +238,8 @@ def Cap.denote (k : Cap) : RuleCap Context :=
 
 def Rule.denote (r : Rule) : RuleCore.Rule Context Signer :=
   { scope := r.scope, conds := r.conds.map Cond.denote, signers := r.signers,
-    threshold := r.threshold.toNat, cap := r.cap.map Cap.denote }
+    threshold := r.threshold.toNat, cap := r.cap.map Cap.denote,
+    validUntil := r.validUntil.map (·.toNat), generation := r.generation.map (·.toNat) }
 
 def RuleSet.denote (rs : RuleSet) : RuleCore.RuleSet Context Signer :=
   .ofRules (rs.map Rule.denote)
@@ -196,9 +267,13 @@ def RuleSet.narrower (rs' rs : RuleSet) : Prop :=
 def Rule.addCond (r : Rule) (cond : Cond) : Rule :=
   { r with conds := r.conds ++ [cond] }
 
-/-- Rule `r` with every function in `fs` removed from its function list. -/
+/-- Rule `r` with every function in `fs` removed from its functions. -/
 def Rule.removeFunctions (r : Rule) (fs : List Bytes) : Rule :=
-  { r with functions := r.functions.filter (fun f => decide (f ∉ fs)) }
+  { r with functions := r.functions.remove fs }
+
+/-- Rule `r` with its functions restricted to those in `fs`. -/
+def Rule.restrictFunctions (r : Rule) (fs : List Bytes) : Rule :=
+  { r with functions := r.functions.restrict fs }
 
 /-- Rule `r` with every signer in `ss` removed from its signer list, its
 threshold unchanged. -/
@@ -221,6 +296,10 @@ def RuleSet.addCond (rs : RuleSet) (i : UInt32) (cond : Cond) : Except Attenuati
 def RuleSet.removeFunctions (rs : RuleSet) (i : UInt32) (fs : List Bytes) :
     Except AttenuationError RuleSet :=
   rs.modifyRule i.toNat (·.removeFunctions fs)
+
+def RuleSet.restrictFunctions (rs : RuleSet) (i : UInt32) (fs : List Bytes) :
+    Except AttenuationError RuleSet :=
+  rs.modifyRule i.toNat (·.restrictFunctions fs)
 
 def RuleSet.removeSigners (rs : RuleSet) (i : UInt32) (ss : List Signer) :
     Except AttenuationError RuleSet :=
@@ -271,27 +350,42 @@ def RuleSet.lengthenCapPeriod (rs : RuleSet) (i period : UInt32) :
     | none => .error .noCap
   | none => .error .noSuchRule
 
+/-- Set rule `i`'s last ledger to `v`, refusing to move it later. -/
+def RuleSet.lowerValidUntil (rs : RuleSet) (i v : UInt32) : Except AttenuationError RuleSet :=
+  match rs[i.toNat]? with
+  | some r =>
+    match r.validUntil with
+    | some last =>
+      if last < v then .error .validUntilRaised
+      else .ok (rs.set i.toNat { r with validUntil := some v })
+    | none => .ok (rs.set i.toNat { r with validUntil := some v })
+  | none => .error .noSuchRule
+
 /-- One attenuation step. -/
 inductive Attenuation where
   | dropRule (i : UInt32)
   | addCond (i : UInt32) (cond : Cond)
   | removeFunctions (i : UInt32) (fs : List Bytes)
+  | restrictFunctions (i : UInt32) (fs : List Bytes)
   | removeSigners (i : UInt32) (ss : List Signer)
   | raiseThreshold (i k : UInt32)
   | addCap (i : UInt32) (k : Cap)
   | lowerCapLimit (i : UInt32) (limit : I128)
   | lengthenCapPeriod (i period : UInt32)
+  | lowerValidUntil (i v : UInt32)
   deriving DecidableEq, Repr
 
 def RuleSet.attenuate (rs : RuleSet) : Attenuation → Except AttenuationError RuleSet
   | .dropRule i => rs.dropRule i
   | .addCond i cond => rs.addCond i cond
   | .removeFunctions i fs => rs.removeFunctions i fs
+  | .restrictFunctions i fs => rs.restrictFunctions i fs
   | .removeSigners i ss => rs.removeSigners i ss
   | .raiseThreshold i k => rs.raiseThreshold i k
   | .addCap i k => rs.addCap i k
   | .lowerCapLimit i limit => rs.lowerCapLimit i limit
   | .lengthenCapPeriod i period => rs.lengthenCapPeriod i period
+  | .lowerValidUntil i v => rs.lowerValidUntil i v
 
 /-- Apply `steps` in order, failing with the first step that fails. -/
 def RuleSet.attenuateAll (rs : RuleSet) (steps : List Attenuation) :
@@ -311,30 +405,40 @@ def notCalling (fs : List Bytes) : Context → Bool
   | .call _ function _ => decide (function ∉ fs)
   | .create _ => true
 
+/-- The contexts that are a call to a function in `fs`. Restricting a rule's
+functions to `fs` restricts its scope to these. -/
+def calling (fs : List Bytes) : Context → Bool
+  | .call _ function _ => decide (function ∈ fs)
+  | .create _ => false
+
 /-- The generic attenuation step a chain step denotes. -/
 def Attenuation.denote : Attenuation → RuleCore.Attenuation Context Signer
   | .dropRule i => .dropRule i.toNat
   | .addCond i cond => .addCond i.toNat cond.denote
   | .removeFunctions i fs => .restrictScope i.toNat (notCalling fs)
+  | .restrictFunctions i fs => .restrictScope i.toNat (calling fs)
   | .removeSigners i ss => .removeSigners i.toNat ss
   | .raiseThreshold i k => .raiseThreshold i.toNat k.toNat
   | .addCap i k => .addCap i.toNat k.denote
   | .lowerCapLimit i limit => .lowerCapLimit i.toNat limit.toInt
   | .lengthenCapPeriod i period => .lengthenCapPeriod i.toNat period.toNat
+  | .lowerValidUntil i v => .lowerValidUntil i.toNat v.toNat
 
 /-! ## Authorization -/
 
 /-- One authorization: a batch of contexts, the index of the rule chosen for
-each, the signers it authenticated and the ledger it is made in. -/
+each, the signers it authenticated, the ledger it is made in and the current
+generation. -/
 structure Authorization where
   contexts : List Context
   choices : List UInt32
   auth : List Signer
   now : UInt32
+  generation : UInt64
   deriving DecidableEq, Repr
 
 def Authorization.denote (a : Authorization) : RuleCore.Authorization Context Signer :=
-  ⟨a.contexts, a.choices.map (·.toNat), a.auth, a.now.toNat⟩
+  ⟨a.contexts, a.choices.map (·.toNat), a.auth, a.now.toNat, a.generation.toNat⟩
 
 /-- The records after authorization `a`, or why it is refused. -/
 def RuleSet.authorize (rs : RuleSet) (records : List RuleCore.Cap.Record) (a : Authorization) :

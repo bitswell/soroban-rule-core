@@ -57,15 +57,19 @@ signers that include each other's prefixes and extensions, the `i128`, `u64`
 and `u32` extremes, and delegated and external signers with equal bytes; calls
 are mostly built from a rule of the set with arguments that usually satisfy its
 conditions, and the authenticated signers usually include some of the rules'
-signers, so allowed and refused contexts both occur. The randomized cap traces
+signers, so allowed and refused contexts both occur. Rules are wildcards a fifth of the
+time, and a quarter of the time carry a last ledger or a generation; conditions
+include `arg_in` and `arg_str_prefix`, and steps `restrict_functions` and
+`lower_valid_until`. The randomized cap traces
 draw caps, starting ledgers, amounts and ledger steps from small universes that
 include the `u32` and `i128` extremes; ledgers mostly advance by less than a
 period and sometimes repeat or go back, so every refusal occurs. Random rules
 carry a cap a third of the time, and random steps include the three cap steps.
 The randomized authorization traces draw rule sets with caps, batches built
 from their rules with amounts near the caps' limits at the caps' argument
-indices, choices that usually name the rule a call was built from, and ledgers
-that mostly advance. The randomized budget traces draw trees of up to six
+indices, choices that usually name the rule a call was built from, signers that
+usually belong to the chosen rules, ledgers that mostly advance, and a current
+generation that sometimes moves on by one. The randomized budget traces draw trees of up to six
 nodes with parents below their own index, allowances from a small universe
 that includes the `i128` extremes, an occasional node with a spent amount and
 one tree in eight made malformed, and operations whose indices are mostly in
@@ -81,7 +85,7 @@ The runner is a workspace member, so `cargo test --workspace` in
 `.github/workflows/rust.yml` runs it on the pinned nightly and on stable. Its
 tests check that `rule-eval` reproduces every result of every vector, that the
 vectors still cover every value constructor, condition, signer kind, threshold
-case, step kind and outcome, and that a vector with a changed expectation is
+case, function-set kind, step kind and outcome, and that a vector with a changed expectation is
 reported. Its cap tests (`tests/caps.rs`) check that `check_spend` reproduces
 every outcome and record of every trace, that the traces still cover every
 refusal, ledger 0, `u32::MAX` and invalid caps, and that a changed expectation
@@ -111,7 +115,7 @@ readers should not depend on it.
 
 ```json
 {
-  "format": 3,
+  "format": 4,
   "name": "batch-mixed",
   "description": "A batch of allowed and refused calls is refused as a whole.",
   "rules": [Rule, ...],
@@ -127,7 +131,7 @@ readers should not depend on it.
 
 | Field | Meaning |
 | --- | --- |
-| `format` | The version of this format, `3`. A change a reader of the current version cannot read raises it. |
+| `format` | The version of this format, `4`. A change a reader of the current version cannot read raises it. |
 | `name` | The file name without `.json`. |
 | `description` | What the vector exercises, for a reader; carries no data. |
 | `rules` | The rule set, in order. |
@@ -162,10 +166,12 @@ A value is an object with exactly one field, naming its constructor:
 | `{"bytes": "6162"}` | A Soroban `Bytes`. |
 | `{"address": "..."}` | An address, as its `ScAddress` XDR. |
 | `{"symbol": "..."}` | A symbol, as its bytes. |
+| `{"string": "..."}` | A string, as its bytes. |
 | `{"other": "..."}` | An argument of any other type, as its full `ScVal` XDR. |
 
 Values of different constructors are never equal, even when their payloads
-are: `{"bytes": "6162"}` is not `{"other": "6162"}`.
+are: `{"bytes": "6162"}` is not `{"other": "6162"}`, and `{"string": "6162"}`
+is not `{"symbol": "6162"}`.
 
 ### Contexts
 
@@ -195,29 +201,47 @@ compare exactly, constructor first: `{"delegated": {"address": "6162"}}` is not
 ```json
 {"arg_eq": {"index": 2, "value": Value}}
 {"arg_i128_at_most": {"index": 2, "bound": "100"}}
+{"arg_in": {"index": 0, "values": [Value, ...]}}
+{"arg_str_prefix": {"index": 1, "prefix": "706b675f"}}
 ```
 
 * `arg_eq` holds when argument `index` exists and equals `value`: the same
   constructor and the same payload.
 * `arg_i128_at_most` holds when argument `index` exists, is an `i128`, and is at
   most `bound`, compared as signed integers.
+* `arg_in` holds when argument `index` exists and equals one of `values`, each
+  compared as `arg_eq` compares. With no values it never holds.
+* `arg_str_prefix` holds when argument `index` exists, is a `string`, and its
+  bytes start with exactly the bytes of `prefix`. The empty prefix holds on
+  every string.
 
 A missing argument, including any index at or past the number of arguments,
-makes either condition false, as does an argument of another constructor.
+makes every condition false. An argument of another constructor makes
+`arg_eq`, `arg_i128_at_most` and `arg_str_prefix` false, and `arg_in` false
+unless one of its values has that constructor.
 
 ### Rules
 
 ```json
-{"contract": "746f6b656e", "functions": ["7472616e73666572", ...], "conds": [Condition, ...],
- "signers": [Signer, ...], "threshold": 2, "cap": Cap}
+{"contract": "746f6b656e", "functions": {"only": ["7472616e73666572", ...]},
+ "conds": [Condition, ...], "signers": [Signer, ...], "threshold": 2, "cap": Cap,
+ "valid_until": 599, "generation": "3"}
 ```
 
+`functions` is `{"only": [name, ...]}`, the functions listed, or
+`{"any_except": [name, ...]}`, every function except those listed; the
+wildcard, every function of the contract, is `{"any_except": []}`.
+`valid_until` is the rule's last ledger, a `u32`, and `generation` the
+generation it was issued under, a decimal `u64` string; either is `null` when
+the rule has none. Neither affects the verdicts below: only the authorization
+traces read them.
+
 A rule allows a call when the call's contract equals `contract`, its function
-equals one of `functions`, every condition in `conds` holds on its arguments,
+is one of the rule's `functions`, every condition in `conds` holds on its arguments,
 and at least `threshold` distinct signers of `signers` are in the vector's
 `authenticated` list. Each signer counts once: a signer listed twice in
-`signers`, or authenticated twice, counts as one. A rule with an empty
-`functions` list allows nothing; one with an empty `conds` list puts no
+`signers`, or authenticated twice, counts as one. A rule whose `functions` is
+`{"only": []}` allows nothing; one with an empty `conds` list puts no
 constraint on arguments; one with threshold `0` puts none on signers; one whose
 threshold is above its number of distinct signers allows nothing. A rule set allows a context
 when some rule allows it, and allows a batch when it allows every context in
@@ -243,18 +267,24 @@ may be added to a rule only when `limit > 0` and `period > 0`.
 {"drop_rule": {"index": 1}}
 {"add_cond": {"index": 0, "cond": Condition}}
 {"remove_functions": {"index": 0, "functions": ["617070726f7665", ...]}}
+{"restrict_functions": {"index": 0, "functions": ["7472616e73666572", ...]}}
 {"remove_signers": {"index": 0, "signers": [Signer, ...]}}
 {"raise_threshold": {"index": 0, "threshold": 3}}
 {"add_cap": {"index": 0, "cap": Cap}}
 {"lower_cap_limit": {"index": 1, "limit": "50"}}
 {"lengthen_cap_period": {"index": 1, "period": 20}}
+{"lower_valid_until": {"index": 0, "valid_until": 599}}
 ```
 
 * `drop_rule` removes rule `index`, keeping the others in order.
 * `add_cond` appends `cond` to the conditions of rule `index`.
 * `remove_functions` removes every occurrence of every listed name from the
-  function list of rule `index`, keeping the remaining names in order. Names
-  not in the list are ignored.
+  function list of rule `index`, keeping the remaining names in order, and
+  ignores names not in the list. On a wildcard it appends the listed names, in
+  order and repeats included, to the names it excludes.
+* `restrict_functions` keeps, in order, the functions of rule `index`'s list
+  that are also listed; on a wildcard it gives the list of the listed names,
+  in their order, that the wildcard does not exclude.
 * `remove_signers` removes every occurrence of every listed signer from the
   signers of rule `index`, keeping the remaining signers in order and the
   threshold as it was. Signers not in the list are ignored.
@@ -271,6 +301,9 @@ may be added to a rule only when `limit > 0` and `period > 0`.
 * `lengthen_cap_period` sets the period of rule `index`'s cap to `period`. It
   is refused with `no_cap` when the rule has no cap, and then with
   `period_shortened` when `period` is below the current period.
+* `lower_valid_until` sets the last ledger of rule `index` to `valid_until`. It
+  is refused with `valid_until_raised` when the rule has a last ledger before
+  `valid_until`.
 
 A step whose `index` is not below the number of rules is refused with
 `no_such_rule`, before any other check. A step list is applied in order, each
@@ -285,8 +318,9 @@ step to the previous step's result, and stops at the first refused step.
 ```
 
 The errors are `no_such_rule`, `threshold_lowered`, `cap_present`, `no_cap`,
-`invalid_cap`, `limit_raised` and `period_shortened`. `ok` holds the rule set
-after every step, compared rule by rule, field by field (the cap included) and
+`invalid_cap`, `limit_raised`, `period_shortened` and `valid_until_raised`.
+`ok` holds the rule set after every step, compared rule by rule, field by field
+(the functions' kind, the cap, the last ledger and the generation included) and
 in order, and its verdicts on the vector's `batch` under its
 `authenticated` signers, as in `expected`. `error` says a step was refused, and
 why.
@@ -315,6 +349,11 @@ why.
 | `signers-batch-one-missing`, `signers-batch-all-present` | One authenticated list covers a whole batch whose calls need different signers. |
 | `attenuate-remove-signers`, `attenuate-raise-threshold` | Each signer step at each index, with exact matching, an emptied list, thresholds at, above and below the current one, and refusals at the length, `2^31` and `2^32 - 1`. |
 | `attenuate-signer-chains` | Step lists of all five kinds, including one refused with `threshold_lowered` part-way through. |
+| `caps-leave-verdicts`, `attenuate-add-cap`, `attenuate-lower-cap-limit`, `attenuate-lengthen-cap-period`, `attenuate-cap-chains` | Verdicts that ignore caps, each cap step and each of its refusals, and chains mixing them with the other steps. |
+| `wildcard-functions` | Wildcards with and without exclusions: unnamed and empty function names, exact comparison of excluded names, other contracts and creations. |
+| `allows-reads-no-time-or-generation` | Rules with a last ledger and a generation allow as they would without them. |
+| `arg-in`, `arg-str-prefix`, `arg-eq-string` | `arg_in` over values of several constructors and with no values; `arg_str_prefix` on strings, prefixes, extensions and symbols, bytes and other values with the same bytes, and the empty prefix; `arg_eq` on a string. |
+| `attenuate-remove-functions-wildcard`, `attenuate-restrict-functions`, `attenuate-lower-valid-until` | `remove_functions` on a wildcard, `restrict_functions` on a wildcard and a list, and `lower_valid_until` adding, lowering, keeping and refusing to raise a last ledger. |
 
 `random-000.json` to `random-099.json` are the randomized cases.
 
@@ -418,14 +457,14 @@ depend on it.
 
 ```json
 {
-  "format": 1,
+  "format": 2,
   "name": "authorize-batch-same-rule",
   "description": "...",
   "rules": [Rule, ...],
   "start": [Record, ...],
   "authorizations": [
     {"batch": [Context, ...], "choices": [0, 0], "authenticated": [Signer, ...], "now": 1,
-     "expected": Outcome},
+     "generation": "0", "expected": Outcome},
     ...
   ]
 }
@@ -433,7 +472,7 @@ depend on it.
 
 | Field | Meaning |
 | --- | --- |
-| `format` | The version of this format, `1`. It is versioned apart from the rule vectors and the cap traces. |
+| `format` | The version of this format, `2`. It is versioned apart from the rule vectors and the cap traces. |
 | `name` | The file name without `.json`. |
 | `description` | What the trace exercises, for a reader; carries no data. |
 | `rules` | The rule set, in the rule vector format, caps included. |
@@ -443,6 +482,7 @@ depend on it.
 | `authorizations[i].choices` | The rule chosen for each context: `choices[k]` is the index of the rule for `batch[k]`, a `u32`. |
 | `authorizations[i].authenticated` | The signers the authorization authenticated, one list for every context. |
 | `authorizations[i].now` | The current ledger, a `u32`. |
+| `authorizations[i].generation` | The account's current generation, a decimal `u64` string. |
 | `authorizations[i].expected` | The outcome of the authorization. |
 
 Records are in the cap trace format.
@@ -453,10 +493,14 @@ In order:
 
 1. `choices` must hold exactly one index per context (`choices_mismatch`), and
    the records exactly one record per rule (`records_mismatch`).
-2. In context order, the rule `choices[k]` must exist (`no_such_rule`) and
-   allow `batch[k]` under `authenticated` (`not_allowed`), as in the rule
-   vectors.
-3. In context order, for each context whose chosen rule has a cap, the
+2. In context order, the rule `choices[k]` must exist (`no_such_rule`), its
+   `valid_until`, when it has one, must not be below `now` (`expired`), its
+   `generation`, when it has one, must equal the authorization's
+   (`stale_generation`), and it must allow `batch[k]` under `authenticated`
+   (`not_allowed`), as in the rule vectors.
+3. Every signer in `authenticated` must equal a signer of some rule that
+   `choices` names (`unauthorized_signer`).
+4. In context order, for each context whose chosen rule has a cap, the
    context's argument at the cap's `amount_arg` must be an `i128` (`no_amount`)
    and is charged to that rule's record with the cap check at ledger `now`,
    from the record the charges before it left. A refusal of the cap check is
@@ -475,8 +519,8 @@ contexts included.
 
 `ok` holds the records after the authorization, one per rule, each compared
 entry by entry and total for total. `error` names the refusal:
-`choices_mismatch`, `records_mismatch`, `no_such_rule`, `not_allowed`,
-`no_amount`, `cap_negative_amount`, `cap_ledger_before_newest`, `cap_overflow`,
+`choices_mismatch`, `records_mismatch`, `no_such_rule`, `expired`,
+`stale_generation`, `not_allowed`, `unauthorized_signer`, `no_amount`, `cap_negative_amount`, `cap_ledger_before_newest`, `cap_overflow`,
 `cap_limit_exceeded` or `cap_history_full`.
 
 ### The named traces
@@ -491,7 +535,10 @@ entry by entry and total for total. `error` names the refusal:
 | `authorize-refusal-discards-batch`, `authorize-choices-before-charges` | A refusal discarding its batch's earlier charges, and choices checked before any charge. |
 | `authorize-cap-refusals`, `authorize-cap-overflow`, `authorize-history-full` | Each refusal of the cap check, passed on. |
 | `authorize-own-records`, `authorize-empty-batch` | Rules keeping their own records, uncapped rules keeping theirs, and the empty batch. |
-| `authorize-step-base`, `authorize-step-add-cap`, `authorize-step-lower-cap-limit`, `authorize-step-lengthen-cap-period`, `authorize-step-drop-rule` | One run on a rule set and on the rule sets each cap step and `drop_rule` derive from it, the drop with its choices renumbered. |
+| `authorize-expired`, `authorize-stale-generation` | A rule at and after its last ledger, `u32::MAX` included; a rule in its generation and in others, `u64::MAX` included; rules without either. |
+| `authorize-unauthorized-signer` | A further signer refused though the threshold is met, a signer of another chosen rule accepted, an external signer holding a delegated signer's bytes, and the empty batch with and without a signer. |
+| `authorize-refusal-order` | The order of `no_such_rule`, `expired`, `stale_generation`, `not_allowed`, `unauthorized_signer` and a cap refusal. |
+| `authorize-step-base`, `authorize-step-add-cap`, `authorize-step-lower-cap-limit`, `authorize-step-lengthen-cap-period`, `authorize-step-lower-valid-until`, `authorize-step-restrict-functions`, `authorize-step-drop-rule` | One run on a rule set and on the rule sets each cap step, `lower_valid_until`, `restrict_functions` and `drop_rule` derive from it, the drop with its choices renumbered. |
 
 `authorize-random-00.json` to `authorize-random-49.json` are the randomized
 traces.

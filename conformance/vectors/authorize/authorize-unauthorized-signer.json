@@ -1,0 +1,90 @@
+{
+  "format": 2,
+  "name": "authorize-unauthorized-signer",
+  "description": "Every authenticated signer must be a signer of some chosen rule, as OpenZeppelin refuses UnauthorizedSigner: a further signer is refused even when the threshold is met, a signer of another chosen rule is accepted, an external signer holding alice's bytes is not alice, and an empty batch accepts only no signers.",
+  "rules": [
+    {
+      "contract": "7661756c74",
+      "functions": {"only": ["6465706f736974"]},
+      "conds": [],
+      "signers": [{"delegated": {"address": "616c696365"}}],
+      "threshold": 1,
+      "cap": null,
+      "valid_until": null,
+      "generation": null
+    },
+    {
+      "contract": "7661756c74",
+      "functions": {"only": ["7769746864726177"]},
+      "conds": [],
+      "signers": [{"delegated": {"address": "626f62"}}],
+      "threshold": 1,
+      "cap": null,
+      "valid_until": null,
+      "generation": null
+    }
+  ],
+  "start": [{"history": [], "total": "0"}, {"history": [], "total": "0"}],
+  "authorizations": [
+    {
+      "batch": [{"call": {"contract": "7661756c74", "function": "6465706f736974", "args": []}}],
+      "choices": [0],
+      "authenticated": [{"delegated": {"address": "616c696365"}}],
+      "now": 1,
+      "generation": "0",
+      "expected": {"ok": [{"history": [], "total": "0"}, {"history": [], "total": "0"}]}
+    },
+    {
+      "batch": [{"call": {"contract": "7661756c74", "function": "6465706f736974", "args": []}}],
+      "choices": [0],
+      "authenticated": [
+        {"delegated": {"address": "616c696365"}},
+        {"delegated": {"address": "626f62"}}
+      ],
+      "now": 1,
+      "generation": "0",
+      "expected": {"error": "unauthorized_signer"}
+    },
+    {
+      "batch": [
+        {"call": {"contract": "7661756c74", "function": "6465706f736974", "args": []}},
+        {"call": {"contract": "7661756c74", "function": "7769746864726177", "args": []}}
+      ],
+      "choices": [0, 1],
+      "authenticated": [
+        {"delegated": {"address": "616c696365"}},
+        {"delegated": {"address": "626f62"}}
+      ],
+      "now": 1,
+      "generation": "0",
+      "expected": {"ok": [{"history": [], "total": "0"}, {"history": [], "total": "0"}]}
+    },
+    {
+      "batch": [{"call": {"contract": "7661756c74", "function": "6465706f736974", "args": []}}],
+      "choices": [0],
+      "authenticated": [
+        {"delegated": {"address": "616c696365"}},
+        {"external": {"verifier": "616c696365", "key": ""}}
+      ],
+      "now": 1,
+      "generation": "0",
+      "expected": {"error": "unauthorized_signer"}
+    },
+    {
+      "batch": [],
+      "choices": [],
+      "authenticated": [],
+      "now": 1,
+      "generation": "0",
+      "expected": {"ok": [{"history": [], "total": "0"}, {"history": [], "total": "0"}]}
+    },
+    {
+      "batch": [],
+      "choices": [],
+      "authenticated": [{"delegated": {"address": "616c696365"}}],
+      "now": 1,
+      "generation": "0",
+      "expected": {"error": "unauthorized_signer"}
+    }
+  ]
+}

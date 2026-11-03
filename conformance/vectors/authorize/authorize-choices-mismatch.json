@@ -1,15 +1,17 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "authorize-choices-mismatch",
   "description": "The choices must hold exactly one rule index per context: fewer or more are refused with choices_mismatch, and an empty batch with an empty choice list is accepted.",
   "rules": [
     {
       "contract": "746f6b656e",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [],
       "signers": [],
       "threshold": 0,
-      "cap": {"limit": "100", "period": 10, "amount_arg": 2}
+      "cap": {"limit": "100", "period": 10, "amount_arg": 2},
+      "valid_until": null,
+      "generation": null
     }
   ],
   "start": [{"history": [], "total": "0"}],
@@ -27,6 +29,7 @@
       "choices": [],
       "authenticated": [],
       "now": 1,
+      "generation": "0",
       "expected": {"error": "choices_mismatch"}
     },
     {
@@ -42,6 +45,7 @@
       "choices": [0, 0],
       "authenticated": [],
       "now": 1,
+      "generation": "0",
       "expected": {"error": "choices_mismatch"}
     },
     {
@@ -49,6 +53,7 @@
       "choices": [0],
       "authenticated": [],
       "now": 1,
+      "generation": "0",
       "expected": {"error": "choices_mismatch"}
     },
     {
@@ -71,6 +76,7 @@
       "choices": [0],
       "authenticated": [],
       "now": 1,
+      "generation": "0",
       "expected": {"error": "choices_mismatch"}
     },
     {
@@ -78,6 +84,7 @@
       "choices": [],
       "authenticated": [],
       "now": 1,
+      "generation": "0",
       "expected": {"ok": [{"history": [], "total": "0"}]}
     }
   ]

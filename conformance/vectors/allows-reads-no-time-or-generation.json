@@ -1,0 +1,35 @@
+{
+  "format": 4,
+  "name": "allows-reads-no-time-or-generation",
+  "description": "allows and allows_all read neither a rule's last ledger nor its generation: rules valid until ledger 0 and issued under generation 2^64 - 1 allow as they would without them.",
+  "rules": [
+    {
+      "contract": "746f6b656e",
+      "functions": {"only": ["7472616e73666572"]},
+      "conds": [],
+      "signers": [],
+      "threshold": 0,
+      "cap": null,
+      "valid_until": 0,
+      "generation": "18446744073709551615"
+    },
+    {
+      "contract": "7661756c74",
+      "functions": {"only": ["6465706f736974"]},
+      "conds": [],
+      "signers": [],
+      "threshold": 0,
+      "cap": null,
+      "valid_until": 4294967295,
+      "generation": null
+    }
+  ],
+  "batch": [
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": []}},
+    {"call": {"contract": "7661756c74", "function": "6465706f736974", "args": []}},
+    {"call": {"contract": "7661756c74", "function": "7769746864726177", "args": []}}
+  ],
+  "authenticated": [],
+  "expected": {"allows": [true, true, false], "allows_all": false},
+  "attenuations": []
+}

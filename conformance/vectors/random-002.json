@@ -1,11 +1,11 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "random-002",
   "description": "Randomized case 2 of seed 20261102.",
   "rules": [
     {
       "contract": "6332",
-      "functions": ["67", "67"],
+      "functions": {"any_except": ["67"]},
       "conds": [],
       "signers": [
         {"delegated": {"address": "6162"}},
@@ -13,72 +13,82 @@
         {"external": {"verifier": "76", "key": "6b"}}
       ],
       "threshold": 0,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     }
   ],
   "batch": [
-    {"call": {"contract": "633130", "function": "67", "args": []}},
-    {"call": {"contract": "6332", "function": "67", "args": []}},
-    {"call": {"contract": "6332", "function": "67", "args": []}}
+    {"call": {"contract": "6332", "function": "", "args": []}},
+    {"call": {"contract": "6332", "function": "66", "args": []}}
   ],
   "authenticated": [
     {"external": {"verifier": "76", "key": "6b"}},
+    {"delegated": {"address": "6162"}},
     {"external": {"verifier": "76", "key": "6b"}},
-    {"external": {"verifier": "76", "key": "6b"}}
+    {"delegated": {"address": "6162"}}
   ],
-  "expected": {"allows": [false, true, true], "allows_all": false},
+  "expected": {"allows": [true, true], "allows_all": true},
   "attenuations": [
     {
+      "steps": [{"raise_threshold": {"index": 0, "threshold": 0}}],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "6332",
+              "functions": {"any_except": ["67"]},
+              "conds": [],
+              "signers": [
+                {"delegated": {"address": "6162"}},
+                {"external": {"verifier": "76", "key": "6b32"}},
+                {"external": {"verifier": "76", "key": "6b"}}
+              ],
+              "threshold": 0,
+              "cap": null,
+              "valid_until": null,
+              "generation": null
+            }
+          ],
+          "allows": [true, true],
+          "allows_all": true
+        }
+      }
+    },
+    {
       "steps": [
-        {
-          "remove_signers": {
-            "index": 0,
-            "signers": [
-              {"external": {"verifier": "76", "key": "6b"}},
-              {"external": {"verifier": "76", "key": "6b"}}
-            ]
-          }
-        },
-        {"remove_signers": {"index": 0, "signers": []}}
+        {"add_cond": {"index": 0, "cond": {"arg_eq": {"index": 1, "value": {"bytes": "62"}}}}},
+        {"lengthen_cap_period": {"index": 4294967295, "period": 10}}
+      ],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [
+        {"remove_functions": {"index": 0, "functions": ["66", "666f"]}},
+        {"remove_functions": {"index": 0, "functions": []}}
       ],
       "expected": {
         "ok": {
           "rules": [
             {
               "contract": "6332",
-              "functions": ["67", "67"],
+              "functions": {"any_except": ["67", "66", "666f"]},
               "conds": [],
               "signers": [
                 {"delegated": {"address": "6162"}},
-                {"external": {"verifier": "76", "key": "6b32"}}
+                {"external": {"verifier": "76", "key": "6b32"}},
+                {"external": {"verifier": "76", "key": "6b"}}
               ],
               "threshold": 0,
-              "cap": null
+              "cap": null,
+              "valid_until": null,
+              "generation": null
             }
           ],
-          "allows": [false, true, true],
+          "allows": [true, false],
           "allows_all": false
         }
       }
-    },
-    {
-      "steps": [
-        {
-          "remove_signers": {
-            "index": 1,
-            "signers": [
-              {"external": {"verifier": "76", "key": "6b"}},
-              {"external": {"verifier": "76", "key": "6b"}}
-            ]
-          }
-        },
-        {"lower_cap_limit": {"index": 0, "limit": "0"}}
-      ],
-      "expected": {"error": "no_such_rule"}
-    },
-    {
-      "steps": [{"drop_rule": {"index": 0}}],
-      "expected": {"ok": {"rules": [], "allows": [false, false, false], "allows_all": false}}
     }
   ]
 }

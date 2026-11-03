@@ -13,13 +13,15 @@ records after it, or the refusal.
 
 The named traces exercise each refusal and its precedence, two contexts
 charging one rule, a refusal discarding a batch's charges, windows rolling,
-the cutoff at ledger 0, rules keeping their own records, and the rule sets each
-cap step and `dropRule` derive from a common one, run on the same
-authorizations. The randomized traces draw rule sets with caps, each listing
-at least one function and most of them without a signer requirement and with at
-most one condition, batches built from
-their rules with amounts near their limits, choices that usually name the rule
-a call was built from, and ledgers that mostly advance.
+the cutoff at ledger 0, rules keeping their own records, expiry, generations,
+authenticated signers outside the chosen rules, and the rule sets each cap
+step, `lowerValidUntil`, `restrictFunctions` and `dropRule` derive from a
+common one, run on the same authorizations. The randomized traces draw rule
+sets with caps, each matching at least one function and most of them without a
+signer requirement and with at most one condition, batches built from their
+rules with amounts near their limits, choices that usually name the rule a call
+was built from, signers that usually belong to the chosen rules, ledgers that
+mostly advance, and a current generation that sometimes moves.
 -/
 
 namespace Conformance.Authorize
@@ -28,7 +30,7 @@ open RuleCore RuleCore.Chain Conformance.Cases
 open Conformance.Random (Gen below pick listOf pad)
 
 /-- The version of the authorization trace format in `conformance/README.md`. -/
-def formatVersion : Nat := 1
+def formatVersion : Nat := 2
 
 /-- The seed of the committed randomized traces is the vectors' seed; this is
 their number. -/
@@ -53,7 +55,10 @@ def refusalName : Refusal → String
   | .choicesMismatch => "choices_mismatch"
   | .recordsMismatch => "records_mismatch"
   | .noSuchRule => "no_such_rule"
+  | .expired => "expired"
+  | .staleGeneration => "stale_generation"
   | .notAllowed => "not_allowed"
+  | .unauthorizedSigner => "unauthorized_signer"
   | .noAmount => "no_amount"
   | .cap .negativeAmount => "cap_negative_amount"
   | .cap .ledgerBeforeNewest => "cap_ledger_before_newest"
@@ -69,7 +74,8 @@ def authorizationsJson (rs : RuleSet) : List Cap.Record → List Authorization �
     let entry (expected : Json) : Json :=
       .obj [("batch", .arr (a.contexts.map encodeContext)),
         ("choices", .arr (a.choices.map encodeIndex)), ("authenticated", encodeSigners a.auth),
-        ("now", .num a.now.toNat), ("expected", expected)]
+        ("now", .num a.now.toNat), ("generation", .str (toString a.generation.toNat)),
+        ("expected", expected)]
     match rs.authorize records a with
     | .ok records' =>
       entry (tagged "ok" (.arr (records'.map Caps.encodeRecord))) ::
@@ -93,14 +99,14 @@ def Trace.inRange (t : Trace) : Bool :=
 /-! ## Named traces -/
 
 def auth (contexts : List Context) (choices : List UInt32) (now : UInt32)
-    (signers : List Signer := []) : Authorization :=
-  ⟨contexts, choices, signers, now⟩
+    (signers : List Signer := []) (generation : UInt64 := 0) : Authorization :=
+  ⟨contexts, choices, signers, now, generation⟩
 
 /-- A transfer rule capped at 100 per 10 ledgers, on the amount at argument 2. -/
 def capped100 : Rule := { rule token ["transfer"] [] with cap := some (cap 100 10) }
 
 /-- A vault rule that needs alice. -/
-def vault : Rule := { signedRule "vault" [sAlice] 1 with functions := [s "deposit"] }
+def vault : Rule := { signedRule "vault" [sAlice] 1 with functions := .only [s "deposit"] }
 
 def deposit : Context := call "vault" "deposit" []
 
@@ -266,6 +272,68 @@ def emptyBatch : Trace where
     auth [] [] 0,
     auth [] [] 6]
 
+/-! ### Expiry, generations and signers -/
+
+/-- Every vault function for alice, valid until ledger 10, issued under
+generation 3. -/
+def grant : Rule :=
+  { signedRule "vault" [sAlice] 1 with
+    functions := .any, validUntil := some 10, generation := some 3 }
+
+/-- The vault's withdraw for alice, with no last ledger and no generation. -/
+def admin : Rule := { signedRule "vault" [sAlice] 1 with functions := .only [s "withdraw"] }
+
+def withdraw : Context := call "vault" "withdraw" []
+
+def expired : Trace where
+  name := "authorize-expired"
+  description := "A rule authorizes up to and at its last ledger and is refused with expired after it, as OpenZeppelin refuses valid_until < ledger; a rule without a last ledger is never refused for time."
+  rules := [grant, admin]
+  authorizations := [
+    auth [withdraw] [0] 0 [sAlice] 3,
+    auth [withdraw] [0] 10 [sAlice] 3,
+    auth [withdraw] [0] 11 [sAlice] 3,
+    auth [withdraw] [0] u32Max [sAlice] 3,
+    auth [withdraw] [1] u32Max [sAlice] 3]
+
+def staleGeneration : Trace where
+  name := "authorize-stale-generation"
+  description := "A rule issued under generation 3 authorizes in generation 3 and is refused with stale_generation in any other, 2^64 - 1 included; a rule without a generation is not refused for it."
+  rules := [grant, admin]
+  authorizations := [
+    auth [withdraw] [0] 1 [sAlice] 3,
+    auth [withdraw] [0] 1 [sAlice] 4,
+    auth [withdraw] [0] 1 [sAlice] 2,
+    auth [withdraw] [0] 1 [sAlice] u64Max,
+    auth [withdraw] [1] 1 [sAlice] 4]
+
+def unauthorizedSigner : Trace where
+  name := "authorize-unauthorized-signer"
+  description := "Every authenticated signer must be a signer of some chosen rule, as OpenZeppelin refuses UnauthorizedSigner: a further signer is refused even when the threshold is met, a signer of another chosen rule is accepted, an external signer holding alice's bytes is not alice, and an empty batch accepts only no signers."
+  rules := [vault, { signedRule "vault" [sBob] 1 with functions := .only [s "withdraw"] }]
+  authorizations := [
+    auth [deposit] [0] 1 [sAlice],
+    auth [deposit] [0] 1 [sAlice, sBob],
+    auth [deposit, withdraw] [0, 1] 1 [sAlice, sBob],
+    auth [deposit] [0] 1 [sAlice, .external (s "alice") []],
+    auth [] [] 1 [],
+    auth [] [] 1 [sAlice]]
+
+def refusalOrder : Trace where
+  name := "authorize-refusal-order"
+  description := "For each context in order: no_such_rule, then expired, then stale_generation, then not_allowed; then unauthorized_signer; then every charge."
+  rules := [
+    { rule "vault" ["deposit"] [] with validUntil := some 0, generation := some 1 },
+    capped100]
+  authorizations := [
+    auth [deposit] [0] 5 [] 2,
+    auth [deposit] [0] 0 [] 2,
+    auth [deposit] [2] 5 [] 2,
+    auth [transfer 1, deposit] [1, 0] 5 [] 1,
+    auth [deposit, transfer 1] [0, 0] 0 [] 1,
+    auth [transfer 101] [1] 0 [sAlice] 1,
+    auth [transfer 101] [1] 0 [] 1]
+
 /-! ### The rule sets the steps derive -/
 
 /-- An uncapped transfer rule, a transfer rule capped at 30 per 10 ledgers and
@@ -314,6 +382,9 @@ def stepTraces : List Trace := [
   stepTrace "lower-cap-limit" "after lowerCapLimit 1 to 25" (.lowerCapLimit 1 (BitVec.ofInt 128 25)),
   stepTrace "lengthen-cap-period" "after lengthenCapPeriod 2 to 8"
     (.lengthenCapPeriod 2 8),
+  stepTrace "lower-valid-until" "after lowerValidUntil 1 to 6" (.lowerValidUntil 1 6),
+  stepTrace "restrict-functions" "after restrictFunctions 2 to transfer"
+    (.restrictFunctions 2 [s "transfer"]),
   { name := "authorize-step-drop-rule"
     description := "The run of authorize-step-base on the rule set after dropRule 0, with each choice renumbered: rule 1 is now rule 0 and rule 2 is rule 1; the context that chose the dropped rule chooses an index past the end."
     rules := derive (.dropRule 0)
@@ -322,7 +393,8 @@ def stepTraces : List Trace := [
 def named : List Trace := [
   batchSameRule, choicesMismatch, recordsMismatch, noSuchRule, notAllowed, missingAmount,
   windowRolls, refusalDiscardsBatch, choicesBeforeCharges, capRefusals, capOverflow, historyFull,
-  ownRecords, ledgerZero, emptyBatch] ++ stepTraces
+  ownRecords, ledgerZero, emptyBatch, expired, staleGeneration, unauthorizedSigner,
+  refusalOrder] ++ stepTraces
 
 /-! ## Randomized traces -/
 
@@ -343,9 +415,17 @@ def contextFor (r : Rule) : Gen Context := do
     else return c
   | _, _ => return c
 
+/-- The signers of an authorization choosing `choices`: usually some signers
+of the chosen rules, sometimes a further one. -/
+def signersFor (rs : RuleSet) (choices : List UInt32) : Gen (List Signer) := do
+  let own := choices.flatMap fun j => (rs[j.toNat]?.map (·.signers)).getD []
+  let fromRules ← listOf (← below (own.length + 1)) (pick own)
+  let extra ← if (← below 5) = 0 then listOf 1 (pick Random.signers) else pure []
+  return fromRules ++ extra
+
 /-- One authorization of up to three contexts, each usually choosing the rule
-it was built from. -/
-def authorization (rs : RuleSet) (now : Nat) : Gen Authorization := do
+it was built from, in generation `gen`. -/
+def authorization (rs : RuleSet) (now : Nat) (gen : UInt64) : Gen Authorization := do
   let n ← pick [0, 1, 1, 1, 1, 2, 2, 3]
   let parts ← listOf n do
     if rs.isEmpty then return (← Random.context rs, (0 : UInt32))
@@ -356,15 +436,17 @@ def authorization (rs : RuleSet) (now : Nat) : Gen Authorization := do
     return (c, choice)
   let choices := parts.map (·.2)
   let choices ← if (← below 20) = 0 then pure (choices.drop 1) else pure choices
-  return ⟨parts.map (·.1), choices, ← Random.authenticated rs, UInt32.ofNat now⟩
+  return ⟨parts.map (·.1), choices, ← signersFor rs choices, UInt32.ofNat now, gen⟩
 
-/-- `n` authorizations at ledgers that mostly advance by less than a period. -/
-def authorizations (rs : RuleSet) : Nat → Nat → Gen (List Authorization)
-  | 0, _ => return []
-  | n + 1, now => do
+/-- `n` authorizations at ledgers that mostly advance by less than a period, in
+a generation that sometimes moves on by one. -/
+def authorizations (rs : RuleSet) : Nat → Nat → UInt64 → Gen (List Authorization)
+  | 0, _, _ => return []
+  | n + 1, now, gen => do
     let now' ← Caps.step 10 now
-    let a ← authorization rs now'
-    return a :: (← authorizations rs n now')
+    let gen' := if (← below 6) = 0 then gen + 1 else gen
+    let a ← authorization rs now' gen'
+    return a :: (← authorizations rs n now' gen')
 
 def trace (seed : UInt64) (k : Nat) : Trace :=
   let g : Gen Trace := do
@@ -373,10 +455,12 @@ def trace (seed : UInt64) (k : Nat) : Trace :=
       let r ← if r.cap.isNone && (← below 2) = 0 then pure { r with cap := some (← Random.cap) }
         else pure r
       let r ← if (← below 3) = 0 then pure r else pure { r with threshold := 0 }
-      let r := if r.functions.isEmpty then { r with functions := [s "f"] } else r
+      let r := match r.functions with
+        | .only [] => { r with functions := .only [s "f"] }
+        | _ => r
       if (← below 2) = 0 then return r else return { r with conds := r.conds.take 1 }
     let n ← below 8
-    let auths ← authorizations rs (n + 1) (← pick [0, 1, 1, 5, 100])
+    let auths ← authorizations rs (n + 1) (← pick [0, 1, 1, 5, 100]) (← pick [0, 0, 1, 2])
     return {
       name := s!"authorize-random-{pad 2 k}"
       description := s!"Randomized authorization trace {k} of seed {seed}."

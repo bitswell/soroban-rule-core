@@ -1,15 +1,17 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "rule-without-conditions",
   "description": "A rule with no conditions allows its calls whatever their arguments.",
   "rules": [
     {
       "contract": "746f6b656e",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [],
       "signers": [],
       "threshold": 0,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     }
   ],
   "batch": [

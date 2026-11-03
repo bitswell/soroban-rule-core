@@ -1,77 +1,109 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "random-049",
   "description": "Randomized case 49 of seed 20261102.",
   "rules": [
     {
       "contract": "633130",
-      "functions": [""],
-      "conds": [
-        {"arg_eq": {"index": 2, "value": {"other": ""}}},
-        {"arg_eq": {"index": 4294967295, "value": {"other": "00ff"}}}
-      ],
-      "signers": [
-        {"delegated": {"address": "6162"}},
-        {"external": {"verifier": "76", "key": "6b32"}}
-      ],
-      "threshold": 2,
-      "cap": {"limit": "100", "period": 1, "amount_arg": 3}
+      "functions": {"only": ["666f", "66"]},
+      "conds": [],
+      "signers": [],
+      "threshold": 0,
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     },
     {
-      "contract": "6332",
-      "functions": ["67", "66", ""],
-      "conds": [
-        {"arg_i128_at_most": {"index": 1, "bound": "-170141183460469231731687303715884105727"}}
+      "contract": "633130",
+      "functions": {"any_except": ["67", "666f"]},
+      "conds": [{"arg_eq": {"index": 3, "value": {"bytes": ""}}}],
+      "signers": [
+        {"external": {"verifier": "76", "key": "6b"}},
+        {"external": {"verifier": "76", "key": "6b"}},
+        {"external": {"verifier": "76", "key": "6b32"}}
       ],
-      "signers": [{"delegated": {"address": "62"}}],
-      "threshold": 1,
-      "cap": null
+      "threshold": 0,
+      "cap": null,
+      "valid_until": 9,
+      "generation": null
     }
   ],
   "batch": [
     {
       "call": {
         "contract": "633130",
-        "function": "",
-        "args": [{"bool": true}, {"bool": true}, {"other": ""}]
+        "function": "67",
+        "args": [
+          {"i128": "-170141183460469231731687303715884105728"},
+          {"other": "00ff"},
+          {"bytes": ""},
+          {"bytes": ""}
+        ]
       }
     },
     {
       "call": {
-        "contract": "6331",
+        "contract": "633130",
         "function": "66",
+        "args": [{"bytes": "62"}, {"i128": "170141183460469231731687303715884105726"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "633130",
+        "function": "67",
         "args": [
-          {"i128": "0"},
+          {"bool": true},
+          {"other": ""},
           {"i128": "-170141183460469231731687303715884105727"},
-          {"bytes": "6162"}
+          {"bytes": ""}
         ]
       }
-    }
+    },
+    {"call": {"contract": "633130", "function": "666f", "args": []}}
   ],
   "authenticated": [
     {"external": {"verifier": "76", "key": "6b32"}},
-    {"delegated": {"address": "6162"}},
-    {"external": {"verifier": "61", "key": ""}}
+    {"external": {"verifier": "76", "key": "6b32"}},
+    {"external": {"verifier": "76", "key": "6b"}}
   ],
-  "expected": {"allows": [false, false], "allows_all": false},
+  "expected": {"allows": [false, true, false, true], "allows_all": false},
   "attenuations": [
     {
-      "steps": [
-        {"raise_threshold": {"index": 4294967295, "threshold": 0}},
-        {"add_cap": {"index": 0, "cap": {"limit": "5", "period": 4294967295, "amount_arg": 3}}}
-      ],
+      "steps": [{"raise_threshold": {"index": 2, "threshold": 0}}],
       "expected": {"error": "no_such_rule"}
     },
     {
       "steps": [
-        {"add_cap": {"index": 0, "cap": {"limit": "5", "period": 0, "amount_arg": 2}}},
-        {"lower_cap_limit": {"index": 1, "limit": "11"}}
+        {"drop_rule": {"index": 0}},
+        {"add_cap": {"index": 2, "cap": {"limit": "10", "period": 2, "amount_arg": 0}}}
       ],
-      "expected": {"error": "cap_present"}
+      "expected": {"error": "no_such_rule"}
     },
     {
-      "steps": [{"add_cap": {"index": 2, "cap": {"limit": "10", "period": 2, "amount_arg": 0}}}],
-      "expected": {"error": "no_such_rule"}
+      "steps": [{"drop_rule": {"index": 0}}],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "633130",
+              "functions": {"any_except": ["67", "666f"]},
+              "conds": [{"arg_eq": {"index": 3, "value": {"bytes": ""}}}],
+              "signers": [
+                {"external": {"verifier": "76", "key": "6b"}},
+                {"external": {"verifier": "76", "key": "6b"}},
+                {"external": {"verifier": "76", "key": "6b32"}}
+              ],
+              "threshold": 0,
+              "cap": null,
+              "valid_until": 9,
+              "generation": null
+            }
+          ],
+          "allows": [false, false, false, false],
+          "allows_all": false
+        }
+      }
     }
   ]
 }

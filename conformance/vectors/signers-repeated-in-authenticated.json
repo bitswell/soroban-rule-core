@@ -1,23 +1,27 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "signers-repeated-in-authenticated",
   "description": "A signer authenticated twice counts once.",
   "rules": [
     {
       "contract": "74776f",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [],
       "signers": [{"delegated": {"address": "616c696365"}}, {"delegated": {"address": "626f62"}}],
       "threshold": 2,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     },
     {
       "contract": "6f6e65",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [],
       "signers": [{"delegated": {"address": "616c696365"}}, {"delegated": {"address": "626f62"}}],
       "threshold": 1,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     }
   ],
   "batch": [

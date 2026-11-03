@@ -1,23 +1,27 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "batch-all-allowed",
   "description": "A batch whose every call is allowed is allowed.",
   "rules": [
     {
       "contract": "746f6b656e",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [{"arg_i128_at_most": {"index": 2, "bound": "100"}}],
       "signers": [],
       "threshold": 0,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     },
     {
       "contract": "646578",
-      "functions": ["73776170"],
+      "functions": {"only": ["73776170"]},
       "conds": [],
       "signers": [],
       "threshold": 0,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     }
   ],
   "batch": [

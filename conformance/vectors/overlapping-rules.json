@@ -1,23 +1,27 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "overlapping-rules",
   "description": "Two rules for the same call: a context is allowed when either rule's conditions hold.",
   "rules": [
     {
       "contract": "746f6b656e",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [{"arg_i128_at_most": {"index": 2, "bound": "100"}}],
       "signers": [],
       "threshold": 0,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     },
     {
       "contract": "746f6b656e",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [{"arg_eq": {"index": 1, "value": {"address": "616c696365"}}}],
       "signers": [],
       "threshold": 0,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     }
   ],
   "batch": [

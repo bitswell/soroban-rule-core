@@ -6,8 +6,9 @@ mod common;
 
 use common::*;
 use rule_eval::{
-    AttenuationError, Cond, Context, Rule, Signer, Val, add_cond, allows, allows_all, drop_rule,
-    raise_threshold, remove_functions, remove_signers,
+    AttenuationError, Cond, Context, Rule, Signer, Val, add_cap, add_cond, allows, allows_all,
+    drop_rule, lengthen_cap_period, lower_cap_limit, lower_valid_until, raise_threshold,
+    remove_functions, remove_signers, restrict_functions,
 };
 
 fn sample() -> Vec<Rule> {
@@ -90,10 +91,10 @@ fn remove_functions_removes_from_that_rule_only() {
         .ok()
         .unwrap();
     let mut expected = sample();
-    expected[0].functions = vec![b("transfer")];
+    expected[0].functions = only(&["transfer"]);
     assert!(rules_eq(&out, &expected));
     // `burn` stays in rule 2: removal touches only the named rule.
-    assert!(out[2].functions == vec![b("burn")]);
+    assert!(functions_eq(&out[2].functions, &only(&["burn"])));
     assert!(rules_eq(&rs, &sample()));
 }
 
@@ -105,7 +106,7 @@ fn remove_functions_matches_names_exactly_and_removes_duplicates() {
         Vec::new(),
     )];
     let out = remove_functions(&rs, 0, &[b("transfer")]).ok().unwrap();
-    assert!(out[0].functions == vec![b("transfer_from")]);
+    assert!(functions_eq(&out[0].functions, &only(&["transfer_from"])));
     let out = remove_functions(&rs, 0, &[b("trans"), b("Transfer")])
         .ok()
         .unwrap();
@@ -115,7 +116,7 @@ fn remove_functions_matches_names_exactly_and_removes_duplicates() {
     let out = remove_functions(&rs, 0, &[b("transfer"), b("transfer_from")])
         .ok()
         .unwrap();
-    assert!(out[0].functions.is_empty());
+    assert!(functions_eq(&out[0].functions, &only(&[])));
     assert!(!allows(&out, &call("c1", "transfer", Vec::new()), &[]));
 }
 
@@ -255,12 +256,28 @@ fn steps(rs: &[Rule]) -> Vec<(String, Vec<Rule>, Vec<Rule>)> {
                 ref_remove_functions(rs, i, &fs),
             ));
         }
+        for fs in removal_lists() {
+            out.push((
+                format!("restrict_functions {i} {fs:?}"),
+                restrict_functions(rs, index, &fs).ok().unwrap(),
+                ref_restrict_functions(rs, i, &fs),
+            ));
+        }
         for (k, ss) in signer_removal_lists().iter().enumerate() {
             out.push((
                 format!("remove_signers {i} list {k}"),
                 remove_signers(rs, index, ss).ok().unwrap(),
                 ref_remove_signers(rs, i, ss),
             ));
+        }
+        for last in [0, 5] {
+            if rs[i].valid_until.is_none_or(|current| last <= current) {
+                out.push((
+                    format!("lower_valid_until {i} {last}"),
+                    lower_valid_until(rs, index, last).ok().unwrap(),
+                    ref_lower_valid_until(rs, i, last),
+                ));
+            }
         }
         for t in rs[i].threshold..rs[i].threshold + 2 {
             out.push((
@@ -407,4 +424,105 @@ fn signer_steps_only_narrow_under_every_authenticated_list() {
         }
     }
     assert!(checked > 4_000);
+}
+
+#[test]
+fn remove_functions_on_a_wildcard_excludes_them() {
+    let rs = vec![wildcard(rule("token", &[], Vec::new()), &["burn"])];
+    let out = remove_functions(&rs, 0, &[b("approve"), b("burn")])
+        .ok()
+        .unwrap();
+    assert!(functions_eq(
+        &out[0].functions,
+        &any_except(&["burn", "approve", "burn"])
+    ));
+    assert!(allows(&out, &call("token", "transfer", Vec::new()), &[]));
+    assert!(allows(&out, &call("token", "anything", Vec::new()), &[]));
+    assert!(!allows(&out, &call("token", "approve", Vec::new()), &[]));
+    assert!(!allows(&out, &call("token", "burn", Vec::new()), &[]));
+}
+
+#[test]
+fn restrict_functions_keeps_only_the_named_functions() {
+    // A wildcard becomes the named functions it does not exclude.
+    let rs = vec![wildcard(rule("token", &[], Vec::new()), &["burn"])];
+    let out = restrict_functions(&rs, 0, &[b("transfer"), b("burn")])
+        .ok()
+        .unwrap();
+    assert!(functions_eq(&out[0].functions, &only(&["transfer"])));
+    // A list keeps the functions also named, in its own order.
+    let rs = vec![rule("token", &["approve", "transfer", "burn"], Vec::new())];
+    let out = restrict_functions(&rs, 0, &[b("burn"), b("approve"), b("mint")])
+        .ok()
+        .unwrap();
+    assert!(functions_eq(&out[0].functions, &only(&["approve", "burn"])));
+    // Names compare exactly.
+    let out = restrict_functions(&rs, 0, &[b("Transfer"), b("trans")])
+        .ok()
+        .unwrap();
+    assert!(functions_eq(&out[0].functions, &only(&[])));
+    for index in [1, u32::MAX] {
+        assert!(is_no_such_rule(&restrict_functions(&rs, index, &[])));
+    }
+}
+
+#[test]
+fn lower_valid_until_adds_or_lowers_and_refuses_to_raise() {
+    let rs = vec![
+        rule("token", &["transfer"], Vec::new()),
+        valid_until(rule("vault", &["deposit"], Vec::new()), 10),
+    ];
+    let out = lower_valid_until(&rs, 0, 7).ok().unwrap();
+    assert_eq!(out[0].valid_until, Some(7));
+    assert_eq!(out[1].valid_until, Some(10));
+    let out = lower_valid_until(&rs, 1, 10).ok().unwrap();
+    assert_eq!(out[1].valid_until, Some(10));
+    let out = lower_valid_until(&rs, 1, 0).ok().unwrap();
+    assert_eq!(out[1].valid_until, Some(0));
+    assert!(matches!(
+        lower_valid_until(&rs, 1, 11),
+        Err(AttenuationError::ValidUntilRaised)
+    ));
+    // The index is checked first.
+    assert!(is_no_such_rule(&lower_valid_until(&rs, 2, u32::MAX)));
+}
+
+/// No step changes a rule's generation: each rule after a step carries the
+/// generation of the rule it comes from.
+#[test]
+fn no_step_changes_a_generation() {
+    let rs = vec![
+        issued(
+            capped(rule("token", &["transfer"], Vec::new()), cap(10, 5, 2)),
+            7,
+        ),
+        rule("vault", &["deposit"], Vec::new()),
+        issued(wildcard(rule("token", &[], Vec::new()), &[]), 8),
+    ];
+    let generations = |out: &[Rule]| out.iter().map(|r| r.generation).collect::<Vec<_>>();
+    for i in 0..3u32 {
+        let dropped = drop_rule(&rs, i).ok().unwrap();
+        let mut expected = vec![Some(7), None, Some(8)];
+        expected.remove(i as usize);
+        assert_eq!(generations(&dropped), expected);
+        for out in [
+            add_cond(&rs, i, &Cond::ArgEq(0, Val::Bool(true)))
+                .ok()
+                .unwrap(),
+            remove_functions(&rs, i, &[b("transfer")]).ok().unwrap(),
+            restrict_functions(&rs, i, &[b("transfer")]).ok().unwrap(),
+            remove_signers(&rs, i, &[delegated("a")]).ok().unwrap(),
+            raise_threshold(&rs, i, 1).ok().unwrap(),
+            lower_valid_until(&rs, i, 3).ok().unwrap(),
+        ] {
+            assert_eq!(generations(&out), vec![Some(7), None, Some(8)]);
+        }
+    }
+    for out in [
+        add_cap(&rs, 1, &cap(1, 1, 0)).ok().unwrap(),
+        lower_cap_limit(&rs, 0, 1).ok().unwrap(),
+        lengthen_cap_period(&rs, 0, 9).ok().unwrap(),
+    ] {
+        assert_eq!(generations(&out), vec![Some(7), None, Some(8)]);
+    }
 }

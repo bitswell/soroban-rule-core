@@ -1,8 +1,9 @@
 //! Rule-set evaluator for Soroban authorization contexts.
 //!
-//! A [`Rule`] names one contract, a list of function names, a list of
-//! conditions on the arguments of the call it matches, a list of
-//! [`Signer`]s, a threshold and, optionally, a spending [`Cap`]. An
+//! A [`Rule`] names one contract, the [`Functions`] it matches there (a list,
+//! or every function except a list), a list of conditions on the arguments
+//! of the call it matches, a list of [`Signer`]s, a threshold and,
+//! optionally, a spending [`Cap`], a last ledger and a generation. An
 //! authorization carries the signers it authenticated, one list for every
 //! context it covers. A rule allows a [`Context`] under those signers when the
 //! call matches, every condition holds, and at least `threshold` distinct
@@ -24,6 +25,8 @@
 //!   signers : List Sig          -- the signers that count towards the threshold
 //!   threshold : Nat             -- how many distinct signers must be authenticated
 //!   cap : Option (RuleCap Ctx) := none  -- the rule's spending cap, if it has one
+//!   validUntil : Option Nat := none     -- the last ledger it authorizes in, if any
+//!   generation : Option Nat := none     -- the generation it was issued under, if any
 //!
 //! def Rule.present (r : Rule Ctx Sig) (auth : List Sig) : List Sig :=
 //!   r.signers.eraseDups.filter (· ∈ auth)
@@ -43,20 +46,24 @@
 //!   cs.all (rs.allows · auth)
 //! ```
 //!
-//! [`allows`] and [`allows_all`] evaluate a rule set, without caps. [`authorize`]
-//! is the stateful check: an authorization names one rule per context, as
-//! OpenZeppelin's smart account does, each chosen rule must allow its context,
-//! and the context's amount is charged to the record of each chosen rule with
-//! a cap; it returns the records after every charge or a [`Refusal`] that
-//! changes nothing.
+//! [`allows`] and [`allows_all`] evaluate a rule set, without caps, time or
+//! generation. [`authorize`] is the stateful check: an authorization names
+//! one rule per context, as OpenZeppelin's smart account does, each chosen
+//! rule must be unexpired at the current ledger, belong to the current
+//! generation when it carries one, and allow its context, every
+//! authenticated signer must be a signer of some chosen rule, and the
+//! context's amount is charged to the record of each chosen rule with a cap;
+//! it returns the records after every charge or a [`Refusal`] that changes
+//! nothing. Every batch it accepts, [`allows_all`] allows.
 //!
-//! [`drop_rule`], [`add_cond`], [`remove_functions`], [`remove_signers`],
-//! [`raise_threshold`], [`add_cap`], [`lower_cap_limit`] and
-//! [`lengthen_cap_period`] are the attenuation steps: each returns a new rule
-//! set that allows no context, under any authenticated signers, that the
-//! original does not, and accepts no run of authorizations from empty records
-//! that the original does not accept from its own, with each rule index
-//! renumbered past a dropped rule.
+//! [`drop_rule`], [`add_cond`], [`remove_functions`], [`restrict_functions`],
+//! [`remove_signers`], [`raise_threshold`], [`add_cap`], [`lower_cap_limit`],
+//! [`lengthen_cap_period`] and [`lower_valid_until`] are the attenuation
+//! steps: each returns a new rule set that allows no context, under any
+//! authenticated signers, that the original does not, and accepts no run of
+//! authorizations from empty records that the original does not accept from
+//! its own, with each rule index renumbered past a dropped rule. No step
+//! changes a rule's generation.
 //!
 //! [`check_spend`] is the spending-cap check: given what a capped rule has
 //! spent in its window ([`SpendRecord`]), the cap, the current ledger and the
@@ -116,19 +123,19 @@ mod val;
 
 pub use attenuate::{
     AttenuationError, add_cap, add_cond, drop_rule, lengthen_cap_period, lower_cap_limit,
-    raise_threshold, remove_functions, remove_signers,
+    lower_valid_until, raise_threshold, remove_functions, remove_signers, restrict_functions,
 };
 pub use authorize::{Refusal, authorize};
 pub use budget::{BudgetError, MAX_NODES, Node, delegate, refill, spend, tree_valid};
-pub use bytes::{bytes_eq, bytes_in};
+pub use bytes::{bytes_eq, bytes_in, bytes_starts_with};
 pub use cap::{
     CapError, CapParams, MAX_HISTORY_ENTRIES, SpendEntry, SpendRecord, check_spend, empty_record,
     params_valid,
 };
 pub use context::Context;
-pub use rule::{Cap, Cond, Rule, cap_valid, cond_holds, rule_allows};
+pub use rule::{Cap, Cond, Functions, Rule, cap_valid, cond_holds, functions_match, rule_allows};
 pub use rule_set::{allows, allows_all};
 pub use signer::{Signer, signer_eq, signer_in, signers_met};
-pub use val::{Val, val_eq};
+pub use val::{Val, val_eq, val_in};
 
 const _: () = assert!(usize::BITS >= 32);

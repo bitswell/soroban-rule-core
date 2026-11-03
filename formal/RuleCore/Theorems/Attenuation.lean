@@ -33,6 +33,14 @@ import RuleCore.Theorems.RuleSet
   `RuleSet.lengthenCapPeriod_eq_noCap_iff`,
   `RuleSet.lengthenCapPeriod_eq_periodShortened_iff`: each of their other
   refusals happens exactly in the case it names.
+* `RuleSet.lowerValidUntil_narrower`: moving a rule's last ledger earlier, or
+  giving it one, changes nothing `allows` reads
+  (`RuleSet.set_validUntil_narrower`); what it narrows is the runs of
+  authorizations a rule set accepts (`RuleCore.Theorems.Authorize`).
+* `RuleSet.lowerValidUntil_eq_noSuchRule_iff`,
+  `RuleSet.lowerValidUntil_eq_validUntilRaised_iff`: it is refused with
+  `noSuchRule` exactly when the index is out of range, and with
+  `validUntilRaised` exactly when the rule's last ledger is before the new one.
 -/
 
 namespace RuleCore
@@ -186,6 +194,33 @@ theorem RuleSet.lengthenCapPeriod_narrower {rs rs' : RuleSet Ctx Sig} {i period 
     · cases h
   · cases h
 
+/-- Changing only rule `i`'s last ledger leaves every verdict as it was:
+`allows` does not read it. -/
+theorem RuleSet.set_validUntil_narrower {rs : RuleSet Ctx Sig} {i : Nat} {r : Rule Ctx Sig}
+    (hr : rs.rules[i]? = some r) (v : Option Nat) :
+    (RuleSet.ofRules (rs.rules.set i { r with validUntil := v }) : RuleSet Ctx Sig).narrower
+      rs := by
+  intro c auth hc
+  rw [RuleSet.allows_iff] at hc ⊢
+  obtain ⟨r', hr', hc⟩ := hc
+  rcases List.mem_or_eq_of_mem_set hr' with hmem | rfl
+  · exact ⟨r', hmem, hc⟩
+  · exact ⟨r, List.mem_of_getElem? hr, hc⟩
+
+theorem RuleSet.lowerValidUntil_narrower {rs rs' : RuleSet Ctx Sig} {i v : Nat}
+    (h : rs.lowerValidUntil i v = .ok rs') : rs'.narrower rs := by
+  unfold RuleSet.lowerValidUntil at h
+  split at h
+  · rename_i r hr
+    split at h
+    · split at h
+      · cases h
+      · cases h
+        exact RuleSet.set_validUntil_narrower hr _
+    · cases h
+      exact RuleSet.set_validUntil_narrower hr _
+  · cases h
+
 theorem RuleSet.attenuate_narrower {rs rs' : RuleSet Ctx Sig} {a : Attenuation Ctx Sig}
     (h : rs.attenuate a = .ok rs') : rs'.narrower rs := by
   cases a with
@@ -197,6 +232,7 @@ theorem RuleSet.attenuate_narrower {rs rs' : RuleSet Ctx Sig} {a : Attenuation C
   | addCap i k => exact RuleSet.addCap_narrower h
   | lowerCapLimit i limit => exact RuleSet.lowerCapLimit_narrower h
   | lengthenCapPeriod i period => exact RuleSet.lengthenCapPeriod_narrower h
+  | lowerValidUntil i v => exact RuleSet.lowerValidUntil_narrower h
 
 /-! ## Chains of steps -/
 
@@ -435,6 +471,35 @@ theorem RuleSet.lengthenCapPeriod_eq_periodShortened_iff (rs : RuleSet Ctx Sig) 
     rs.lengthenCapPeriod i period = .error .periodShortened ↔
       ∃ r k, rs.rules[i]? = some r ∧ r.cap = some k ∧ period < k.params.period := by
   unfold RuleSet.lengthenCapPeriod
+  split <;> rename_i h
+  · split <;> rename_i hc
+    · split <;> rename_i hp <;> simp [h, hc, hp]
+    · simp [h, hc]
+  · simp [h]
+
+omit [DecidableEq Sig] in
+theorem RuleSet.lowerValidUntil_eq_noSuchRule_iff (rs : RuleSet Ctx Sig) (i v : Nat) :
+    rs.lowerValidUntil i v = .error .noSuchRule ↔ rs.rules.length ≤ i := by
+  unfold RuleSet.lowerValidUntil
+  split <;> rename_i h
+  · have hi := (List.getElem?_eq_some_iff.mp h).1
+    constructor
+    · intro he
+      split at he
+      · split at he <;> cases he
+      · cases he
+    · intro hle
+      exact absurd hi (Nat.not_lt.mpr hle)
+  · simp only [true_iff]
+    exact List.getElem?_eq_none_iff.mp h
+
+omit [DecidableEq Sig] in
+/-- `lowerValidUntil` refuses to move a last ledger later, and refuses nothing
+else with `validUntilRaised`. -/
+theorem RuleSet.lowerValidUntil_eq_validUntilRaised_iff (rs : RuleSet Ctx Sig) (i v : Nat) :
+    rs.lowerValidUntil i v = .error .validUntilRaised ↔
+      ∃ r last, rs.rules[i]? = some r ∧ r.validUntil = some last ∧ last < v := by
+  unfold RuleSet.lowerValidUntil
   split <;> rename_i h
   · split <;> rename_i hc
     · split <;> rename_i hp <;> simp [h, hc, hp]

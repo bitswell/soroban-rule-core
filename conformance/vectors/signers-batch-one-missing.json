@@ -1,23 +1,27 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "signers-batch-one-missing",
   "description": "One authenticated list covers the whole batch: a batch needing alice for token and bob for the vault, with only alice authenticated.",
   "rules": [
     {
       "contract": "746f6b656e",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [],
       "signers": [{"delegated": {"address": "616c696365"}}],
       "threshold": 1,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     },
     {
       "contract": "7661756c74",
-      "functions": ["6465706f736974"],
+      "functions": {"only": ["6465706f736974"]},
       "conds": [],
       "signers": [{"delegated": {"address": "626f62"}}],
       "threshold": 1,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     }
   ],
   "batch": [

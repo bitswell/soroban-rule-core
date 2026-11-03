@@ -1,15 +1,17 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "duplicate-functions",
   "description": "A function listed twice is matched like one listed once.",
   "rules": [
     {
       "contract": "746f6b656e",
-      "functions": ["7472616e73666572", "7472616e73666572", "617070726f7665"],
+      "functions": {"only": ["7472616e73666572", "7472616e73666572", "617070726f7665"]},
       "conds": [],
       "signers": [],
       "threshold": 0,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     }
   ],
   "batch": [

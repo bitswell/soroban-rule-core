@@ -1,23 +1,27 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "conditions-belong-to-their-rule",
   "description": "A cap on argument 2 of transfer does not read argument 2 of approve, and approve's condition does not constrain transfer.",
   "rules": [
     {
       "contract": "746f6b656e",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [{"arg_i128_at_most": {"index": 2, "bound": "100"}}],
       "signers": [],
       "threshold": 0,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     },
     {
       "contract": "746f6b656e",
-      "functions": ["617070726f7665"],
+      "functions": {"only": ["617070726f7665"]},
       "conds": [{"arg_eq": {"index": 0, "value": {"address": "616c696365"}}}],
       "signers": [],
       "threshold": 0,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     }
   ],
   "batch": [

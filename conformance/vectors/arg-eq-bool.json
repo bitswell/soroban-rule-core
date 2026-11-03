@@ -1,15 +1,17 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "arg-eq-bool",
   "description": "argEq on a bool: equal value, the other value, and integers holding one.",
   "rules": [
     {
       "contract": "746f6b656e",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [{"arg_eq": {"index": 0, "value": {"bool": true}}}],
       "signers": [],
       "threshold": 0,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     }
   ],
   "batch": [

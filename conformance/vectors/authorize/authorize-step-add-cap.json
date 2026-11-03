@@ -1,31 +1,37 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "authorize-step-add-cap",
   "description": "The run of authorize-step-base on the rule set after addCap 0 with 40 per 10 ledgers.",
   "rules": [
     {
       "contract": "746f6b656e",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [],
       "signers": [],
       "threshold": 0,
-      "cap": {"limit": "40", "period": 10, "amount_arg": 2}
+      "cap": {"limit": "40", "period": 10, "amount_arg": 2},
+      "valid_until": null,
+      "generation": null
     },
     {
       "contract": "746f6b656e",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [],
       "signers": [],
       "threshold": 0,
-      "cap": {"limit": "30", "period": 10, "amount_arg": 2}
+      "cap": {"limit": "30", "period": 10, "amount_arg": 2},
+      "valid_until": null,
+      "generation": null
     },
     {
       "contract": "746f6b656e",
-      "functions": ["617070726f7665"],
+      "functions": {"only": ["617070726f7665"]},
       "conds": [],
       "signers": [],
       "threshold": 0,
-      "cap": {"limit": "20", "period": 5, "amount_arg": 2}
+      "cap": {"limit": "20", "period": 5, "amount_arg": 2},
+      "valid_until": null,
+      "generation": null
     }
   ],
   "start": [
@@ -47,6 +53,7 @@
       "choices": [0],
       "authenticated": [],
       "now": 1,
+      "generation": "0",
       "expected": {
         "ok": [
           {"history": [{"ledger": 1, "amount": "25"}], "total": "25"},
@@ -68,6 +75,7 @@
       "choices": [1],
       "authenticated": [],
       "now": 1,
+      "generation": "0",
       "expected": {
         "ok": [
           {"history": [{"ledger": 1, "amount": "25"}], "total": "25"},
@@ -96,6 +104,7 @@
       "choices": [1, 2],
       "authenticated": [],
       "now": 3,
+      "generation": "0",
       "expected": {"error": "cap_limit_exceeded"}
     },
     {
@@ -111,6 +120,7 @@
       "choices": [2],
       "authenticated": [],
       "now": 6,
+      "generation": "0",
       "expected": {
         "ok": [
           {"history": [{"ledger": 1, "amount": "25"}], "total": "25"},
@@ -139,6 +149,7 @@
       "choices": [1, 0],
       "authenticated": [],
       "now": 9,
+      "generation": "0",
       "expected": {"error": "cap_limit_exceeded"}
     },
     {
@@ -154,6 +165,7 @@
       "choices": [1],
       "authenticated": [],
       "now": 12,
+      "generation": "0",
       "expected": {
         "ok": [
           {"history": [{"ledger": 1, "amount": "25"}], "total": "25"},
@@ -175,6 +187,7 @@
       "choices": [2],
       "authenticated": [],
       "now": 12,
+      "generation": "0",
       "expected": {
         "ok": [
           {"history": [{"ledger": 1, "amount": "25"}], "total": "25"},

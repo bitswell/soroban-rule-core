@@ -10,14 +10,20 @@ selects one context rule per authorization context. Every rule keeps a
 spending record (`Cap.Record`), `records[j]` for rule `j`; a rule without a
 cap never changes its record.
 
-`RuleSet.authorize` first refuses a choice list whose length is not the
-batch's (`choicesMismatch`) and a record list whose length is not the rule
-set's (`recordsMismatch`), then works in two passes, as OpenZeppelin's
-`do_check_auth` validates every context before it enforces any policy:
+An authorization is made at a ledger (`now`) and in a generation (the
+account's current one). `RuleSet.authorize` first refuses a choice list whose
+length is not the batch's (`choicesMismatch`) and a record list whose length is
+not the rule set's (`recordsMismatch`), then works in three passes, as
+OpenZeppelin's `do_check_auth` validates every context, then checks the
+authenticated signers, before it enforces any policy:
 
-1. every chosen rule exists (`noSuchRule`) and allows its context under the
-   authenticated signers (`notAllowed`), in context order;
-2. in context order, every context whose chosen rule has a cap names an
+1. in context order, every chosen rule exists (`noSuchRule`), has not expired
+   at `now` (`expired`), was issued under the current generation when it
+   carries one (`staleGeneration`), and allows its context under the
+   authenticated signers (`notAllowed`);
+2. every authenticated signer is a signer of some chosen rule
+   (`unauthorizedSigner`);
+3. in context order, every context whose chosen rule has a cap names an
    amount under that cap (`noAmount`) and is charged to the rule's record with
    `Cap.Params.check` (`cap e` when the check refuses), each charge against the
    record the charges before it left, so two contexts charging one rule
@@ -53,9 +59,15 @@ inductive Refusal where
   | recordsMismatch
   /-- A chosen index is not below the number of rules. -/
   | noSuchRule
+  /-- A chosen rule's last ledger is before the authorization's. -/
+  | expired
+  /-- A chosen rule was issued under a generation other than the current one. -/
+  | staleGeneration
   /-- A chosen rule does not allow its context under the authenticated
   signers. -/
   | notAllowed
+  /-- An authenticated signer is a signer of no chosen rule. -/
+  | unauthorizedSigner
   /-- A chosen rule has a cap and its context names no amount under it. -/
   | noAmount
   /-- A chosen rule's cap refused the spend. -/
@@ -63,12 +75,14 @@ inductive Refusal where
   deriving DecidableEq, Repr
 
 /-- One authorization: a batch of contexts, the rule chosen for each, the
-signers it authenticated and the ledger it is made in. -/
+signers it authenticated, the ledger it is made in and the current
+generation. -/
 structure Authorization (Ctx Sig : Type) where
   contexts : List Ctx
   choices : List Nat
   auth : List Sig
   now : Nat
+  generation : Nat
 
 /-- The contexts of `a`, each with the index of the rule chosen for it. -/
 def Authorization.chosen (a : Authorization Ctx Sig) : List (Ctx × Nat) :=
@@ -79,7 +93,7 @@ rule. -/
 def RuleSet.emptyRecords (rs : RuleSet Ctx Sig) : List Cap.Record :=
   rs.rules.map fun _ => .empty
 
-/-- The second pass for one context `x.1` and its chosen rule `x.2`: the
+/-- The third pass for one context `x.1` and its chosen rule `x.2`: the
 records after charging the context to that rule's record when the rule has a
 cap, unchanged when it has none. -/
 def RuleSet.charge (rs : RuleSet Ctx Sig) (now : Nat) (records : List Cap.Record)
@@ -104,13 +118,30 @@ section
 
 variable [DecidableEq Sig]
 
-/-- The first pass for one context `x.1` and its chosen rule `x.2`: the rule
-exists and allows the context under `auth`. -/
-def RuleSet.checkChoice (rs : RuleSet Ctx Sig) (auth : List Sig) (x : Ctx × Nat) :
-    Except Refusal Unit :=
+/-- The first pass for one context `x.1` and its chosen rule `x.2`, at ledger
+`now` in generation `gen`: the rule exists, has not expired, is not stale, and
+allows the context under `auth`. -/
+def RuleSet.checkChoice (rs : RuleSet Ctx Sig) (auth : List Sig) (now gen : Nat)
+    (x : Ctx × Nat) : Except Refusal Unit :=
   match rs.rules[x.2]? with
-  | some r => if r.allows x.1 auth then .ok () else .error .notAllowed
+  | some r =>
+    if r.expired now then .error .expired
+    else if r.stale gen then .error .staleGeneration
+    else if r.allows x.1 auth then .ok () else .error .notAllowed
   | none => .error .noSuchRule
+
+/-- Signer `s` is a signer of some rule that `choices` names. -/
+def RuleSet.signerChosen (rs : RuleSet Ctx Sig) (choices : List Nat) (s : Sig) : Bool :=
+  choices.any fun j =>
+    match rs.rules[j]? with
+    | some r => decide (s ∈ r.signers)
+    | none => false
+
+/-- The second pass: every authenticated signer is a signer of some chosen
+rule. -/
+def RuleSet.checkSigners (rs : RuleSet Ctx Sig) (auth : List Sig) (choices : List Nat) :
+    Except Refusal Unit :=
+  if auth.all (rs.signerChosen choices) then .ok () else .error .unauthorizedSigner
 
 /-- The records after authorization `a`, or why it is refused. -/
 def RuleSet.authorize (rs : RuleSet Ctx Sig) (records : List Cap.Record)
@@ -118,7 +149,8 @@ def RuleSet.authorize (rs : RuleSet Ctx Sig) (records : List Cap.Record)
   if a.choices.length ≠ a.contexts.length then .error .choicesMismatch
   else if records.length ≠ rs.rules.length then .error .recordsMismatch
   else do
-    a.chosen.forM (rs.checkChoice a.auth)
+    a.chosen.forM (rs.checkChoice a.auth a.now a.generation)
+    rs.checkSigners a.auth a.choices
     a.chosen.foldlM (rs.charge a.now) records
 
 /-! ## Runs -/

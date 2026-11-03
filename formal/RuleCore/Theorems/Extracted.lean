@@ -13,15 +13,18 @@ call of an extracted attenuation function that returned `Ok`.
 Attenuation:
 
 * `drop_rule_narrower`, `add_cond_narrower`, `remove_functions_narrower`,
-  `remove_signers_narrower`, `raise_threshold_narrower`, `add_cap_narrower`,
-  `lower_cap_limit_narrower`, `lengthen_cap_period_narrower`, `Step.narrower`:
-  each extracted attenuation step yields a narrower rule set.
+  `restrict_functions_narrower`, `remove_signers_narrower`,
+  `raise_threshold_narrower`, `add_cap_narrower`, `lower_cap_limit_narrower`,
+  `lengthen_cap_period_narrower`, `lower_valid_until_narrower`,
+  `Step.narrower`: each extracted attenuation step yields a narrower rule set.
 * `Narrower.refl`, `Narrower.trans`: `Narrower` is a preorder.
 * `Derives.narrower`: any chain of extracted steps stays inside its root.
 * `allows_all_of_narrower`, `Derives.allows_all`: a narrower rule set accepts
   a batch only if its ancestor does.
-* `add_cond_room`: an `add_cond` that returned `Ok` had room for the condition
-  (`CondRoom`), so `add_cond_narrower` needs no hypothesis.
+* `add_cond_room`, `remove_functions_room`: an `add_cond` or a
+  `remove_functions` that returned `Ok` had room (`CondRoom`,
+  `FunctionsRoomAt`), so `add_cond_narrower` and `remove_functions_narrower`
+  need no hypothesis.
 
 Contract creation:
 
@@ -49,18 +52,24 @@ Signers:
 Arguments and byte strings:
 
 * `val_eq_iff`: the extracted `val_eq` is equality of the Rust values.
-* `val_eq_kind`, `val_eq_other_bytes`: it holds only for values of the same
-  constructor; an `Other` value never equals a `Bytes` value, whatever the
-  bytes.
+* `val_eq_kind`, `val_eq_other_bytes`, `val_eq_string_symbol`: it holds only
+  for values of the same constructor; an `Other` value never equals a `Bytes`
+  value, nor a `String` a `Symbol`, whatever the bytes.
 * `cond_holds_argEq_iff`, `cond_holds_argEq_kind`,
   `cond_holds_argEq_false_of_kind_ne`: `ArgEq index v` holds exactly when
   argument `index` is `v`, so only for an argument of `v`'s constructor.
+* `cond_holds_argIn_iff`: `ArgIn index values` holds exactly when `ArgEq`
+  holds for one of `values`.
+* `cond_holds_argStrPrefix_iff`: `ArgStrPrefix index prefix` holds exactly
+  when argument `index` is a `String` starting with the bytes of `prefix`.
 * `bytes_eq_iff`: two byte strings compare equal exactly when they hold the
   same bytes.
 * `rule_allows_call`, `rule_allows_extension_false`,
   `rule_allows_prefix_false`: a rule allows only calls to exactly its contract
-  and exactly one of its functions; a call to a proper extension or a proper
+  and a function its functions match; a call to a proper extension or a proper
   prefix of its contract id is denied.
+* `functions_match_only_iff`, `functions_match_anyExcept_iff`: a list matches
+  exactly one of its functions, a wildcard every function it does not exclude.
 -/
 
 namespace RuleCore.Extracted
@@ -105,11 +114,21 @@ theorem remove_functions_narrower {rules : Slice rule_eval.rule.Rule} {index : S
     {functions : Slice (alloc.vec.Vec Std.U8)} {out : alloc.vec.Vec rule_eval.rule.Rule}
     (h : rule_eval.attenuate.remove_functions rules index functions = ok (.Ok out)) :
     Narrower (alloc.vec.Vec.deref out) rules := by
-  obtain ⟨res, hres, hd⟩ := remove_functions_eq rules index functions
+  obtain ⟨res, hres, hd⟩ := remove_functions_eq rules index functions (remove_functions_room h)
   obtain rfl := Result.ok_injective (h.symm.trans hres)
   apply narrower_of_denote
   rw [vec_deref_val]
   exact Chain.RuleSet.removeFunctions_narrower hd.symm
+
+theorem restrict_functions_narrower {rules : Slice rule_eval.rule.Rule} {index : Std.U32}
+    {functions : Slice (alloc.vec.Vec Std.U8)} {out : alloc.vec.Vec rule_eval.rule.Rule}
+    (h : rule_eval.attenuate.restrict_functions rules index functions = ok (.Ok out)) :
+    Narrower (alloc.vec.Vec.deref out) rules := by
+  obtain ⟨res, hres, hd⟩ := restrict_functions_eq rules index functions
+  obtain rfl := Result.ok_injective (h.symm.trans hres)
+  apply narrower_of_denote
+  rw [vec_deref_val]
+  exact Chain.RuleSet.restrictFunctions_narrower hd.symm
 
 theorem remove_signers_narrower {rules : Slice rule_eval.rule.Rule} {index : Std.U32}
     {signers : Slice rule_eval.signer.Signer} {out : alloc.vec.Vec rule_eval.rule.Rule}
@@ -184,10 +203,21 @@ theorem lengthen_cap_period_narrower {rules : Slice rule_eval.rule.Rule} {index 
   rw [vec_deref_val]
   exact Chain.RuleSet.lengthenCapPeriod_narrower hd.symm
 
+theorem lower_valid_until_narrower {rules : Slice rule_eval.rule.Rule} {index valid_until : Std.U32}
+    {out : alloc.vec.Vec rule_eval.rule.Rule}
+    (h : rule_eval.attenuate.lower_valid_until rules index valid_until = ok (.Ok out)) :
+    Narrower (alloc.vec.Vec.deref out) rules := by
+  obtain ⟨res, hres, hd⟩ := lower_valid_until_eq rules index valid_until
+  obtain rfl := Result.ok_injective (h.symm.trans hres)
+  apply narrower_of_denote
+  rw [vec_deref_val]
+  exact Chain.RuleSet.lowerValidUntil_narrower hd.symm
+
 /-- One extracted attenuation step from `rs` that returned `Ok`: `Step rs rs'`
-when one of the eight steps (`drop_rule`, `add_cond`, `remove_functions`,
-`remove_signers`, `raise_threshold`, `add_cap`, `lower_cap_limit` and
-`lengthen_cap_period`) on `rs` returned `Ok` of the rules of `rs'`. -/
+when one of the ten steps (`drop_rule`, `add_cond`, `remove_functions`,
+`restrict_functions`, `remove_signers`, `raise_threshold`, `add_cap`,
+`lower_cap_limit`, `lengthen_cap_period` and `lower_valid_until`) on `rs`
+returned `Ok` of the rules of `rs'`. -/
 inductive Step (rs : Slice rule_eval.rule.Rule) : Slice rule_eval.rule.Rule → Prop where
   | dropRule (index : Std.U32) {out : alloc.vec.Vec rule_eval.rule.Rule} :
       rule_eval.attenuate.drop_rule rs index = ok (.Ok out) → Step rs (alloc.vec.Vec.deref out)
@@ -198,6 +228,10 @@ inductive Step (rs : Slice rule_eval.rule.Rule) : Slice rule_eval.rule.Rule → 
   | removeFunctions (index : Std.U32) (functions : Slice (alloc.vec.Vec Std.U8))
       {out : alloc.vec.Vec rule_eval.rule.Rule} :
       rule_eval.attenuate.remove_functions rs index functions = ok (.Ok out) →
+        Step rs (alloc.vec.Vec.deref out)
+  | restrictFunctions (index : Std.U32) (functions : Slice (alloc.vec.Vec Std.U8))
+      {out : alloc.vec.Vec rule_eval.rule.Rule} :
+      rule_eval.attenuate.restrict_functions rs index functions = ok (.Ok out) →
         Step rs (alloc.vec.Vec.deref out)
   | removeSigners (index : Std.U32) (signers : Slice rule_eval.signer.Signer)
       {out : alloc.vec.Vec rule_eval.rule.Rule} :
@@ -216,6 +250,9 @@ inductive Step (rs : Slice rule_eval.rule.Rule) : Slice rule_eval.rule.Rule → 
   | lengthenCapPeriod (index period : Std.U32) {out : alloc.vec.Vec rule_eval.rule.Rule} :
       rule_eval.attenuate.lengthen_cap_period rs index period = ok (.Ok out) →
         Step rs (alloc.vec.Vec.deref out)
+  | lowerValidUntil (index valid_until : Std.U32) {out : alloc.vec.Vec rule_eval.rule.Rule} :
+      rule_eval.attenuate.lower_valid_until rs index valid_until = ok (.Ok out) →
+        Step rs (alloc.vec.Vec.deref out)
 
 /-- `Derives root rs`: `rs` is reachable from `root` by zero or more extracted
 attenuation steps. -/
@@ -227,11 +264,13 @@ theorem Step.narrower {rs rs' : Slice rule_eval.rule.Rule} : Step rs rs' → Nar
   | .dropRule _ h => drop_rule_narrower h
   | .addCond _ _ h => add_cond_narrower h
   | .removeFunctions _ _ h => remove_functions_narrower h
+  | .restrictFunctions _ _ h => restrict_functions_narrower h
   | .removeSigners _ _ h => remove_signers_narrower h
   | .raiseThreshold _ _ h => raise_threshold_narrower h
   | .addCap _ _ h => add_cap_narrower h
   | .lowerCapLimit _ _ h => lower_cap_limit_narrower h
   | .lengthenCapPeriod _ _ h => lengthen_cap_period_narrower h
+  | .lowerValidUntil _ _ h => lower_valid_until_narrower h
 
 /-- Every rule set derived from a root by extracted attenuation steps stays
 inside the root. -/
@@ -473,6 +512,61 @@ theorem cond_holds_argEq_false_of_kind_ne {index : Std.U32} {v w : rule_eval.val
     cases this
     exact absurd rfl hk
 
+/-- A `String` value never equals a `Symbol` value, even with the same
+bytes. -/
+theorem val_eq_string_symbol (x y : alloc.vec.Vec Std.U8) :
+    rule_eval.val.val_eq (.String x) (.Symbol y) = ok false := by
+  simp [val_eq_eq, denoteVal]
+
+/-- `ArgIn index values` holds exactly when argument `index` exists and
+`val_eq` holds between it and one of `values`, as for `ArgEq`. -/
+theorem cond_holds_argIn_iff (index : Std.U32) (values : alloc.vec.Vec rule_eval.val.Val)
+    (args : Slice rule_eval.val.Val) :
+    rule_eval.rule.cond_holds (.ArgIn index values) args = ok true ↔
+      ∃ v ∈ values.val, rule_eval.rule.cond_holds (.ArgEq index v) args = ok true := by
+  rw [cond_holds_eq]
+  simp only [denoteCond]
+  constructor
+  · intro h
+    obtain ⟨w, hw, hv⟩ := (Chain.Cond.argIn_holds_iff _ _ _).mp (Result.ok_injective h)
+    obtain ⟨v, hvm, rfl⟩ := List.mem_map.mp hw
+    refine ⟨v, hvm, ?_⟩
+    rw [cond_holds_eq]
+    exact congrArg ok ((Chain.Cond.argEq_holds_iff _ _ _).mpr hv)
+  · rintro ⟨v, hvm, hv⟩
+    rw [cond_holds_eq] at hv
+    have := (Chain.Cond.argEq_holds_iff _ _ _).mp (Result.ok_injective hv)
+    exact congrArg ok ((Chain.Cond.argIn_holds_iff _ _ _).mpr
+      ⟨denoteVal v, List.mem_map_of_mem hvm, this⟩)
+
+/-- `ArgStrPrefix index prefix` holds exactly when argument `index` is a
+`String` whose bytes start with those of `prefix`. -/
+theorem cond_holds_argStrPrefix_iff (index : Std.U32) (pre : alloc.vec.Vec Std.U8)
+    (args : Slice rule_eval.val.Val) :
+    rule_eval.rule.cond_holds (.ArgStrPrefix index pre) args = ok true ↔
+      ∃ s, args.val[index.val]? = some (.String s) ∧ pre.val <+: s.val := by
+  rw [cond_holds_eq]
+  simp only [denoteCond]
+  rw [show (ok ((Chain.Cond.argStrPrefix (denoteU32 index) (denoteBytes pre)).holds
+      (args.val.map denoteVal)) = ok true) ↔
+      (Chain.Cond.argStrPrefix (denoteU32 index) (denoteBytes pre)).holds
+        (args.val.map denoteVal) = true from
+    ⟨fun h => Result.ok_injective h, congrArg ok⟩, Chain.Cond.argStrPrefix_holds_iff]
+  simp only [denoteU32_toNat, List.getElem?_map]
+  constructor
+  · rintro ⟨v, hv, hp⟩
+    cases ha : args.val[index.val]? with
+    | none => rw [ha] at hv; cases hv
+    | some w =>
+      rw [ha] at hv
+      cases w <;> simp only [Option.map_some, Option.some.injEq, denoteVal, reduceCtorEq,
+        Chain.Val.string.injEq] at hv
+      subst hv
+      exact ⟨_, rfl, (List.prefix_map_iff_of_injective byte_injective).mp hp⟩
+  · rintro ⟨s, hs, hp⟩
+    exact ⟨denoteBytes s, by rw [hs]; rfl,
+      (List.prefix_map_iff_of_injective byte_injective).mpr hp⟩
+
 /-! ## Byte strings -/
 
 /-- Two byte strings compare equal exactly when they hold the same bytes. -/
@@ -485,18 +579,49 @@ theorem bytes_eq_iff (a b : Slice Std.U8) :
   · intro h
     simp [h]
 
-/-- A rule allows only calls to exactly its contract and exactly one of its
-functions. -/
+/-- On a list, `functions_match` is membership: exactly one of the listed
+functions holds the same bytes. -/
+theorem functions_match_only_iff (listed : alloc.vec.Vec (alloc.vec.Vec Std.U8))
+    (function : Slice Std.U8) :
+    rule_eval.rule.functions_match (.Only listed) function = ok true ↔
+      ∃ f ∈ listed.val, f.val = function.val := by
+  rw [functions_match_eq]
+  simp only [denoteFunctions, Chain.Functions.mem_only, List.mem_map]
+  constructor
+  · intro h
+    obtain ⟨f, hm, he⟩ := of_decide_eq_true (Result.ok_injective h)
+    exact ⟨f, hm, bytesOf_inj.mp he⟩
+  · rintro ⟨f, hm, he⟩
+    exact congrArg ok (decide_eq_true ⟨f, hm, bytesOf_inj.mpr he⟩)
+
+/-- On a wildcard, `functions_match` holds exactly when no excluded function
+holds the same bytes. -/
+theorem functions_match_anyExcept_iff (removed : alloc.vec.Vec (alloc.vec.Vec Std.U8))
+    (function : Slice Std.U8) :
+    rule_eval.rule.functions_match (.AnyExcept removed) function = ok true ↔
+      ∀ f ∈ removed.val, f.val ≠ function.val := by
+  rw [functions_match_eq]
+  simp only [denoteFunctions, Chain.Functions.mem_anyExcept, List.mem_map, not_exists, not_and]
+  constructor
+  · intro h f hm he
+    exact of_decide_eq_true (Result.ok_injective h) f hm (bytesOf_inj.mpr he)
+  · intro h
+    exact congrArg ok (decide_eq_true fun f hm he => h f hm (bytesOf_inj.mp he))
+
+/-- A rule allows only calls to exactly its contract and a function its
+functions match: exactly one of the listed functions, or any function its
+wildcard does not exclude (`functions_match_only_iff`,
+`functions_match_anyExcept_iff`). -/
 theorem rule_allows_call {r : rule_eval.rule.Rule} {contract function : alloc.vec.Vec Std.U8}
     {args : alloc.vec.Vec rule_eval.val.Val} {authenticated : Slice rule_eval.signer.Signer}
     (h : rule_eval.rule.rule_allows r (.Call contract function args) authenticated = ok true) :
-    contract = r.contract ∧ function ∈ r.functions.val := by
+    contract = r.contract ∧
+      rule_eval.rule.functions_match r.functions (alloc.vec.Vec.deref function) = ok true := by
   rw [rule_allows_eq] at h
   obtain ⟨hc, hf⟩ := Chain.Rule.contract_eq_of_allows (Result.ok_injective h)
   refine ⟨denoteBytes_injective hc, ?_⟩
-  obtain ⟨f, hm, he⟩ := List.mem_map.mp hf
-  rw [← denoteBytes_injective he]
-  exact hm
+  rw [functions_match_eq, vec_deref_val]
+  exact congrArg ok (decide_eq_true hf)
 
 /-- No prefix match: a call to a proper extension of the rule's contract id is
 denied. -/

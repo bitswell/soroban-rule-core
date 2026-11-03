@@ -1,11 +1,11 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "signers-threshold-none",
   "description": "Thresholds 0, 1, 2, 3 (all three signers) and 4 (above the number of signers), with no signer authenticated.",
   "rules": [
     {
       "contract": "7430",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [],
       "signers": [
         {"delegated": {"address": "616c696365"}},
@@ -13,11 +13,13 @@
         {"external": {"verifier": "7665726966696572", "key": "6b6579"}}
       ],
       "threshold": 0,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     },
     {
       "contract": "7431",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [],
       "signers": [
         {"delegated": {"address": "616c696365"}},
@@ -25,11 +27,13 @@
         {"external": {"verifier": "7665726966696572", "key": "6b6579"}}
       ],
       "threshold": 1,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     },
     {
       "contract": "7432",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [],
       "signers": [
         {"delegated": {"address": "616c696365"}},
@@ -37,11 +41,13 @@
         {"external": {"verifier": "7665726966696572", "key": "6b6579"}}
       ],
       "threshold": 2,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     },
     {
       "contract": "7433",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [],
       "signers": [
         {"delegated": {"address": "616c696365"}},
@@ -49,11 +55,13 @@
         {"external": {"verifier": "7665726966696572", "key": "6b6579"}}
       ],
       "threshold": 3,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     },
     {
       "contract": "7434",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [],
       "signers": [
         {"delegated": {"address": "616c696365"}},
@@ -61,7 +69,9 @@
         {"external": {"verifier": "7665726966696572", "key": "6b6579"}}
       ],
       "threshold": 4,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     }
   ],
   "batch": [

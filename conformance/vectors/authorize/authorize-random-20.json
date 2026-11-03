@@ -1,63 +1,46 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "authorize-random-20",
   "description": "Randomized authorization trace 20 of seed 20261102.",
   "rules": [
     {
       "contract": "6331",
-      "functions": ["66"],
+      "functions": {"only": ["66"]},
       "conds": [],
       "signers": [],
       "threshold": 0,
-      "cap": null
+      "cap": {"limit": "5", "period": 2, "amount_arg": 4294967295},
+      "valid_until": null,
+      "generation": null
     },
     {
-      "contract": "63",
-      "functions": ["67"],
-      "conds": [
-        {"arg_eq": {"index": 2, "value": {"address": ""}}},
-        {"arg_i128_at_most": {"index": 0, "bound": "100"}}
-      ],
-      "signers": [],
+      "contract": "",
+      "functions": {"only": [""]},
+      "conds": [],
+      "signers": [{"external": {"verifier": "76", "key": "6b"}}],
       "threshold": 0,
-      "cap": {"limit": "100", "period": 10, "amount_arg": 0}
+      "cap": {"limit": "100", "period": 10, "amount_arg": 3},
+      "valid_until": null,
+      "generation": null
     }
   ],
   "start": [{"history": [], "total": "0"}, {"history": [], "total": "0"}],
   "authorizations": [
     {
-      "batch": [{"call": {"contract": "6331", "function": "66", "args": []}}],
-      "choices": [0],
-      "authenticated": [
-        {"delegated": {"address": "61"}},
-        {"external": {"verifier": "76", "key": "6b"}}
-      ],
-      "now": 9,
-      "expected": {"ok": [{"history": [], "total": "0"}, {"history": [], "total": "0"}]}
-    },
-    {
       "batch": [
         {
           "call": {
-            "contract": "63",
-            "function": "67",
-            "args": [{"i128": "100"}, {"address": "62"}, {"address": ""}]
+            "contract": "6331",
+            "function": "66",
+            "args": [{"bytes": "61"}, {"string": "62"}, {"symbol": "61"}, {"bytes": "00ff"}]
           }
-        },
-        {"call": {"contract": "6331", "function": "66", "args": []}}
+        }
       ],
-      "choices": [1, 0],
-      "authenticated": [
-        {"external": {"verifier": "76", "key": "6b"}},
-        {"external": {"verifier": "76", "key": "6b32"}}
-      ],
-      "now": 9,
-      "expected": {
-        "ok": [
-          {"history": [], "total": "0"},
-          {"history": [{"ledger": 9, "amount": "100"}], "total": "100"}
-        ]
-      }
+      "choices": [1],
+      "authenticated": [{"external": {"verifier": "76", "key": "6b"}}],
+      "now": 1,
+      "generation": "2",
+      "expected": {"error": "not_allowed"}
     }
   ]
 }

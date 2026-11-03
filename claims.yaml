@@ -51,10 +51,10 @@ claims:
     claim: >-
       Each attenuation step (drop a rule, add a condition to a rule, restrict a
       rule's scope, remove signers from a rule, raise a rule's threshold, add
-      a cap to a rule, lower a cap's limit, lengthen a cap's period) yields a
-      rule set narrower than the one it started from, under every list of
-      authenticated signers; the cap steps change only a rule's cap, which
-      allows does not read.
+      a cap to a rule, lower a cap's limit, lengthen a cap's period, lower a
+      rule's last ledger) yields a rule set narrower than the one it started
+      from, under every list of authenticated signers; the cap steps and
+      lowering a last ledger change only a field allows does not read.
     status: proven
     evidence:
       - theorem: RuleCore.RuleSet.dropRule_narrower
@@ -65,7 +65,9 @@ claims:
       - theorem: RuleCore.RuleSet.addCap_narrower
       - theorem: RuleCore.RuleSet.lowerCapLimit_narrower
       - theorem: RuleCore.RuleSet.lengthenCapPeriod_narrower
+      - theorem: RuleCore.RuleSet.lowerValidUntil_narrower
       - theorem: RuleCore.RuleSet.set_cap_narrower
+      - theorem: RuleCore.RuleSet.set_validUntil_narrower
       - theorem: RuleCore.RuleSet.attenuate_narrower
       - theorem: RuleCore.RuleSet.modifyRule_narrower
       - theorem: RuleCore.Rule.allows_of_allows_addCond
@@ -76,7 +78,7 @@ claims:
 
   - id: model.chains-stay-inside-root
     claim: >-
-      Every rule set reached from a root by any chain of the eight attenuation
+      Every rule set reached from a root by any chain of the nine attenuation
       steps is narrower than the root.
     status: proven
     evidence:
@@ -104,6 +106,7 @@ claims:
       - theorem: RuleCore.RuleSet.addCap_eq_noSuchRule_iff
       - theorem: RuleCore.RuleSet.lowerCapLimit_eq_noSuchRule_iff
       - theorem: RuleCore.RuleSet.lengthenCapPeriod_eq_noSuchRule_iff
+      - theorem: RuleCore.RuleSet.lowerValidUntil_eq_noSuchRule_iff
       - theorem: RuleCore.RuleSet.modifyRule_eq_error_iff
 
   - id: model.cap-step-refusals
@@ -125,6 +128,16 @@ claims:
       - theorem: RuleCore.RuleSet.lowerCapLimit_eq_invalidCap_iff
       - theorem: RuleCore.RuleSet.lengthenCapPeriod_eq_noCap_iff
       - theorem: RuleCore.RuleSet.lengthenCapPeriod_eq_periodShortened_iff
+
+  - id: model.valid-until-raised
+    claim: >-
+      lowerValidUntil is refused with validUntilRaised exactly when the rule
+      has a last ledger before the new one: it gives a rule a last ledger or
+      moves it earlier, never later.
+    status: proven
+    evidence:
+      - theorem: RuleCore.RuleSet.lowerValidUntil_eq_validUntilRaised_iff
+      - theorem: RuleCore.Chain.RuleSet.lowerValidUntil_eq_validUntilRaised_iff
 
   - id: model.threshold-lowered
     claim: >-
@@ -198,12 +211,18 @@ claims:
   - id: chain.conds-read-their-call
     claim: >-
       A chain rule allows a call exactly when the call's contract is the
-      rule's contract, its function is in the rule's function list, every
+      rule's contract, its function is one of the rule's functions (one it
+      lists, or for a wildcard any function it does not exclude), every
       condition of the rule holds on that call's own arguments, and at least
-      its threshold of its distinct signers are authenticated.
+      its threshold of its distinct signers are authenticated; the wildcard
+      matches every function of its contract.
     status: proven
     evidence:
       - theorem: RuleCore.Chain.Rule.allows_call_iff
+      - theorem: RuleCore.Chain.Rule.allows_call_any
+      - theorem: RuleCore.Chain.Functions.mem_any
+      - theorem: RuleCore.Chain.Functions.mem_anyExcept
+      - theorem: RuleCore.Chain.Functions.mem_only
       - theorem: RuleCore.Chain.Rule.signed_iff
       - theorem: RuleCore.Chain.Rule.allows_iff
       - theorem: RuleCore.Chain.RuleSet.allows_iff
@@ -213,25 +232,36 @@ claims:
     claim: >-
       argEq index v holds exactly when argument index exists and equals v;
       argI128AtMost index n holds exactly when argument index exists, is an
-      i128 and is at most n as a signed integer; a missing argument makes
-      either condition false.
+      i128 and is at most n as a signed integer; argIn index vs holds exactly
+      when argument index exists and equals one of vs, so exactly when argEq
+      holds for one of them; argStrPrefix index p holds exactly when argument
+      index is a string whose bytes start with p; a missing argument makes
+      every condition false.
     status: proven
     evidence:
       - theorem: RuleCore.Chain.Cond.argEq_holds_iff
       - theorem: RuleCore.Chain.Cond.argI128AtMost_holds_iff
+      - theorem: RuleCore.Chain.Cond.argIn_holds_iff
+      - theorem: RuleCore.Chain.Cond.argIn_holds_iff_argEq
+      - theorem: RuleCore.Chain.Cond.argStrPrefix_holds_iff
       - theorem: RuleCore.Chain.Cond.holds_false_of_length_le
 
   - id: chain.steps-narrow
     claim: >-
       Each chain attenuation step (dropRule, addCond, removeFunctions,
-      removeSigners, raiseThreshold, addCap, lowerCapLimit,
-      lengthenCapPeriod) yields a narrower rule set, and each step and each
-      list of steps denotes the generic step of the same kind.
+      restrictFunctions, removeSigners, raiseThreshold, addCap,
+      lowerCapLimit, lengthenCapPeriod, lowerValidUntil) yields a narrower
+      rule set, and each step and each list of steps denotes the generic step
+      of the same kind: removing functions, on a list or a wildcard, and
+      restricting functions both denote restricting the scope, and each keeps
+      exactly the expected functions.
     status: proven
     evidence:
       - theorem: RuleCore.Chain.RuleSet.dropRule_narrower
       - theorem: RuleCore.Chain.RuleSet.addCond_narrower
       - theorem: RuleCore.Chain.RuleSet.removeFunctions_narrower
+      - theorem: RuleCore.Chain.RuleSet.restrictFunctions_narrower
+      - theorem: RuleCore.Chain.RuleSet.lowerValidUntil_narrower
       - theorem: RuleCore.Chain.RuleSet.removeSigners_narrower
       - theorem: RuleCore.Chain.RuleSet.raiseThreshold_narrower
       - theorem: RuleCore.Chain.RuleSet.addCap_narrower
@@ -246,14 +276,20 @@ claims:
       - theorem: RuleCore.Chain.RuleSet.denote_dropRule
       - theorem: RuleCore.Chain.RuleSet.denote_addCond
       - theorem: RuleCore.Chain.RuleSet.denote_removeFunctions
+      - theorem: RuleCore.Chain.RuleSet.denote_restrictFunctions
+      - theorem: RuleCore.Chain.RuleSet.denote_lowerValidUntil
       - theorem: RuleCore.Chain.RuleSet.denote_removeSigners
       - theorem: RuleCore.Chain.RuleSet.denote_raiseThreshold
       - theorem: RuleCore.Chain.RuleSet.denote_attenuate
       - theorem: RuleCore.Chain.RuleSet.denote_modifyRule
       - theorem: RuleCore.Chain.Rule.denote_addCond
       - theorem: RuleCore.Chain.Rule.denote_removeFunctions
+      - theorem: RuleCore.Chain.Rule.denote_restrictFunctions
       - theorem: RuleCore.Chain.Rule.denote_removeSigners
       - theorem: RuleCore.Chain.Rule.mem_removeFunctions
+      - theorem: RuleCore.Chain.Rule.mem_restrictFunctions
+      - theorem: RuleCore.Chain.Functions.mem_remove
+      - theorem: RuleCore.Chain.Functions.mem_restrict
       - theorem: RuleCore.Chain.Rule.mem_removeSigners
       - theorem: RuleCore.Chain.RuleSet.rules_denote
 
@@ -289,6 +325,8 @@ claims:
       - theorem: RuleCore.Chain.RuleSet.dropRule_eq_error_iff
       - theorem: RuleCore.Chain.RuleSet.addCond_eq_error_iff
       - theorem: RuleCore.Chain.RuleSet.removeFunctions_eq_error_iff
+      - theorem: RuleCore.Chain.RuleSet.restrictFunctions_eq_error_iff
+      - theorem: RuleCore.Chain.RuleSet.lowerValidUntil_eq_noSuchRule_iff
       - theorem: RuleCore.Chain.RuleSet.removeSigners_eq_error_iff
       - theorem: RuleCore.Chain.RuleSet.raiseThreshold_eq_noSuchRule_iff
       - theorem: RuleCore.Chain.RuleSet.modifyRule_eq_error_iff
@@ -315,14 +353,21 @@ claims:
   - id: chain.argeq-same-constructor
     claim: >-
       argEq holds only for an argument of the same constructor as its value;
-      values of different constructors are never equal, and an other value
-      never equals a bytes value whatever its bytes.
+      values of different constructors are never equal, an other value never
+      equals a bytes value whatever its bytes, and a string never equals a
+      symbol; argStrPrefix holds only for a string argument, so never for a
+      symbol, bytes or other value with the same bytes.
     status: proven
     evidence:
       - theorem: RuleCore.Chain.Cond.argEq_kind
       - theorem: RuleCore.Chain.Cond.argEq_false_of_kind_ne
       - theorem: RuleCore.Chain.Cond.argEq_bytes_false_of_other
       - theorem: RuleCore.Chain.Val.ne_of_kind_ne
+      - theorem: RuleCore.Chain.Val.string_ne_symbol
+      - theorem: RuleCore.Chain.Cond.argEq_string_false_of_symbol
+      - theorem: RuleCore.Chain.Cond.argStrPrefix_kind
+      - theorem: RuleCore.Chain.Cond.argStrPrefix_false_of_kind_ne
+      - theorem: RuleCore.Chain.Cond.argStrPrefix_false_of_symbol
 
   - id: chain.bytes-exact
     claim: >-
@@ -386,14 +431,14 @@ claims:
       - theorem: RuleCore.Chain.Rule.allows_eraseDups_signers
 
   - id: chain.empty-function-list
-    claim: A rule with an empty function list allows nothing.
+    claim: A rule whose functions are the empty list allows nothing.
     status: proven
     evidence:
       - theorem: RuleCore.Chain.Rule.allows_false_of_functions_nil
 
   - id: chain.examples
     claim: >-
-      Seventeen concrete verdicts of the chain vocabulary are checked by the
+      Thirty-two concrete verdicts of the chain vocabulary are checked by the
       kernel on every build: a capped transfer at, over and below its cap,
       with an amount of another constructor and with no amount; a prefix of
       the contract id; a batch holding a creation; an argument index of
@@ -401,7 +446,13 @@ claims:
       index; two of three distinct signers; a signer authenticated twice; a
       signer listed twice; an external signer holding a delegated signer's
       bytes; a threshold above the signers; a lowered threshold refused; a
-      signer removed with the threshold kept.
+      signer removed with the threshold kept; a wildcard matching an unnamed
+      function, one function removed from it and the wildcard restricted to a
+      list; argIn and argStrPrefix on matching and failing arguments, a
+      symbol among them; authorize at a rule's last ledger, one ledger later,
+      in another generation and with a signer outside the chosen rule; allows
+      ignoring time and generation; a last ledger moved later refused and
+      moved earlier.
     status: tested
     evidence:
       - ci: {workflow: .github/workflows/lean.yml, job: lean, step: lake build, runs: lake build}
@@ -549,6 +600,8 @@ claims:
     evidence:
       - theorem: RuleCore.RuleSet.authorize_eq_ok_iff
       - theorem: RuleCore.RuleSet.checkChoice_ok_iff
+      - theorem: RuleCore.RuleSet.checkSigners_ok_iff
+      - theorem: RuleCore.RuleSet.signerChosen_iff
       - theorem: RuleCore.RuleSet.authorize_chosen
       - theorem: RuleCore.RuleSet.authorize_allowsAll
       - theorem: RuleCore.Chain.RuleSet.authorize_allowsAll
@@ -629,8 +682,8 @@ claims:
 
   - id: authorize.trace-narrowing
     claim: >-
-      Narrowing is trace inclusion: for each of the eight attenuation steps
-      and every chain of them, every run of authorizations the derived rule
+      Narrowing is trace inclusion: for each of the nine attenuation steps
+      (the ten chain steps) and every chain of them, every run of authorizations the derived rule
       set accepts from its empty records, the root accepts from its own empty
       records, with each choice renumbered by the map the steps induce
       (dropRule i moves every rule after i down by one; every other step keeps
@@ -655,6 +708,8 @@ claims:
       - theorem: RuleCore.RuleSet.addCap_refines
       - theorem: RuleCore.RuleSet.lowerCapLimit_refines
       - theorem: RuleCore.RuleSet.lengthenCapPeriod_refines
+      - theorem: RuleCore.RuleSet.lowerValidUntil_refines
+      - theorem: RuleCore.Rule.Refines.of_eq
       - theorem: RuleCore.RuleSet.Refines.set
       - theorem: RuleCore.RuleSet.Refines.refl
       - theorem: RuleCore.RuleSet.Refines.trans
@@ -678,6 +733,65 @@ claims:
       - theorem: RuleCore.RuleSet.attenuateAll_capsValid
       - theorem: RuleCore.Chain.RuleSet.attenuate_capsValid
       - theorem: RuleCore.Chain.RuleSet.attenuateAll_capsValid
+
+  # Expiry, generations and authenticated signers (formal/RuleCore/Model,
+  # theorems in RuleCore and RuleCore.Chain).
+
+  - id: authorize.expiry
+    claim: >-
+      An accepted authorization chooses no rule whose last ledger is before
+      the authorization's ledger: a rule authorizes up to and at its last
+      ledger. allows and allowsAll read no last ledger.
+    status: proven
+    evidence:
+      - theorem: RuleCore.RuleSet.authorize_current
+      - theorem: RuleCore.RuleSet.authorize_validUntil
+      - theorem: RuleCore.Rule.expired_eq_false_iff
+      - theorem: RuleCore.Authorization.map_snd_chosen
+      - theorem: RuleCore.Chain.RuleSet.authorize_validUntil
+
+  - id: authorize.generation
+    claim: >-
+      An accepted authorization chooses no rule issued under a generation
+      other than the current one; so once the current generation is not g, a
+      rule issued under g authorizes nothing, and a rule set every rule of
+      which was issued under g accepts only an authorization with no
+      contexts. Rules without a generation are unaffected.
+    status: proven
+    evidence:
+      - theorem: RuleCore.RuleSet.authorize_generation
+      - theorem: RuleCore.RuleSet.authorize_not_chosen_of_stale
+      - theorem: RuleCore.RuleSet.authorize_contexts_nil_of_stale
+      - theorem: RuleCore.Rule.stale_eq_false_iff
+      - theorem: RuleCore.Chain.RuleSet.authorize_generation
+      - theorem: RuleCore.Chain.RuleSet.authorize_not_chosen_of_stale
+      - theorem: RuleCore.Chain.RuleSet.authorize_contexts_nil_of_stale
+
+  - id: authorize.steps-keep-generation
+    claim: >-
+      No attenuation step changes a rule's generation: each rule after a step,
+      and after every chain of steps, carries the generation of the root rule
+      it comes from, so every rule set derived from a root issued under g is
+      issued under g.
+    status: proven
+    evidence:
+      - theorem: RuleCore.RuleSet.attenuate_generation
+      - theorem: RuleCore.RuleSet.attenuateAll_generation
+      - theorem: RuleCore.RuleSet.attenuateAll_generation_eq
+      - theorem: RuleCore.Chain.RuleSet.attenuate_generation
+      - theorem: RuleCore.Chain.RuleSet.attenuateAll_generation
+      - theorem: RuleCore.Chain.RuleSet.attenuateAll_generation_eq
+      - theorem: RuleCore.Chain.RuleSet.denote_get
+
+  - id: authorize.signers-chosen
+    claim: >-
+      Every signer an accepted authorization authenticated is, by exact
+      comparison, a signer of some rule it chose. allows and allowsAll make no
+      such check, and only refuse more by its absence.
+    status: proven
+    evidence:
+      - theorem: RuleCore.RuleSet.authorize_signers
+      - theorem: RuleCore.Chain.RuleSet.authorize_signers
 
   # Budgets on the delegation tree (formal/RuleCore/Model/Budget.lean,
   # theorems in RuleCore.Budget).
@@ -816,9 +930,10 @@ claims:
       On every input, the translated allows and allows_all return ok of the
       chain model's allows and allowsAll on the denotations, authenticated
       signers included; since ok excludes divergence and failure, they
-      terminate and never panic. The same holds for rule_allows, conds_hold,
-      cond_holds, val_eq, bytes_eq, bytes_in, signers_met, signed_count,
-      signer_eq, signer_in and signer_in_first.
+      terminate and never panic. The same holds for rule_allows,
+      functions_match, conds_hold, cond_holds, val_eq, val_in, bytes_eq,
+      bytes_in, bytes_starts_with, signers_met, signed_count, signer_eq,
+      signer_in and signer_in_first.
     status: proven
     assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel, trusted.denotations]
     evidence:
@@ -828,6 +943,10 @@ claims:
       - theorem: RuleCore.Equiv.conds_hold_eq
       - theorem: RuleCore.Equiv.cond_holds_eq
       - theorem: RuleCore.Equiv.val_eq_eq
+      - theorem: RuleCore.Equiv.val_in_eq
+      - theorem: RuleCore.Equiv.any_val_eq_mem
+      - theorem: RuleCore.Equiv.functions_match_eq
+      - theorem: RuleCore.Equiv.bytes_starts_with_eq
       - theorem: RuleCore.Equiv.bytes_eq_eq
       - theorem: RuleCore.Equiv.bytes_in_eq
       - theorem: RuleCore.Equiv.signers_met_eq
@@ -839,17 +958,34 @@ claims:
 
   - id: equiv.attenuation
     claim: >-
-      On every input, the translated drop_rule, remove_functions,
+      On every input, the translated drop_rule, restrict_functions,
       remove_signers and raise_threshold return ok of a result that denotes
       the chain model's step on the denotations, noSuchRule and
       thresholdLowered included; add_cond does the same whenever the rule at
       its index has room for one more condition (CondRoom), and fails when it
-      does not, so CondRoom is exact.
+      does not, so CondRoom is exact; remove_functions does the same on every
+      rule whose functions are a list, and on a wildcard whenever its
+      exclusions and the removed functions fit one vector (FunctionsRoomAt),
+      and fails when they do not, so FunctionsRoomAt is exact.
     status: proven
-    assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel, trusted.denotations, rule.cond-room]
+    assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel, trusted.denotations, rule.cond-room, rule.functions-room]
     evidence:
       - theorem: RuleCore.Equiv.drop_rule_eq
       - theorem: RuleCore.Equiv.remove_functions_eq
+      - theorem: RuleCore.Equiv.remove_functions_full
+      - theorem: RuleCore.Equiv.remove_functions_room
+      - theorem: RuleCore.Equiv.functionsRoom_only
+      - theorem: RuleCore.Equiv.restrict_functions_eq
+      - theorem: RuleCore.Equiv.restrict_functions_ok
+      - theorem: RuleCore.Equiv.restrict_functions_err
+      - theorem: RuleCore.Equiv.functions_without_eq
+      - theorem: RuleCore.Equiv.functions_without_fail
+      - theorem: RuleCore.Equiv.functions_within_eq
+      - theorem: RuleCore.Equiv.rule_within_functions_eq
+      - theorem: RuleCore.Equiv.bytes_list_within_eq
+      - theorem: RuleCore.Equiv.bytes_list_extend_eq
+      - theorem: RuleCore.Equiv.bytes_list_extend_fail
+      - theorem: RuleCore.Equiv.denote_filter_inList_mem
       - theorem: RuleCore.Equiv.add_cond_eq
       - theorem: RuleCore.Equiv.add_cond_full
       - theorem: RuleCore.Equiv.drop_rule_ok
@@ -873,13 +1009,15 @@ claims:
       - theorem: RuleCore.Equiv.denote_filter_signerInList
 
   - id: equiv.copies
-    claim: Every translated copy (bytes, byte lists, values, conditions, signers, rules) returns ok of its input.
+    claim: Every translated copy (bytes, byte lists, values, value lists, functions, conditions, signers, rules) returns ok of its input.
     status: proven
     evidence:
       - theorem: RuleCore.Equiv.bytes_copy_eq
       - theorem: RuleCore.Equiv.bytes_copy_deref
       - theorem: RuleCore.Equiv.bytes_list_copy_deref
       - theorem: RuleCore.Equiv.val_copy_eq
+      - theorem: RuleCore.Equiv.vals_copy_deref
+      - theorem: RuleCore.Equiv.functions_copy_eq
       - theorem: RuleCore.Equiv.cond_copy_eq
       - theorem: RuleCore.Equiv.conds_copy_deref
       - theorem: RuleCore.Equiv.signer_copy_eq
@@ -896,6 +1034,7 @@ claims:
       - theorem: RuleCore.Equiv.denoteVal_injective
       - theorem: RuleCore.Equiv.denoteContext_injective
       - theorem: RuleCore.Equiv.denoteCond_injective
+      - theorem: RuleCore.Equiv.denoteFunctions_injective
       - theorem: RuleCore.Equiv.denoteSigner_injective
       - theorem: RuleCore.Equiv.denoteSigners_injective
       - theorem: RuleCore.Equiv.denoteRule_injective
@@ -969,19 +1108,37 @@ claims:
       - theorem: RuleCore.Equiv.cap_copy_eq
       - theorem: RuleCore.Equiv.cap_option_copy_eq
 
+  - id: equiv.valid-until-step
+    claim: >-
+      On every input, the translated lower_valid_until returns ok of a result
+      that denotes the chain model's step on the denotations, noSuchRule and
+      validUntilRaised included.
+    status: proven
+    assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel, trusted.denotations]
+    evidence:
+      - theorem: RuleCore.Equiv.lower_valid_until_eq
+      - theorem: RuleCore.Equiv.lower_valid_until_ok
+      - theorem: RuleCore.Equiv.extends_validity_eq
+
   - id: equiv.authorize
     claim: >-
       On every input, the translated authorize returns ok of the chain
       model's authorize on the denotations, every refusal included, so it
       terminates and never panics; its first pass is the model's forM of
-      checkChoice, its second the model's foldlM of charge, writing each new
-      record back through get_mut; spend_amount is the denoted cap's amount
-      and the copy of the records returns the records.
+      checkChoice, expiry and generation included, its second the model's
+      check that every authenticated signer is a signer of a chosen rule, and
+      its third the model's foldlM of charge, writing each new record back
+      through get_mut; spend_amount is the denoted cap's amount and the copy
+      of the records returns the records.
     status: proven
     assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel, trusted.denotations]
     evidence:
       - theorem: RuleCore.Equiv.authorize_eq
       - theorem: RuleCore.Equiv.check_choices_loop_eq
+      - theorem: RuleCore.Equiv.expired_eq
+      - theorem: RuleCore.Equiv.stale_eq
+      - theorem: RuleCore.Equiv.signer_chosen_eq
+      - theorem: RuleCore.Equiv.signers_chosen_eq
       - theorem: RuleCore.Equiv.charge_all_loop_eq
       - theorem: RuleCore.Equiv.records_copy_eq
       - theorem: RuleCore.Equiv.records_copy_loop_eq
@@ -1064,15 +1221,18 @@ claims:
 
   - id: extracted.steps-narrow
     claim: >-
-      Each of the eight translated attenuation steps that returns Ok yields a
-      narrower rule set; an add_cond that returned Ok had room for its
-      condition.
+      Each of the ten translated attenuation steps that returns Ok yields a
+      narrower rule set; an add_cond or a remove_functions that returned Ok
+      had room.
     status: proven
     assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel]
     evidence:
       - theorem: RuleCore.Extracted.drop_rule_narrower
       - theorem: RuleCore.Extracted.add_cond_narrower
       - theorem: RuleCore.Extracted.remove_functions_narrower
+      - theorem: RuleCore.Extracted.restrict_functions_narrower
+      - theorem: RuleCore.Extracted.lower_valid_until_narrower
+      - theorem: RuleCore.Equiv.remove_functions_room
       - theorem: RuleCore.Extracted.remove_signers_narrower
       - theorem: RuleCore.Extracted.raise_threshold_narrower
       - theorem: RuleCore.Extracted.add_cap_narrower
@@ -1122,14 +1282,20 @@ claims:
   - id: extracted.argeq-same-constructor
     claim: >-
       The translated val_eq returns true exactly on equal values, so only on
-      values of one constructor, and an Other value never equals a Bytes
-      value; ArgEq index v holds exactly when argument index exists and is v.
+      values of one constructor, an Other value never equals a Bytes value
+      and a String value never a Symbol value; ArgEq index v holds exactly
+      when argument index exists and is v; ArgIn holds exactly when ArgEq
+      holds for one of its values; ArgStrPrefix index p holds exactly when
+      argument index is a String starting with the bytes of p.
     status: proven
     assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel]
     evidence:
       - theorem: RuleCore.Extracted.val_eq_iff
       - theorem: RuleCore.Extracted.val_eq_kind
       - theorem: RuleCore.Extracted.val_eq_other_bytes
+      - theorem: RuleCore.Extracted.val_eq_string_symbol
+      - theorem: RuleCore.Extracted.cond_holds_argIn_iff
+      - theorem: RuleCore.Extracted.cond_holds_argStrPrefix_iff
       - theorem: RuleCore.Extracted.cond_holds_argEq_iff
       - theorem: RuleCore.Extracted.cond_holds_argEq_kind
       - theorem: RuleCore.Extracted.cond_holds_argEq_false_of_kind_ne
@@ -1137,13 +1303,17 @@ claims:
   - id: extracted.bytes-exact
     claim: >-
       The translated bytes_eq returns true exactly on equal byte strings; a
-      translated rule allows a call only to its own contract and listed
-      functions, and never to a proper prefix or extension of its contract id.
+      translated rule allows a call only to its own contract and a function
+      its functions match (exactly one it lists, or for a wildcard any one it
+      does not exclude), and never to a proper prefix or extension of its
+      contract id.
     status: proven
     assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel]
     evidence:
       - theorem: RuleCore.Extracted.bytes_eq_iff
       - theorem: RuleCore.Extracted.rule_allows_call
+      - theorem: RuleCore.Extracted.functions_match_only_iff
+      - theorem: RuleCore.Extracted.functions_match_anyExcept_iff
       - theorem: RuleCore.Extracted.rule_allows_prefix_false
       - theorem: RuleCore.Extracted.rule_allows_extension_false
 
@@ -1249,10 +1419,33 @@ claims:
     evidence:
       - theorem: RuleCore.Extracted.StepAlong.traceNarrower
       - theorem: RuleCore.Extracted.DerivesAlong.traceNarrower
+      - theorem: RuleCore.Extracted.StepAlong.denote_step
       - theorem: RuleCore.Extracted.StepAlong.denote_traceNarrower
       - theorem: RuleCore.Extracted.traceNarrower_of_denote
       - theorem: RuleCore.Extracted.renumbered_map
       - theorem: RuleCore.Extracted.DerivesAlong.derives
+
+  - id: extracted.expiry-generation-signers
+    claim: >-
+      An authorize that returns Ok chose no rule whose last ledger is before
+      now and no rule issued under a generation other than the current one,
+      so a rule issued under g authorizes nothing once the generation is not
+      g and a rule set issued under g accepts only an empty batch; and every
+      signer it authenticated is, by signer_in, a signer of a rule it chose.
+      No translated step changes a rule's generation, along a step or any
+      chain of steps.
+    status: proven
+    assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel, trusted.denotations]
+    evidence:
+      - theorem: RuleCore.Extracted.authorize_valid_until
+      - theorem: RuleCore.Extracted.authorize_generation
+      - theorem: RuleCore.Extracted.authorize_not_chosen_of_stale
+      - theorem: RuleCore.Extracted.authorize_contexts_nil_of_stale
+      - theorem: RuleCore.Extracted.authorize_signers
+      - theorem: RuleCore.Extracted.StepAlong.generation
+      - theorem: RuleCore.Extracted.DerivesAlong.generation
+      - theorem: RuleCore.Extracted.DerivesAlong.generation_eq
+      - theorem: RuleCore.Extracted.denoteRules_get
 
   - id: extracted.budget
     claim: >-
@@ -1294,6 +1487,16 @@ claims:
     status: assumed
     evidence:
       - trusted: CondRoom
+
+  - id: rule.functions-room
+    claim: >-
+      FunctionsRoom: a wildcard remove_functions extends excludes, together
+      with the functions removed, at most Usize.max functions. Every rule
+      whose functions are a list meets it, and two Rust Vec<Vec<u8>> never
+      hold that many names between them.
+    status: assumed
+    evidence:
+      - trusted: FunctionsRoom
 
   - id: rule.empty-batch
     claim: >-
@@ -1380,12 +1583,13 @@ claims:
 
   - id: tested.evaluation
     claim: >-
-      Over small universes (9 values covering every constructor, 335
-      contexts, every rule set of up to two rules), allows agrees with an
-      ordinary-Rust reading of the semantics, allows_all is the conjunction of
-      allows, and no rule set allows a creation; unit tests cover every
-      constructor, both conditions, missing and out-of-range indices and exact
-      byte comparison.
+      Over small universes (11 values covering every constructor, 407
+      contexts, every rule set of up to two rules, wildcards and all four
+      conditions included), allows agrees with an ordinary-Rust reading of the
+      semantics, allows_all is the conjunction of allows, and no rule set
+      allows a creation; unit tests cover every constructor, every condition,
+      the wildcard, strings against symbols, missing and out-of-range indices
+      and exact byte comparison.
     status: tested
     evidence:
       - test: rule-eval/evaluate::allows_agrees_with_the_reference_reading
@@ -1405,6 +1609,10 @@ claims:
       - test: rule-eval/evaluate::every_constructor_equals_itself_and_compares_its_payload
       - test: rule-eval/evaluate::out_of_range_condition_indices_are_false
       - test: rule-eval/evaluate::values_equal_only_with_the_same_constructor
+      - test: rule-eval/evaluate::a_wildcard_matches_every_function_but_its_exclusions
+      - test: rule-eval/evaluate::arg_in_compares_as_arg_eq
+      - test: rule-eval/evaluate::arg_str_prefix_needs_a_string_starting_with_the_prefix
+      - test: rule-eval/evaluate::strings_and_symbols_are_different_values
 
   - id: tested.signers
     claim: >-
@@ -1437,8 +1645,10 @@ claims:
       Every attenuation step builds the expected rule set and only narrows,
       on every rule set of up to two rules, and every step on rules with
       signers only narrows under every authenticated list; every chain of two
-      steps stays inside its root; out-of-range indices are refused, and a
-      lowered threshold is refused.
+      steps stays inside its root; out-of-range indices are refused, a
+      lowered threshold and a later last ledger are refused; removing
+      functions from a wildcard excludes them, restricting functions keeps
+      those also named, and no step changes a rule's generation.
     status: tested
     evidence:
       - test: rule-eval/attenuate::every_step_builds_its_result_and_only_narrows
@@ -1452,6 +1662,10 @@ claims:
       - test: rule-eval/attenuate::remove_signers_removes_every_occurrence_from_that_rule_only
       - test: rule-eval/attenuate::raise_threshold_sets_that_rule_and_refuses_to_lower
       - test: rule-eval/attenuate::signer_steps_only_narrow_under_every_authenticated_list
+      - test: rule-eval/attenuate::remove_functions_on_a_wildcard_excludes_them
+      - test: rule-eval/attenuate::restrict_functions_keeps_only_the_named_functions
+      - test: rule-eval/attenuate::lower_valid_until_adds_or_lowers_and_refuses_to_raise
+      - test: rule-eval/attenuate::no_step_changes_a_generation
 
   - id: tested.caps
     claim: >-
@@ -1481,17 +1695,20 @@ claims:
 
   - id: tested.authorize
     claim: >-
-      authorize agrees with a plain Rust reading on 28,024 inputs (every rule
-      set of up to two rules from five capped and uncapped rules, 113 batches
-      with their choices, two signer lists, two ledgers and two starting
-      records), and every batch it accepts allows_all accepts; over 8,653 runs
-      of up to three authorizations, each step agrees with the reading, every
-      window stays within its limit and every stored record is the in-window
-      spends; each cap step, drop_rule with its renumbering and a chain are
-      trace inclusion over those runs; unit tests cover each refusal and its
-      precedence, charges accumulating, refusals discarding a batch, the
-      window rolling, the empty batch, and what each cap step builds and
-      refuses.
+      authorize agrees with a plain Rust reading on 146,544 inputs (every rule
+      set of up to two rules from five capped and uncapped rules and an
+      expiring wildcard issued under a generation, 142 batches with their
+      choices, three signer lists, two ledgers, two generations and two
+      starting records), every batch it accepts allows_all accepts, and the
+      expired, stale-generation and unauthorized-signer refusals all occur;
+      over 8,653 runs of up to three authorizations, each step agrees with the
+      reading, every window stays within its limit and every stored record is
+      the in-window spends; each cap step, lower_valid_until, drop_rule with
+      its renumbering and chains are trace inclusion over those runs; unit
+      tests cover each refusal and its precedence, expiry at its boundary,
+      stale generations, signers outside the chosen rules, charges
+      accumulating, refusals discarding a batch, the window rolling, the empty
+      batch, and what each cap step builds and refuses.
     status: tested
     evidence:
       - test: rule-eval/authorize::authorize_agrees_with_the_reference_reading
@@ -1516,6 +1733,10 @@ claims:
       - test: rule-eval/authorize::lengthen_cap_period_lengthens_that_period_only
       - test: rule-eval/authorize::the_other_steps_keep_each_rule_cap
       - test: rule-eval/authorize::cap_steps_leave_every_verdict_as_it_was
+      - test: rule-eval/authorize::a_rule_expires_after_its_last_ledger
+      - test: rule-eval/authorize::a_rule_of_another_generation_authorizes_nothing
+      - test: rule-eval/authorize::an_authenticated_signer_in_no_chosen_rule_is_refused
+      - test: rule-eval/authorize::expiry_generation_and_signer_refusals_take_their_place_in_order
 
   - id: tested.budget
     claim: >-
@@ -1564,8 +1785,9 @@ claims:
       rule-eval returns every verdict and attenuation result of every vector;
       the vectors cover every value constructor, condition, signer kind,
       repeated signers, each threshold case, rules with and without caps,
-      each of the eight step kinds and every outcome; a vector with a changed
-      expectation is reported.
+      function lists and wildcards with and without exclusions, rules with a
+      last ledger and with a generation, each of the ten step kinds and every
+      outcome; a vector with a changed expectation is reported.
     status: tested
     evidence:
       - test: rule-eval-conformance/vectors::rule_eval_agrees_with_every_vector
@@ -1592,7 +1814,8 @@ claims:
   - id: conformance.authorize-agrees
     claim: >-
       rule-eval's authorize reproduces every outcome and record of every
-      authorization trace; the traces cover every refusal, accepted
+      authorization trace; the traces cover every refusal, expired,
+      stale-generation and unauthorized-signer ones included, accepted
       authorizations, one rule charged twice in a batch, eviction, capped and
       uncapped rules, starting records of the wrong length, batches of several
       contexts and the empty batch; a trace with a changed expectation is
@@ -1810,6 +2033,33 @@ claims:
     evidence:
       - file: ARCHITECTURE.md
         contains: "meters only `transfer` at argument 2"
+
+  - id: unproven.openzeppelin-expiry-and-signers
+    claim: >-
+      authorize refuses an expired rule exactly where OpenZeppelin's
+      get_validated_context_by_id refuses valid_until < ledger, and refuses an
+      authenticated signer outside the chosen rules where do_check_auth
+      refuses UnauthorizedSigner, at the theahaco fork commit Perch pins; and
+      the rules Perch installs at dff2a73 are CallContract rules with
+      canonical keys and no weighted thresholds. This is read from that
+      source, recorded for M4, and neither proven nor tested against it.
+    status: unproven
+    evidence:
+      - file: ARCHITECTURE.md
+        contains: "exactly OpenZeppelin's `if valid_until < e.ledger().sequence()`"
+      - file: ARCHITECTURE.md
+        contains: "Perch emits no `Default`, contract-creation or weighted rules."
+
+  - id: unproven.generation-counter
+    claim: >-
+      Which events advance the account's generation (only a completed
+      recovery), and that the lowering stamps every scoped rule with the
+      generation it was issued under, are the shell's and the lowering's,
+      for M4's next part; authorize takes the current generation as given.
+    status: unproven
+    evidence:
+      - file: ARCHITECTURE.md
+        contains: "Which events advance the counter is the shell's and the lowering's"
 
   - id: unproven.history-bound-on-mainnet
     claim: >-

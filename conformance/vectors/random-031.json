@@ -1,74 +1,95 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "random-031",
   "description": "Randomized case 31 of seed 20261102.",
   "rules": [
     {
       "contract": "",
-      "functions": [],
-      "conds": [],
-      "signers": [{"delegated": {"address": "62"}}],
-      "threshold": 2,
-      "cap": null
+      "functions": {"any_except": []},
+      "conds": [
+        {"arg_i128_at_most": {"index": 0, "bound": "7"}},
+        {"arg_in": {"index": 1, "values": []}}
+      ],
+      "signers": [],
+      "threshold": 0,
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     }
   ],
   "batch": [
-    {"call": {"contract": "6332", "function": "66", "args": []}},
     {"create": {"wasm_hash": "6332"}},
-    {"call": {"contract": "", "function": "666f6f", "args": []}},
-    {"call": {"contract": "", "function": "666f", "args": []}}
+    {"call": {"contract": "", "function": "666f6f", "args": [{"i128": "1"}, {"bytes": "616263"}]}},
+    {"call": {"contract": "63", "function": "66", "args": []}},
+    {"call": {"contract": "63", "function": "66", "args": [{"address": "00ff"}]}},
+    {
+      "call": {
+        "contract": "",
+        "function": "666f",
+        "args": [{"i128": "7"}, {"symbol": "61"}, {"symbol": "61"}]
+      }
+    }
   ],
-  "authenticated": [{"delegated": {"address": "62"}}],
-  "expected": {"allows": [false, false, false, false], "allows_all": false},
+  "authenticated": [],
+  "expected": {"allows": [false, false, false, false, false], "allows_all": false},
   "attenuations": [
     {
       "steps": [
-        {"lengthen_cap_period": {"index": 4294967295, "period": 0}},
-        {"raise_threshold": {"index": 0, "threshold": 2}}
-      ],
-      "expected": {"error": "no_such_rule"}
-    },
-    {
-      "steps": [
-        {"lengthen_cap_period": {"index": 1, "period": 9}},
-        {"raise_threshold": {"index": 0, "threshold": 3}}
-      ],
-      "expected": {"error": "no_such_rule"}
-    },
-    {
-      "steps": [
-        {"raise_threshold": {"index": 0, "threshold": 2}},
-        {
-          "add_cap": {
-            "index": 0,
-            "cap": {
-              "limit": "170141183460469231731687303715884105727",
-              "period": 2,
-              "amount_arg": 2
-            }
-          }
-        }
+        {"add_cond": {"index": 0, "cond": {"arg_in": {"index": 2, "values": [{"i128": "0"}]}}}}
       ],
       "expected": {
         "ok": {
           "rules": [
             {
               "contract": "",
-              "functions": [],
-              "conds": [],
-              "signers": [{"delegated": {"address": "62"}}],
-              "threshold": 2,
-              "cap": {
-                "limit": "170141183460469231731687303715884105727",
-                "period": 2,
-                "amount_arg": 2
-              }
+              "functions": {"any_except": []},
+              "conds": [
+                {"arg_i128_at_most": {"index": 0, "bound": "7"}},
+                {"arg_in": {"index": 1, "values": []}},
+                {"arg_in": {"index": 2, "values": [{"i128": "0"}]}}
+              ],
+              "signers": [],
+              "threshold": 0,
+              "cap": null,
+              "valid_until": null,
+              "generation": null
             }
           ],
-          "allows": [false, false, false, false],
+          "allows": [false, false, false, false, false],
           "allows_all": false
         }
       }
+    },
+    {
+      "steps": [
+        {"lower_valid_until": {"index": 0, "valid_until": 4}},
+        {"restrict_functions": {"index": 0, "functions": []}}
+      ],
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "",
+              "functions": {"only": []},
+              "conds": [
+                {"arg_i128_at_most": {"index": 0, "bound": "7"}},
+                {"arg_in": {"index": 1, "values": []}}
+              ],
+              "signers": [],
+              "threshold": 0,
+              "cap": null,
+              "valid_until": 4,
+              "generation": null
+            }
+          ],
+          "allows": [false, false, false, false, false],
+          "allows_all": false
+        }
+      }
+    },
+    {
+      "steps": [{"lower_valid_until": {"index": 2147483648, "valid_until": 6}}],
+      "expected": {"error": "no_such_rule"}
     }
   ]
 }

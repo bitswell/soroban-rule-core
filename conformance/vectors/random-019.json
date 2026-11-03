@@ -1,57 +1,40 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "random-019",
   "description": "Randomized case 19 of seed 20261102.",
   "rules": [],
   "batch": [
+    {"call": {"contract": "6331", "function": "66", "args": []}},
+    {"call": {"contract": "63", "function": "66", "args": [{"address": "62"}]}},
     {
       "call": {
-        "contract": "6331",
-        "function": "66",
-        "args": [{"bytes": "00ff"}, {"i128": "1"}, {"i128": "1"}]
-      }
-    },
-    {"call": {"contract": "633130", "function": "67", "args": []}},
-    {
-      "call": {
-        "contract": "6332",
-        "function": "66",
-        "args": [{"symbol": "616263"}, {"i128": "170141183460469231731687303715884105727"}]
-      }
-    },
-    {
-      "call": {
-        "contract": "",
+        "contract": "633130",
         "function": "666f6f",
-        "args": [{"u64": "0"}, {"other": "61"}, {"address": "6162"}]
+        "args": [{"address": "61"}, {"other": "6162"}, {"bool": false}, {"address": "61"}]
       }
     },
-    {"call": {"contract": "6332", "function": "67", "args": []}}
+    {"call": {"contract": "6332", "function": "67", "args": []}},
+    {"call": {"contract": "63", "function": "666f", "args": []}}
   ],
-  "authenticated": [{"delegated": {"address": "6162"}}],
+  "authenticated": [{"external": {"verifier": "61", "key": ""}}, {"delegated": {"address": "61"}}],
   "expected": {"allows": [false, false, false, false, false], "allows_all": false},
   "attenuations": [
     {
+      "steps": [{"lengthen_cap_period": {"index": 0, "period": 0}}],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
       "steps": [
-        {"remove_functions": {"index": 0, "functions": ["666f"]}},
-        {"add_cap": {"index": 0, "cap": {"limit": "10", "period": 0, "amount_arg": 2}}}
+        {"remove_functions": {"index": 0, "functions": ["666f6f", "66"]}},
+        {"lower_cap_limit": {"index": 0, "limit": "11"}}
       ],
       "expected": {"error": "no_such_rule"}
     },
     {
       "steps": [
-        {
-          "remove_signers": {
-            "index": 0,
-            "signers": [{"delegated": {"address": "61"}}, {"delegated": {"address": "61"}}]
-          }
-        },
-        {"lengthen_cap_period": {"index": 0, "period": 0}}
+        {"add_cap": {"index": 4294967295, "cap": {"limit": "5", "period": 2, "amount_arg": 0}}},
+        {"remove_signers": {"index": 0, "signers": []}}
       ],
-      "expected": {"error": "no_such_rule"}
-    },
-    {
-      "steps": [{"remove_functions": {"index": 0, "functions": []}}],
       "expected": {"error": "no_such_rule"}
     }
   ]

@@ -51,7 +51,7 @@ non-empty. -/
 instance : Inhabited Val := ⟨.bool false⟩
 instance : Inhabited Cond := ⟨.argEq 0 (.bool false)⟩
 instance : Inhabited Rule :=
-  ⟨{ contract := [], functions := [], conds := [], signers := [], threshold := 0 }⟩
+  ⟨{ contract := [], functions := .only [], conds := [], signers := [], threshold := 0 }⟩
 instance : Inhabited Cap := ⟨⟨0, 0, 0⟩⟩
 instance : Inhabited Signer := ⟨.delegated []⟩
 
@@ -79,19 +79,23 @@ def signers : List Signer := [
   .external (s "a") [], .delegated (s "ab")]
 
 def val : Gen Val := do
-  match ← below 7 with
+  match ← below 8 with
   | 0 => return .i128 (← pick i128s)
   | 1 => return .u64 (← pick u64s)
   | 2 => return .bool ((← below 2) = 1)
   | 3 => return .bytes (← pick payloads)
   | 4 => return .address (← pick payloads)
   | 5 => return .symbol (← pick payloads)
+  | 6 => return .string (← pick payloads)
   | _ => return .other (← pick payloads)
 
 def cond : Gen Cond := do
   let i ← pick argIndices
-  if (← below 2) = 0 then return .argEq i (← val)
-  else return .argI128AtMost i (← pick i128s)
+  match ← below 4 with
+  | 0 => return .argEq i (← val)
+  | 1 => return .argI128AtMost i (← pick i128s)
+  | 2 => return .argIn i (← listOf (← below 4) val)
+  | _ => return .argStrPrefix i (← pick payloads)
 
 /-- A threshold for a rule listing `n` signers: half the time 0, otherwise
 anything from 0 to one more than `n`. -/
@@ -108,14 +112,26 @@ def capArgs : List UInt32 := [0, 1, 2, 2, 2, 3, u32Max]
 def cap : Gen Cap := do
   return ⟨BitVec.ofInt 128 (← pick capLimits), ← pick capPeriods, ← pick capArgs⟩
 
+/-- Last ledgers and generations, with the extremes. -/
+def lastLedgers : List UInt32 := [0, 1, 4, 9, u32Max]
+def generations : List UInt64 := [0, 1, 2, u64Max]
+
+/-- A rule's functions: a list four times in five, otherwise a wildcard
+excluding up to two functions. -/
+def functionSet : Gen Functions := do
+  if (← below 5) = 0 then return .anyExcept (← listOf (← below 3) (pick functions))
+  return .only (← listOf (← pick [0, 1, 1, 1, 2, 2, 3, 3]) (pick functions))
+
 def rule : Gen Rule := do
   let contract ← pick contracts
-  let functions ← listOf (← pick [0, 1, 1, 1, 2, 2, 3, 3]) (pick functions)
+  let functions ← functionSet
   let conds ← listOf (← below 3) cond
   let ss ← listOf (← pick [0, 0, 1, 1, 2, 3]) (pick signers)
   let threshold ← threshold ss.length
   let cap ← if (← below 3) = 0 then some <$> cap else pure none
-  return { contract, functions, conds, signers := ss, threshold, cap }
+  let validUntil ← if (← below 4) = 0 then some <$> pick lastLedgers else pure none
+  let generation ← if (← below 4) = 0 then some <$> pick generations else pure none
+  return { contract, functions, conds, signers := ss, threshold, cap, validUntil, generation }
 
 def ruleSet : Gen RuleSet := do
   listOf (← pick [0, 1, 2, 2, 3, 4]) rule
@@ -123,12 +139,23 @@ def ruleSet : Gen RuleSet := do
 def condIndex : Cond → UInt32
   | .argEq i _ => i
   | .argI128AtMost i _ => i
+  | .argIn i _ => i
+  | .argStrPrefix i _ => i
 
-/-- A value that satisfies `c` when it is `c`'s argument. -/
+/-- A value that satisfies `c` when it is `c`'s argument, when there is one. -/
 def satisfying : Cond → Gen Val
   | .argEq _ v => pure v
   | .argI128AtMost _ n => do
     pick (.i128 n :: (i128s.filter (·.toInt ≤ n.toInt)).map .i128)
+  | .argIn _ vs => if vs.isEmpty then val else pick vs
+  | .argStrPrefix _ pre => do return .string (pre ++ (← pick payloads))
+
+/-- The functions a rule names: the listed ones, or the ones its wildcard
+excludes. -/
+def named (r : Rule) : List Bytes :=
+  match r.functions with
+  | .only l => l
+  | .anyExcept l => l
 
 /-- Argument `j` of a call built from `r`: seven times in eight, a value
 satisfying one of `r`'s conditions on argument `j`, if there is one. -/
@@ -141,7 +168,10 @@ def argAt (r : Rule) (j : Nat) : Gen Val := do
 enough arguments for its conditions on the first few indices. -/
 def callFrom (r : Rule) : Gen Context := do
   let contract ← if (← below 8) = 0 then pick contracts else pure r.contract
-  let fs := if r.functions.isEmpty then functions else r.functions
+  let fs := match r.functions with
+    | .only [] => functions
+    | .only l => l
+    | .anyExcept _ => functions
   let function ← if (← below 8) = 0 then pick functions else pick fs
   let needed := (r.conds.map fun c => (condIndex c).toNat + 1).filter (· ≤ 4) |>.foldl max 0
   let len ← if (← below 4) = 0 then below 5 else pure needed
@@ -176,12 +206,18 @@ def authenticated (rs : RuleSet) : Gen (List Signer) := do
 def step (rs : RuleSet) : Gen Attenuation := do
   let i ← ruleIndex rs
   let current := (rs[i.toNat]?.bind (·.cap))
-  match ← below 8 with
+  match ← below 10 with
   | 0 => return .dropRule i
   | 1 => return .addCond i (← cond)
   | 2 =>
-    let names := functions ++ rs.flatMap (·.functions)
+    let names := functions ++ rs.flatMap named
     return .removeFunctions i (← listOf (← below 3) (pick names))
+  | 8 =>
+    let names := functions ++ rs.flatMap named
+    return .restrictFunctions i (← listOf (← below 3) (pick names))
+  | 9 =>
+    let last := (rs[i.toNat]?.bind (·.validUntil) |>.map (·.toNat)).getD 5
+    return .lowerValidUntil i (UInt32.ofNat (← pick [last, last + 1, last - 1, 0]))
   | 3 =>
     let pool := signers ++ rs.flatMap (·.signers)
     return .removeSigners i (← listOf (← below 3) (pick pool))

@@ -1,15 +1,17 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "authorize-cap-overflow",
   "description": "A charge whose new total does not fit in an i128 is refused with cap_overflow.",
   "rules": [
     {
       "contract": "746f6b656e",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [],
       "signers": [],
       "threshold": 0,
-      "cap": {"limit": "170141183460469231731687303715884105727", "period": 10, "amount_arg": 2}
+      "cap": {"limit": "170141183460469231731687303715884105727", "period": 10, "amount_arg": 2},
+      "valid_until": null,
+      "generation": null
     }
   ],
   "start": [
@@ -32,6 +34,7 @@
       "choices": [0],
       "authenticated": [],
       "now": 2,
+      "generation": "0",
       "expected": {"error": "cap_overflow"}
     },
     {
@@ -47,6 +50,7 @@
       "choices": [0],
       "authenticated": [],
       "now": 2,
+      "generation": "0",
       "expected": {
         "ok": [
           {

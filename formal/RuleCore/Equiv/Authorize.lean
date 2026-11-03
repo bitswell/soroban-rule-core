@@ -13,8 +13,8 @@ specification like them:
 * a Rust `Result` of `authorize` is the `Except` with the denoted records, and
   one of the first pass (`check_choices`) the `Except` with the unit value;
 * the arguments of `authorize` (the contexts, the choices, the authenticated
-  signers and the ledger) are the chain vocabulary's authorization of their
-  denotations (`denoteAuthorization`).
+  signers, the ledger and the generation) are the chain vocabulary's
+  authorization of their denotations (`denoteAuthorization`).
 
 Each theorem says that an extracted function returns `ok` on every input, so it
 neither fails nor diverges, and that the value it returns is the model's on the
@@ -22,8 +22,12 @@ denoted inputs:
 
 * `spend_amount_eq`: `spend_amount limits ctx` is the amount the denoted cap
   reads from the denoted context;
+* `expired_eq`, `stale_eq`: `expired r now` and `stale r generation` are
+  `Rule.expired` and `Rule.stale` of the denoted rule;
 * `check_choices_loop_eq`: the first pass, from position `i`, is the model's
   `forM` of `checkChoice` over the contexts and choices from `i` on;
+* `signer_chosen_eq`, `signers_chosen_eq`: the second pass is the model's
+  `signerChosen` of each authenticated signer;
 * `records_copy_eq`: the copy of the records returns the same records;
 * `charge_all_loop_eq`: the second pass, from position `i`, is the model's
   `foldlM` of `charge` over the contexts and choices from `i` on;
@@ -45,7 +49,10 @@ def denoteRefusal : rule_eval.authorize.Refusal → Refusal
   | .ChoicesMismatch => .choicesMismatch
   | .RecordsMismatch => .recordsMismatch
   | .NoSuchRule => .noSuchRule
+  | .Expired => .expired
+  | .StaleGeneration => .staleGeneration
   | .NotAllowed => .notAllowed
+  | .UnauthorizedSigner => .unauthorizedSigner
   | .NoAmount => .noAmount
   | .Cap e => .cap (denoteCapError e)
 
@@ -63,9 +70,10 @@ def denoteChecked : core.result.Result Unit rule_eval.authorize.Refusal → Exce
 
 /-- The arguments of `authorize`, as the chain vocabulary's authorization. -/
 def denoteAuthorization (contexts : Slice rule_eval.context.Context) (choices : Slice Std.U32)
-    (authenticated : Slice rule_eval.signer.Signer) (now : Std.U32) : Chain.Authorization :=
+    (authenticated : Slice rule_eval.signer.Signer) (now : Std.U32) (generation : Std.U64) :
+    Chain.Authorization :=
   ⟨contexts.val.map denoteContext, choices.val.map denoteU32, denoteSigners authenticated.val,
-    denoteU32 now⟩
+    denoteU32 now, denoteU64 generation⟩
 
 /-! ## Injectivity -/
 
@@ -105,8 +113,9 @@ def chosenOf (contexts : Slice rule_eval.context.Context) (choices : Slice Std.U
   (contexts.val.map denoteContext).zip (choices.val.map (·.val))
 
 theorem chosen_denoteAuthorization (contexts : Slice rule_eval.context.Context)
-    (choices : Slice Std.U32) (authenticated : Slice rule_eval.signer.Signer) (now : Std.U32) :
-    (denoteAuthorization contexts choices authenticated now).denote.chosen =
+    (choices : Slice Std.U32) (authenticated : Slice rule_eval.signer.Signer) (now : Std.U32)
+    (generation : Std.U64) :
+    (denoteAuthorization contexts choices authenticated now generation).denote.chosen =
       chosenOf contexts choices := by
   simp [Authorization.chosen, Chain.Authorization.denote, denoteAuthorization, chosenOf,
     List.map_map, Function.comp_def]
@@ -159,14 +168,36 @@ theorem spend_amount_eq (limits : rule_eval.rule.Cap) (ctx : rule_eval.context.C
 
 /-! ## The first pass -/
 
+@[simp] theorem denoteU64_toNat (x : Std.U64) : (denoteU64 x).toNat = x.val := rfl
+
+theorem expired_eq (r : rule_eval.rule.Rule) (now : Std.U32) :
+    rule_eval.authorize.expired r now = ok ((denoteRule r).denote.expired now.val) := by
+  cases h : r.valid_until <;>
+    simp [rule_eval.authorize.expired, Chain.Rule.denote, denoteRule, RuleCore.Rule.expired, h]
+
+theorem stale_eq (r : rule_eval.rule.Rule) (generation : Std.U64) :
+    rule_eval.authorize.stale r generation = ok ((denoteRule r).denote.stale generation.val) := by
+  cases h : r.generation with
+  | none => simp [rule_eval.authorize.stale, Chain.Rule.denote, denoteRule, RuleCore.Rule.stale, h]
+  | some g =>
+    simp only [rule_eval.authorize.stale, h, Chain.Rule.denote, denoteRule, RuleCore.Rule.stale,
+      Option.map_some, denoteU64_toNat]
+    by_cases he : g = generation
+    · subst he
+      simp
+    · have hv : g.val ≠ generation.val := fun hv => he (UScalar.eq_of_val_eq hv)
+      simp [he, hv]
+
 theorem check_choices_loop_eq (rules : Slice rule_eval.rule.Rule)
     (contexts : Slice rule_eval.context.Context) (choices : Slice Std.U32)
-    (authenticated : Slice rule_eval.signer.Signer) (hlen : choices.length = contexts.length)
-    (i : Usize) (hi : i.val ≤ contexts.length) :
-    ∃ res, rule_eval.authorize.check_choices_loop rules contexts choices authenticated i = ok res ∧
+    (authenticated : Slice rule_eval.signer.Signer) (now : Std.U32) (generation : Std.U64)
+    (hlen : choices.length = contexts.length) (i : Usize) (hi : i.val ≤ contexts.length) :
+    ∃ res, rule_eval.authorize.check_choices_loop rules contexts choices authenticated now
+        generation i = ok res ∧
       denoteChecked res =
         ((chosenOf contexts choices).drop i.val).forM
-          ((denoteRules rules.val).denote.checkChoice (denoteSigners authenticated.val)) := by
+          ((denoteRules rules.val).denote.checkChoice (denoteSigners authenticated.val) now.val
+            generation.val) := by
   unfold rule_eval.authorize.check_choices_loop
   rw [loop]
   by_cases hlt : i.val < contexts.length
@@ -178,41 +209,126 @@ theorem check_choices_loop_eq (rules : Slice rule_eval.rule.Rule)
     | none =>
       refine ⟨.Err .NoSuchRule, ?_, ?_⟩
       · simp [rule_eval.authorize.check_choices_loop.body, hlt, slice_get_eq, hget, lift, hr]
-      · simp [denoteChecked, denoteRefusal, List.forM, RuleSet.checkChoice, denoteRules, List.getElem?_map,
-          hr]
+      · simp [denoteChecked, denoteRefusal, List.forM, RuleSet.checkChoice, denoteRules,
+          List.getElem?_map, hr]
     | some r =>
-      cases ha : (denoteRule r).allows (denoteContext contexts.val[i.val])
-          (denoteSigners authenticated.val) with
-      | false =>
-        refine ⟨.Err .NotAllowed, ?_, ?_⟩
-        · simp [rule_eval.authorize.check_choices_loop.body, hlt, slice_get_eq, hget, lift, hr,
-            index_usize_eq _ _ hlt, rule_allows_eq, ha]
-        · have ha' : (denoteRule r).denote.allows (denoteContext contexts.val[i.val])
-              (denoteSigners authenticated.val) = false := ha
-          simp [denoteChecked, denoteRefusal, List.forM, RuleSet.checkChoice,
-            denoteRules, List.getElem?_map, hr, ha']
+      cases hexp : (denoteRule r).denote.expired now.val with
       | true =>
-        obtain ⟨j, hj, hj'⟩ := incr_eq contexts i hlt
-        obtain ⟨res, hres, hden⟩ :=
-          check_choices_loop_eq rules contexts choices authenticated hlen j (by omega)
-        unfold rule_eval.authorize.check_choices_loop at hres
-        refine ⟨res, ?_, ?_⟩
-        · have hb : rule_eval.authorize.check_choices_loop.body rules contexts choices
-              authenticated i = ok (cont j) := by
-            simp [rule_eval.authorize.check_choices_loop.body, hlt, slice_get_eq, hget, lift, hr,
-              index_usize_eq _ _ hlt, rule_allows_eq, ha, hj]
-          rw [hb, bind_ok]
-          exact hres
-        · have ha' : (denoteRule r).denote.allows (denoteContext contexts.val[i.val])
-              (denoteSigners authenticated.val) = true := ha
-          rw [hden, hj']
-          simp [List.forM, RuleSet.checkChoice, denoteRules, List.getElem?_map, hr, ha']
+        refine ⟨.Err .Expired, ?_, ?_⟩
+        · simp [rule_eval.authorize.check_choices_loop.body, hlt, slice_get_eq, hget, lift, hr,
+            expired_eq, hexp]
+        · simp [denoteChecked, denoteRefusal, List.forM, RuleSet.checkChoice, denoteRules,
+            List.getElem?_map, hr, hexp]
+      | false =>
+        cases hst : (denoteRule r).denote.stale generation.val with
+        | true =>
+          refine ⟨.Err .StaleGeneration, ?_, ?_⟩
+          · simp [rule_eval.authorize.check_choices_loop.body, hlt, slice_get_eq, hget, lift, hr,
+              expired_eq, hexp, stale_eq, hst]
+          · simp [denoteChecked, denoteRefusal, List.forM, RuleSet.checkChoice, denoteRules,
+              List.getElem?_map, hr, hexp, hst]
+        | false =>
+          cases ha : (denoteRule r).allows (denoteContext contexts.val[i.val])
+              (denoteSigners authenticated.val) with
+          | false =>
+            refine ⟨.Err .NotAllowed, ?_, ?_⟩
+            · simp [rule_eval.authorize.check_choices_loop.body, hlt, slice_get_eq, hget, lift,
+                hr, expired_eq, hexp, stale_eq, hst, index_usize_eq _ _ hlt, rule_allows_eq, ha]
+            · have ha' : (denoteRule r).denote.allows (denoteContext contexts.val[i.val])
+                  (denoteSigners authenticated.val) = false := ha
+              simp [denoteChecked, denoteRefusal, List.forM, RuleSet.checkChoice,
+                denoteRules, List.getElem?_map, hr, hexp, hst, ha']
+          | true =>
+            obtain ⟨j, hj, hj'⟩ := incr_eq contexts i hlt
+            obtain ⟨res, hres, hden⟩ := check_choices_loop_eq rules contexts choices
+              authenticated now generation hlen j (by omega)
+            unfold rule_eval.authorize.check_choices_loop at hres
+            refine ⟨res, ?_, ?_⟩
+            · have hb : rule_eval.authorize.check_choices_loop.body rules contexts choices
+                  authenticated now generation i = ok (cont j) := by
+                simp [rule_eval.authorize.check_choices_loop.body, hlt, slice_get_eq, hget, lift,
+                  hr, expired_eq, hexp, stale_eq, hst, index_usize_eq _ _ hlt, rule_allows_eq,
+                  ha, hj]
+              rw [hb, bind_ok]
+              exact hres
+            · have ha' : (denoteRule r).denote.allows (denoteContext contexts.val[i.val])
+                  (denoteSigners authenticated.val) = true := ha
+              rw [hden, hj']
+              simp [List.forM, RuleSet.checkChoice, denoteRules, List.getElem?_map, hr, hexp, hst,
+                ha']
   · refine ⟨.Ok (), ?_, ?_⟩
     · simp [rule_eval.authorize.check_choices_loop.body, hlt]
     · rw [chosenOf_drop_nil (by omega)]
       rfl
 termination_by contexts.length - i.val
 decreasing_by omega
+
+/-! ## The second pass -/
+
+/-- What `signer_chosen` reads for one choice: whether `s` is a signer of the
+rule the choice names, if there is one. -/
+def signerOfChoice (rules : Slice rule_eval.rule.Rule) (s : rule_eval.signer.Signer)
+    (k : Std.U32) : Bool :=
+  match rules.val[k.val]? with
+  | some r => decide (denoteSigner s ∈ denoteSigners r.signers.val)
+  | none => false
+
+theorem signer_chosen_eq (s : rule_eval.signer.Signer) (rules : Slice rule_eval.rule.Rule)
+    (choices : Slice Std.U32) :
+    rule_eval.authorize.signer_chosen s rules choices =
+      ok ((denoteRules rules.val).denote.signerChosen (choices.val.map (·.val))
+        (denoteSigner s)) := by
+  unfold rule_eval.authorize.signer_chosen rule_eval.authorize.signer_chosen_loop
+  rw [loop_any choices.val (signerOfChoice rules s)]
+  · have h0 : (0#usize).val = 0 := by simp
+    rw [h0, List.drop_zero]
+    congr 1
+    simp only [RuleSet.signerChosen, List.any_map, Function.comp_def]
+    congr 1
+    funext k
+    simp only [signerOfChoice, denoteRules_rules_get]
+    cases rules.val[k.val]? <;> rfl
+  · intro i hi
+    obtain ⟨j, hj, hj'⟩ := incr_eq choices i hi
+    refine ⟨j, hj', ?_⟩
+    cases hr : rules.val[choices.val[i.val].val]? with
+    | none =>
+      simp [rule_eval.authorize.signer_chosen_loop.body, hi, index_usize_eq _ _ hi, lift,
+        slice_get_eq, hr, signerOfChoice, hj]
+    | some r =>
+      cases hs : decide (denoteSigner s ∈ denoteSigners r.signers.val) with
+      | false =>
+        have hs' : denoteSigner s ∉ denoteSigners r.signers.val := by simpa using hs
+        simp [rule_eval.authorize.signer_chosen_loop.body, hi, index_usize_eq _ _ hi, lift,
+          slice_get_eq, hr, signerOfChoice, signer_in_eq, hs', hj]
+      | true =>
+        have hs' : denoteSigner s ∈ denoteSigners r.signers.val := by simpa using hs
+        simp [rule_eval.authorize.signer_chosen_loop.body, hi, index_usize_eq _ _ hi, lift,
+          slice_get_eq, hr, signerOfChoice, signer_in_eq, hs']
+  · intro i hi
+    have : ¬ i.val < choices.length := by simp only [Slice.length]; omega
+    simp [rule_eval.authorize.signer_chosen_loop.body, this]
+
+theorem signers_chosen_eq (authenticated : Slice rule_eval.signer.Signer)
+    (rules : Slice rule_eval.rule.Rule) (choices : Slice Std.U32) :
+    rule_eval.authorize.signers_chosen authenticated rules choices =
+      ok ((denoteSigners authenticated.val).all
+        ((denoteRules rules.val).denote.signerChosen (choices.val.map (·.val)))) := by
+  unfold rule_eval.authorize.signers_chosen rule_eval.authorize.signers_chosen_loop
+  rw [loop_all authenticated.val
+    (fun a => (denoteRules rules.val).denote.signerChosen (choices.val.map (·.val))
+      (denoteSigner a))]
+  · simp [denoteSigners, List.all_map, Function.comp_def]
+  · intro i hi
+    obtain ⟨j, hj, hj'⟩ := incr_eq authenticated i hi
+    refine ⟨j, hj', ?_⟩
+    simp only [rule_eval.authorize.signers_chosen_loop.body, slice_len_lt, hi, ↓reduceIte,
+      index_usize_eq _ _ hi, signer_chosen_eq, bind_ok, hj]
+    cases (denoteRules rules.val).denote.signerChosen (choices.val.map (·.val))
+      (denoteSigner authenticated.val[i.val]) <;> simp
+  · intro i hi
+    have : ¬ i.val < authenticated.length := by simp only [Slice.length]; omega
+    simp [rule_eval.authorize.signers_chosen_loop.body, this]
 
 /-! ## Copying the records -/
 
@@ -240,7 +356,7 @@ theorem records_copy_eq (s : Slice rule_eval.cap.SpendRecord) :
     0#usize (by simp)
   exact ⟨out, h, by simpa [pushedFrom_map] using hv⟩
 
-/-! ## The second pass -/
+/-! ## The third pass -/
 
 theorem list_set_opt_some {α : Type} :
     ∀ (l : List α) (i : Nat) (x : α), l.set_opt i (some x) = l.set i x
@@ -382,30 +498,35 @@ authorization on the denotations, every refusal included: it never panics and
 never diverges. -/
 theorem authorize_eq (rules : Slice rule_eval.rule.Rule)
     (records : Slice rule_eval.cap.SpendRecord) (contexts : Slice rule_eval.context.Context)
-    (choices : Slice Std.U32) (authenticated : Slice rule_eval.signer.Signer) (now : Std.U32) :
-    ∃ res, rule_eval.authorize.authorize rules records contexts choices authenticated now = ok res ∧
+    (choices : Slice Std.U32) (authenticated : Slice rule_eval.signer.Signer) (now : Std.U32)
+    (generation : Std.U64) :
+    ∃ res, rule_eval.authorize.authorize rules records contexts choices authenticated now
+        generation = ok res ∧
       denoteAuthorized res =
         (denoteRules rules.val).authorize (records.val.map denoteRecord)
-          (denoteAuthorization contexts choices authenticated now) := by
+          (denoteAuthorization contexts choices authenticated now generation) := by
   have hmodel : (denoteRules rules.val).authorize (records.val.map denoteRecord)
-      (denoteAuthorization contexts choices authenticated now) =
+      (denoteAuthorization contexts choices authenticated now generation) =
       if choices.length ≠ contexts.length then .error .choicesMismatch
       else if records.length ≠ rules.length then .error .recordsMismatch
       else
         (chosenOf contexts choices).forM
-            ((denoteRules rules.val).denote.checkChoice (denoteSigners authenticated.val)) >>=
-          fun _ => (chosenOf contexts choices).foldlM ((denoteRules rules.val).denote.charge now.val)
-            (records.val.map denoteRecord) := by
+            ((denoteRules rules.val).denote.checkChoice (denoteSigners authenticated.val) now.val
+              generation.val) >>=
+          fun _ => (denoteRules rules.val).denote.checkSigners (denoteSigners authenticated.val)
+              (choices.val.map (·.val)) >>=
+            fun _ => (chosenOf contexts choices).foldlM
+              ((denoteRules rules.val).denote.charge now.val) (records.val.map denoteRecord) := by
     simp only [Chain.RuleSet.authorize, RuleSet.authorize, chosen_denoteAuthorization]
     simp [Chain.Authorization.denote, denoteAuthorization, Chain.RuleSet.denote, denoteRules,
-      Slice.length]
+      Slice.length, List.map_map, Function.comp_def]
   rw [hmodel]
   unfold rule_eval.authorize.authorize
   simp only [slice_len_bne_any]
   by_cases hc : choices.length = contexts.length
   · by_cases hr : records.length = rules.length
-    · obtain ⟨res₁, h₁, hd₁⟩ :=
-        check_choices_loop_eq rules contexts choices authenticated hc 0#usize (by simp)
+    · obtain ⟨res₁, h₁, hd₁⟩ := check_choices_loop_eq rules contexts choices authenticated now
+        generation hc 0#usize (by simp)
       simp only [hc, hr, decide_true, Bool.not_true, Bool.false_eq_true, ↓reduceIte, ne_eq,
         not_true_eq_false, rule_eval.authorize.check_choices, h₁, bind_ok]
       have h0 : (0#usize).val = 0 := by simp
@@ -419,13 +540,24 @@ theorem authorize_eq (rules : Slice rule_eval.rule.Rule)
       | Ok u =>
         cases u
         simp only [denoteChecked] at hd₁
-        rw [← hd₁, except_ok_bind]
-        obtain ⟨out, hout, hv⟩ := records_copy_eq records
-        obtain ⟨res, h, hd⟩ := charge_all_loop_eq rules contexts choices now hc out 0#usize (by simp)
-        refine ⟨res, ?_, ?_⟩
-        · simp only [rule_eval.authorize.charge_all, hout, bind_ok]
-          exact h
-        · rw [hd, h0, List.drop_zero, hv]
+        rw [← hd₁, except_ok_bind, signers_chosen_eq, bind_ok]
+        cases hall : (denoteSigners authenticated.val).all
+            ((denoteRules rules.val).denote.signerChosen (choices.val.map (·.val))) with
+        | false =>
+          refine ⟨.Err .UnauthorizedSigner, by simp, ?_⟩
+          simp [RuleSet.checkSigners, hall, denoteAuthorized, denoteRefusal]
+        | true =>
+          have hcs : (denoteRules rules.val).denote.checkSigners (denoteSigners authenticated.val)
+              (choices.val.map (·.val)) = .ok () := by
+            simp [RuleSet.checkSigners, hall]
+          rw [hcs, except_ok_bind]
+          obtain ⟨out, hout, hv⟩ := records_copy_eq records
+          obtain ⟨res, h, hd⟩ :=
+            charge_all_loop_eq rules contexts choices now hc out 0#usize (by simp)
+          refine ⟨res, ?_, ?_⟩
+          · simp only [↓reduceIte, rule_eval.authorize.charge_all, hout, bind_ok]
+            exact h
+          · rw [hd, h0, List.drop_zero, hv]
     · simp [hc, hr, denoteAuthorized, denoteRefusal]
   · simp [hc, denoteAuthorized, denoteRefusal]
 

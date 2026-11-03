@@ -1,15 +1,17 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "empty-batch",
   "description": "Every rule set allows the empty batch; a caller collecting batches from an authorization tree never builds one.",
   "rules": [
     {
       "contract": "746f6b656e",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [{"arg_eq": {"index": 0, "value": {"address": "616c696365"}}}],
       "signers": [],
       "threshold": 0,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     }
   ],
   "batch": [],

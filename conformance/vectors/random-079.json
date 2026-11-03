@@ -1,36 +1,56 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "random-079",
   "description": "Randomized case 79 of seed 20261102.",
   "rules": [
     {
       "contract": "",
-      "functions": [],
-      "conds": [
-        {"arg_i128_at_most": {"index": 1, "bound": "1"}},
-        {"arg_eq": {"index": 0, "value": {"u64": "0"}}}
-      ],
-      "signers": [
-        {"external": {"verifier": "76", "key": "6b"}},
-        {"delegated": {"address": "62"}},
-        {"external": {"verifier": "76", "key": "6b32"}}
-      ],
-      "threshold": 3,
-      "cap": null
+      "functions": {"only": ["666f6f", "", "666f6f"]},
+      "conds": [{"arg_in": {"index": 1, "values": [{"symbol": "6162"}, {"symbol": "616263"}]}}],
+      "signers": [{"external": {"verifier": "76", "key": "6b"}}],
+      "threshold": 0,
+      "cap": {"limit": "1", "period": 10, "amount_arg": 2},
+      "valid_until": null,
+      "generation": "18446744073709551615"
     }
   ],
-  "batch": [],
-  "authenticated": [{"delegated": {"address": "62"}}],
-  "expected": {"allows": [], "allows_all": true},
+  "batch": [{"create": {"wasm_hash": "6162"}}],
+  "authenticated": [{"external": {"verifier": "76", "key": "6b"}}],
+  "expected": {"allows": [false], "allows_all": false},
   "attenuations": [
-    {"steps": [{"lengthen_cap_period": {"index": 0, "period": 9}}], "expected": {"error": "no_cap"}},
-    {"steps": [{"lower_cap_limit": {"index": 0, "limit": "9"}}], "expected": {"error": "no_cap"}},
+    {
+      "steps": [{"remove_signers": {"index": 1, "signers": []}}, {"drop_rule": {"index": 0}}],
+      "expected": {"error": "no_such_rule"}
+    },
+    {
+      "steps": [{"lengthen_cap_period": {"index": 2147483648, "period": 9}}],
+      "expected": {"error": "no_such_rule"}
+    },
     {
       "steps": [
-        {"lengthen_cap_period": {"index": 1, "period": 0}},
-        {"remove_functions": {"index": 0, "functions": ["66", ""]}}
+        {"lengthen_cap_period": {"index": 0, "period": 11}},
+        {"remove_functions": {"index": 0, "functions": []}}
       ],
-      "expected": {"error": "no_such_rule"}
+      "expected": {
+        "ok": {
+          "rules": [
+            {
+              "contract": "",
+              "functions": {"only": ["666f6f", "", "666f6f"]},
+              "conds": [
+                {"arg_in": {"index": 1, "values": [{"symbol": "6162"}, {"symbol": "616263"}]}}
+              ],
+              "signers": [{"external": {"verifier": "76", "key": "6b"}}],
+              "threshold": 0,
+              "cap": {"limit": "1", "period": 11, "amount_arg": 2},
+              "valid_until": null,
+              "generation": "18446744073709551615"
+            }
+          ],
+          "allows": [false],
+          "allows_all": false
+        }
+      }
     }
   ]
 }
