@@ -1,0 +1,205 @@
+{
+  "format": 1,
+  "name": "storage-random-015",
+  "description": "Randomized storage trace 15 of seed 20261102.",
+  "contract": {"contract": "0000000000000000000000000000000000000000000000000000000000000020"},
+  "ops": [
+    {
+      "op": "has",
+      "durability": "temporary",
+      "key": {"symbol": "62"},
+      "expected": {"present": false}
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {
+        "address": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"}
+      },
+      "expected": {"value": null}
+    },
+    {
+      "op": "has",
+      "durability": "persistent",
+      "key": {"symbol": "61"},
+      "expected": {"present": false}
+    },
+    {"op": "remove", "durability": "persistent", "key": {"string": "61"}, "expected": "done"},
+    {
+      "op": "set",
+      "durability": "instance",
+      "key": {
+        "address": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"}
+      },
+      "val": {"i128": "-1"},
+      "expected": "done"
+    },
+    {"op": "get", "durability": "instance", "key": {"u32": 1}, "expected": {"value": null}},
+    {"op": "get", "durability": "persistent", "key": {"symbol": "61"}, "expected": {"value": null}},
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {
+        "address": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"}
+      },
+      "expected": {"value": null}
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"string": "61"},
+      "val": {
+        "address": {
+          "muxed_account": {
+            "id": "7",
+            "key": "0101010101010101010101010101010101010101010101010101010101010101"
+          }
+        }
+      },
+      "expected": "done"
+    },
+    {
+      "op": "set",
+      "durability": "instance",
+      "key": {"u32": 1},
+      "val": {"symbol": "76"},
+      "expected": "done"
+    },
+    {
+      "op": "has",
+      "durability": "persistent",
+      "key": {"symbol": "61"},
+      "expected": {"present": false}
+    },
+    {"op": "get", "durability": "temporary", "key": {"symbol": "61"}, "expected": {"value": null}},
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"symbol": "62"},
+      "val": {
+        "address": {
+          "muxed_account": {
+            "id": "7",
+            "key": "0101010101010101010101010101010101010101010101010101010101010101"
+          }
+        }
+      },
+      "expected": "done"
+    },
+    {
+      "op": "has",
+      "durability": "temporary",
+      "key": {
+        "address": {
+          "muxed_account": {
+            "id": "7",
+            "key": "0101010101010101010101010101010101010101010101010101010101010101"
+          }
+        }
+      },
+      "expected": "refused"
+    },
+    {"op": "get", "durability": "temporary", "key": {"u32": 1}, "expected": {"value": null}},
+    {
+      "op": "set",
+      "durability": "instance",
+      "key": {"string": "61"},
+      "val": {
+        "address": {
+          "muxed_account": {
+            "id": "7",
+            "key": "0101010101010101010101010101010101010101010101010101010101010101"
+          }
+        }
+      },
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {
+        "address": {
+          "muxed_account": {
+            "id": "7",
+            "key": "0101010101010101010101010101010101010101010101010101010101010101"
+          }
+        }
+      },
+      "expected": "refused"
+    },
+    {
+      "op": "get",
+      "durability": "temporary",
+      "key": {
+        "address": {
+          "muxed_account": {
+            "id": "7",
+            "key": "0101010101010101010101010101010101010101010101010101010101010101"
+          }
+        }
+      },
+      "expected": "refused"
+    },
+    {"op": "remove", "durability": "persistent", "key": {"symbol": "61"}, "expected": "done"},
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"string": "61"},
+      "expected": {
+        "value": {
+          "address": {
+            "muxed_account": {
+              "id": "7",
+              "key": "0101010101010101010101010101010101010101010101010101010101010101"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"symbol": "61"},
+      "val": {
+        "address": {
+          "muxed_account": {
+            "id": "7",
+            "key": "0101010101010101010101010101010101010101010101010101010101010101"
+          }
+        }
+      },
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "temporary",
+      "key": {
+        "address": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"}
+      },
+      "expected": {"value": null}
+    },
+    {
+      "op": "set",
+      "durability": "instance",
+      "key": {"symbol": "62"},
+      "val": {"symbol": "76"},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"symbol": "61"},
+      "expected": {
+        "value": {
+          "address": {
+            "muxed_account": {
+              "id": "7",
+              "key": "0101010101010101010101010101010101010101010101010101010101010101"
+            }
+          }
+        }
+      }
+    },
+    {"op": "get", "durability": "temporary", "key": {"symbol": "61"}, "expected": {"value": null}}
+  ]
+}

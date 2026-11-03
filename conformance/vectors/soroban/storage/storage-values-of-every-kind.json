@@ -1,0 +1,725 @@
+{
+  "format": 1,
+  "name": "storage-values-of-every-kind",
+  "description": "Values of every kind are stored and read back unchanged.",
+  "contract": {"contract": "0000000000000000000000000000000000000000000000000000000000000012"},
+  "ops": [
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"u32": 0},
+      "val": {"void": null},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "temporary",
+      "key": {"u32": 0},
+      "expected": {"value": {"void": null}}
+    },
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"u32": 1},
+      "val": {"bool": false},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "temporary",
+      "key": {"u32": 1},
+      "expected": {"value": {"bool": false}}
+    },
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"u32": 2},
+      "val": {"bool": true},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "temporary",
+      "key": {"u32": 2},
+      "expected": {"value": {"bool": true}}
+    },
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"u32": 3},
+      "val": {"u32": 0},
+      "expected": "done"
+    },
+    {"op": "get", "durability": "temporary", "key": {"u32": 3}, "expected": {"value": {"u32": 0}}},
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"u32": 4},
+      "val": {"u32": 1},
+      "expected": "done"
+    },
+    {"op": "get", "durability": "temporary", "key": {"u32": 4}, "expected": {"value": {"u32": 1}}},
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"u32": 5},
+      "val": {"u32": 7},
+      "expected": "done"
+    },
+    {"op": "get", "durability": "temporary", "key": {"u32": 5}, "expected": {"value": {"u32": 7}}},
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"u32": 6},
+      "val": {"u32": 4294967295},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "temporary",
+      "key": {"u32": 6},
+      "expected": {"value": {"u32": 4294967295}}
+    },
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"u32": 7},
+      "val": {"u64": "0"},
+      "expected": "done"
+    },
+    {"op": "get", "durability": "temporary", "key": {"u32": 7}, "expected": {"value": {"u64": "0"}}},
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"u32": 8},
+      "val": {"u64": "1"},
+      "expected": "done"
+    },
+    {"op": "get", "durability": "temporary", "key": {"u32": 8}, "expected": {"value": {"u64": "1"}}},
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"u32": 9},
+      "val": {"u64": "18446744073709551615"},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "temporary",
+      "key": {"u32": 9},
+      "expected": {"value": {"u64": "18446744073709551615"}}
+    },
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"u32": 10},
+      "val": {"i128": "0"},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "temporary",
+      "key": {"u32": 10},
+      "expected": {"value": {"i128": "0"}}
+    },
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"u32": 11},
+      "val": {"i128": "1"},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "temporary",
+      "key": {"u32": 11},
+      "expected": {"value": {"i128": "1"}}
+    },
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"u32": 12},
+      "val": {"i128": "-1"},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "temporary",
+      "key": {"u32": 12},
+      "expected": {"value": {"i128": "-1"}}
+    },
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"u32": 13},
+      "val": {"i128": "100"},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "temporary",
+      "key": {"u32": 13},
+      "expected": {"value": {"i128": "100"}}
+    },
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"u32": 14},
+      "val": {"i128": "-100"},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "temporary",
+      "key": {"u32": 14},
+      "expected": {"value": {"i128": "-100"}}
+    },
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"u32": 15},
+      "val": {"i128": "-170141183460469231731687303715884105728"},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "temporary",
+      "key": {"u32": 15},
+      "expected": {"value": {"i128": "-170141183460469231731687303715884105728"}}
+    },
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"u32": 16},
+      "val": {"i128": "170141183460469231731687303715884105727"},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "temporary",
+      "key": {"u32": 16},
+      "expected": {"value": {"i128": "170141183460469231731687303715884105727"}}
+    },
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"u32": 17},
+      "val": {"i128": "18446744073709551616"},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "temporary",
+      "key": {"u32": 17},
+      "expected": {"value": {"i128": "18446744073709551616"}}
+    },
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"u32": 18},
+      "val": {"i128": "-18446744073709551616"},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "temporary",
+      "key": {"u32": 18},
+      "expected": {"value": {"i128": "-18446744073709551616"}}
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 0},
+      "val": {
+        "address": {"account": "0101010101010101010101010101010101010101010101010101010101010101"}
+      },
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"u32": 0},
+      "expected": {
+        "value": {
+          "address": {"account": "0101010101010101010101010101010101010101010101010101010101010101"}
+        }
+      }
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 1},
+      "val": {
+        "address": {"account": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}
+      },
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"u32": 1},
+      "expected": {
+        "value": {
+          "address": {"account": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}
+        }
+      }
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 2},
+      "val": {
+        "address": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"}
+      },
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"u32": 2},
+      "expected": {
+        "value": {
+          "address": {
+            "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+          }
+        }
+      }
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 3},
+      "val": {
+        "address": {"contract": "00000000000000000000000000000000000000000000000000000000000000a1"}
+      },
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"u32": 3},
+      "expected": {
+        "value": {
+          "address": {
+            "contract": "00000000000000000000000000000000000000000000000000000000000000a1"
+          }
+        }
+      }
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 4},
+      "val": {
+        "address": {
+          "muxed_account": {
+            "id": "0",
+            "key": "0101010101010101010101010101010101010101010101010101010101010101"
+          }
+        }
+      },
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"u32": 4},
+      "expected": {
+        "value": {
+          "address": {
+            "muxed_account": {
+              "id": "0",
+              "key": "0101010101010101010101010101010101010101010101010101010101010101"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 5},
+      "val": {
+        "address": {
+          "muxed_account": {
+            "id": "18446744073709551615",
+            "key": "0202020202020202020202020202020202020202020202020202020202020202"
+          }
+        }
+      },
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"u32": 5},
+      "expected": {
+        "value": {
+          "address": {
+            "muxed_account": {
+              "id": "18446744073709551615",
+              "key": "0202020202020202020202020202020202020202020202020202020202020202"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 6},
+      "val": {
+        "vec": [
+          {
+            "address": {
+              "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+            }
+          },
+          {
+            "address": {
+              "muxed_account": {
+                "id": "7",
+                "key": "0101010101010101010101010101010101010101010101010101010101010101"
+              }
+            }
+          }
+        ]
+      },
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"u32": 6},
+      "expected": {
+        "value": {
+          "vec": [
+            {
+              "address": {
+                "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+              }
+            },
+            {
+              "address": {
+                "muxed_account": {
+                  "id": "7",
+                  "key": "0101010101010101010101010101010101010101010101010101010101010101"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 7},
+      "val": {
+        "map": [
+          [
+            {"u32": 1},
+            {
+              "address": {
+                "muxed_account": {
+                  "id": "7",
+                  "key": "0101010101010101010101010101010101010101010101010101010101010101"
+                }
+              }
+            }
+          ]
+        ]
+      },
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"u32": 7},
+      "expected": {
+        "value": {
+          "map": [
+            [
+              {"u32": 1},
+              {
+                "address": {
+                  "muxed_account": {
+                    "id": "7",
+                    "key": "0101010101010101010101010101010101010101010101010101010101010101"
+                  }
+                }
+              }
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 8},
+      "val": {"vec": []},
+      "expected": "done"
+    },
+    {"op": "get", "durability": "persistent", "key": {"u32": 8}, "expected": {"value": {"vec": []}}},
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 9},
+      "val": {"vec": [{"u32": 1}]},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"u32": 9},
+      "expected": {"value": {"vec": [{"u32": 1}]}}
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 10},
+      "val": {"vec": [{"u32": 1}, {"bool": true}, {"symbol": "78"}]},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"u32": 10},
+      "expected": {"value": {"vec": [{"u32": 1}, {"bool": true}, {"symbol": "78"}]}}
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 11},
+      "val": {"vec": [{"vec": []}, {"vec": [{"vec": [{"void": null}]}]}]},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"u32": 11},
+      "expected": {"value": {"vec": [{"vec": []}, {"vec": [{"vec": [{"void": null}]}]}]}}
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 12},
+      "val": {"map": []},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"u32": 12},
+      "expected": {"value": {"map": []}}
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 13},
+      "val": {"map": [[{"u32": 1}, {"u32": 2}]]},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"u32": 13},
+      "expected": {"value": {"map": [[{"u32": 1}, {"u32": 2}]]}}
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 14},
+      "val": {
+        "map": [[{"u32": 1}, {"vec": []}], [{"u32": 2}, {"map": [[{"u32": 3}, {"void": null}]]}]]
+      },
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"u32": 14},
+      "expected": {
+        "value": {
+          "map": [[{"u32": 1}, {"vec": []}], [{"u32": 2}, {"map": [[{"u32": 3}, {"void": null}]]}]]
+        }
+      }
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 15},
+      "val": {
+        "vec": [
+          {"i128": "-1"},
+          {
+            "address": {
+              "contract": "0000000000000000000000000000000000000000000000000000000000000002"
+            }
+          },
+          {"string": "73"},
+          {"bytes": "09"}
+        ]
+      },
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"u32": 15},
+      "expected": {
+        "value": {
+          "vec": [
+            {"i128": "-1"},
+            {
+              "address": {
+                "contract": "0000000000000000000000000000000000000000000000000000000000000002"
+              }
+            },
+            {"string": "73"},
+            {"bytes": "09"}
+          ]
+        }
+      }
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 16},
+      "val": {"other": "0000000400000007"},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"u32": 16},
+      "expected": {"value": {"other": "0000000400000007"}}
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 17},
+      "val": {"other": "00000004ffffffff"},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"u32": 17},
+      "expected": {"value": {"other": "00000004ffffffff"}}
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 18},
+      "val": {"other": "000000060000000000000007"},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"u32": 18},
+      "expected": {"value": {"other": "000000060000000000000007"}}
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 19},
+      "val": {"other": "00000007000000006553f100"},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"u32": 19},
+      "expected": {"value": {"other": "00000007000000006553f100"}}
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 20},
+      "val": {"other": "00000008000000000000003c"},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"u32": 20},
+      "expected": {"value": {"other": "00000008000000000000003c"}}
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 21},
+      "val": {"other": "0000000900000000000000000000000000000005"},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"u32": 21},
+      "expected": {"value": {"other": "0000000900000000000000000000000000000005"}}
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 22},
+      "val": {"other": "0000000b0000000000000000000000000000000000000000000000000000000000000005"},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"u32": 22},
+      "expected": {
+        "value": {
+          "other": "0000000b0000000000000000000000000000000000000000000000000000000000000005"
+        }
+      }
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 23},
+      "val": {"other": "0000000c0000000000000000000000000000000000000000000000000000000000000005"},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"u32": 23},
+      "expected": {
+        "value": {
+          "other": "0000000c0000000000000000000000000000000000000000000000000000000000000005"
+        }
+      }
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 24},
+      "val": {"other": "000000020000000000000003"},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"u32": 24},
+      "expected": {"value": {"other": "000000020000000000000003"}}
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 25},
+      "val": {"vec": [{"other": "000000060000000000000001"}, {"u32": 1}]},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"u32": 25},
+      "expected": {"value": {"vec": [{"other": "000000060000000000000001"}, {"u32": 1}]}}
+    }
+  ]
+}

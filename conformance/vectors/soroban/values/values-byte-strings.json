@@ -1,0 +1,127 @@
+{
+  "format": 1,
+  "name": "values-byte-strings",
+  "description": "Bytes, strings and symbols of every padding length; a string and a symbol with the same bytes are different values.",
+  "values": [
+    {
+      "value": {"bytes": ""},
+      "xdr": "0000000d00000000",
+      "rule_eval": {"bytes": ""},
+      "storable": true
+    },
+    {
+      "value": {"bytes": "00"},
+      "xdr": "0000000d0000000100000000",
+      "rule_eval": {"bytes": "00"},
+      "storable": true
+    },
+    {
+      "value": {"bytes": "0102"},
+      "xdr": "0000000d0000000201020000",
+      "rule_eval": {"bytes": "0102"},
+      "storable": true
+    },
+    {
+      "value": {"bytes": "010203"},
+      "xdr": "0000000d0000000301020300",
+      "rule_eval": {"bytes": "010203"},
+      "storable": true
+    },
+    {
+      "value": {"bytes": "01020304"},
+      "xdr": "0000000d0000000401020304",
+      "rule_eval": {"bytes": "01020304"},
+      "storable": true
+    },
+    {
+      "value": {"bytes": "ff"},
+      "xdr": "0000000d00000001ff000000",
+      "rule_eval": {"bytes": "ff"},
+      "storable": true
+    },
+    {
+      "value": {"bytes": "0000000000000000000000000000000000000000000000000000000000000007"},
+      "xdr": "0000000d000000200000000000000000000000000000000000000000000000000000000000000007",
+      "rule_eval": {"bytes": "0000000000000000000000000000000000000000000000000000000000000007"},
+      "storable": true
+    },
+    {
+      "value": {"string": ""},
+      "xdr": "0000000e00000000",
+      "rule_eval": {"string": ""},
+      "storable": true
+    },
+    {
+      "value": {"string": "61"},
+      "xdr": "0000000e0000000161000000",
+      "rule_eval": {"string": "61"},
+      "storable": true
+    },
+    {
+      "value": {"string": "6162"},
+      "xdr": "0000000e0000000261620000",
+      "rule_eval": {"string": "6162"},
+      "storable": true
+    },
+    {
+      "value": {"string": "616263"},
+      "xdr": "0000000e0000000361626300",
+      "rule_eval": {"string": "616263"},
+      "storable": true
+    },
+    {
+      "value": {"string": "61626364"},
+      "xdr": "0000000e0000000461626364",
+      "rule_eval": {"string": "61626364"},
+      "storable": true
+    },
+    {
+      "value": {"string": "7472616e73666572"},
+      "xdr": "0000000e000000087472616e73666572",
+      "rule_eval": {"string": "7472616e73666572"},
+      "storable": true
+    },
+    {
+      "value": {"symbol": "61"},
+      "xdr": "0000000f0000000161000000",
+      "rule_eval": {"symbol": "61"},
+      "storable": true
+    },
+    {
+      "value": {"symbol": "6162"},
+      "xdr": "0000000f0000000261620000",
+      "rule_eval": {"symbol": "6162"},
+      "storable": true
+    },
+    {
+      "value": {"symbol": "616263"},
+      "xdr": "0000000f0000000361626300",
+      "rule_eval": {"symbol": "616263"},
+      "storable": true
+    },
+    {
+      "value": {"symbol": "61626364"},
+      "xdr": "0000000f0000000461626364",
+      "rule_eval": {"symbol": "61626364"},
+      "storable": true
+    },
+    {
+      "value": {"symbol": "7472616e73666572"},
+      "xdr": "0000000f000000087472616e73666572",
+      "rule_eval": {"symbol": "7472616e73666572"},
+      "storable": true
+    },
+    {
+      "value": {"symbol": "6170706c795f646f63"},
+      "xdr": "0000000f000000096170706c795f646f63000000",
+      "rule_eval": {"symbol": "6170706c795f646f63"},
+      "storable": true
+    },
+    {
+      "value": {"symbol": "615f73796d626f6c5f6f665f7468697274795f74776f5f6c6574746572735f78"},
+      "xdr": "0000000f00000020615f73796d626f6c5f6f665f7468697274795f74776f5f6c6574746572735f78",
+      "rule_eval": {"symbol": "615f73796d626f6c5f6f665f7468697274795f74776f5f6c6574746572735f78"},
+      "storable": true
+    }
+  ]
+}

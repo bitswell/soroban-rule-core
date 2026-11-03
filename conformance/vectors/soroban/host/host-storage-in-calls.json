@@ -1,0 +1,219 @@
+{
+  "format": 1,
+  "name": "host-storage-in-calls",
+  "description": "Reads, presence checks and writes across three durabilities and two contracts.",
+  "contracts": [
+    {"contract": "0000000000000000000000000000000000000000000000000000000000000001"},
+    {"contract": "0000000000000000000000000000000000000000000000000000000000000003"}
+  ],
+  "accounts": [],
+  "txs": [
+    {
+      "ledger": 100,
+      "entries": [],
+      "call": {
+        "contract": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"},
+        "fn_name": "77",
+        "args": [],
+        "body": [
+          {"put": {"durability": "persistent", "key": {"symbol": "61"}, "val": {"u32": 1}}},
+          {"put": {"durability": "temporary", "key": {"symbol": "61"}, "val": {"u32": 2}}},
+          {"put": {"durability": "instance", "key": {"symbol": "61"}, "val": {"u32": 3}}},
+          {
+            "call": {
+              "callee": {
+                "contract": {
+                  "contract": "0000000000000000000000000000000000000000000000000000000000000003"
+                },
+                "fn_name": "77",
+                "args": [],
+                "body": [
+                  {"put": {"durability": "persistent", "key": {"symbol": "61"}, "val": {"u32": 4}}},
+                  {"has": {"durability": "persistent", "key": {"symbol": "61"}}}
+                ]
+              },
+              "catches": false
+            }
+          },
+          {"get": {"durability": "persistent", "key": {"symbol": "61"}}},
+          {"has": {"durability": "temporary", "key": {"symbol": "61"}}},
+          {"remove": {"durability": "temporary", "key": {"symbol": "61"}}},
+          {"has": {"durability": "temporary", "key": {"symbol": "61"}}},
+          {"get": {"durability": "instance", "key": {"symbol": "61"}}}
+        ]
+      },
+      "expected": {
+        "ok": true,
+        "events": [
+          {
+            "found": {
+              "contract": {
+                "contract": "0000000000000000000000000000000000000000000000000000000000000003"
+              },
+              "durability": "persistent",
+              "key": {"symbol": "61"},
+              "present": true
+            }
+          },
+          {
+            "read": {
+              "contract": {
+                "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+              },
+              "durability": "persistent",
+              "key": {"symbol": "61"},
+              "value": {"u32": 1}
+            }
+          },
+          {
+            "found": {
+              "contract": {
+                "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+              },
+              "durability": "temporary",
+              "key": {"symbol": "61"},
+              "present": true
+            }
+          },
+          {
+            "found": {
+              "contract": {
+                "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+              },
+              "durability": "temporary",
+              "key": {"symbol": "61"},
+              "present": false
+            }
+          },
+          {
+            "read": {
+              "contract": {
+                "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+              },
+              "durability": "instance",
+              "key": {"symbol": "61"},
+              "value": {"u32": 3}
+            }
+          }
+        ],
+        "store": [
+          {
+            "contract": {
+              "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+            },
+            "durability": "persistent",
+            "key": {"symbol": "61"},
+            "value": {"u32": 1}
+          },
+          {
+            "contract": {
+              "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+            },
+            "durability": "temporary",
+            "key": {"symbol": "61"},
+            "value": null
+          },
+          {
+            "contract": {
+              "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+            },
+            "durability": "instance",
+            "key": {"symbol": "61"},
+            "value": {"u32": 3}
+          },
+          {
+            "contract": {
+              "contract": "0000000000000000000000000000000000000000000000000000000000000003"
+            },
+            "durability": "persistent",
+            "key": {"symbol": "61"},
+            "value": {"u32": 4}
+          }
+        ]
+      }
+    },
+    {
+      "ledger": 101,
+      "entries": [],
+      "call": {
+        "contract": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"},
+        "fn_name": "72",
+        "args": [],
+        "body": [
+          {"get": {"durability": "persistent", "key": {"symbol": "61"}}},
+          {"get": {"durability": "temporary", "key": {"symbol": "61"}}},
+          {"get": {"durability": "instance", "key": {"symbol": "61"}}}
+        ]
+      },
+      "expected": {
+        "ok": true,
+        "events": [
+          {
+            "read": {
+              "contract": {
+                "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+              },
+              "durability": "persistent",
+              "key": {"symbol": "61"},
+              "value": {"u32": 1}
+            }
+          },
+          {
+            "read": {
+              "contract": {
+                "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+              },
+              "durability": "temporary",
+              "key": {"symbol": "61"},
+              "value": null
+            }
+          },
+          {
+            "read": {
+              "contract": {
+                "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+              },
+              "durability": "instance",
+              "key": {"symbol": "61"},
+              "value": {"u32": 3}
+            }
+          }
+        ],
+        "store": [
+          {
+            "contract": {
+              "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+            },
+            "durability": "persistent",
+            "key": {"symbol": "61"},
+            "value": {"u32": 1}
+          },
+          {
+            "contract": {
+              "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+            },
+            "durability": "temporary",
+            "key": {"symbol": "61"},
+            "value": null
+          },
+          {
+            "contract": {
+              "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+            },
+            "durability": "instance",
+            "key": {"symbol": "61"},
+            "value": {"u32": 3}
+          },
+          {
+            "contract": {
+              "contract": "0000000000000000000000000000000000000000000000000000000000000003"
+            },
+            "durability": "persistent",
+            "key": {"symbol": "61"},
+            "value": {"u32": 4}
+          }
+        ]
+      }
+    }
+  ]
+}

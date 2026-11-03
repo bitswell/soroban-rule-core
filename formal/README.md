@@ -8,9 +8,10 @@ and the theorems relating them. The Lake package is `rule-core`
 | --- | --- |
 | `RuleCore/Model/` | The generic model: rules with their signers, threshold and optional cap, rule sets, `narrower`, and the nine attenuation steps, over any context and signer type. `Cap.lean` models spending caps: the spend record, the check, runs and windows. `Authorize.lean` models `authorize`, its runs, and narrowing as trace inclusion. `Budget.lean` models the budget tree: spends, delegations, refills and their runs. |
 | `RuleCore/Vocab/` | The chain vocabulary (contexts, values, conditions, signers, caps, rules, authorizations) and its denotation into the generic model; Perch's documents, their meaning and validity (`Document.lean`), the lowering and scoped documents (`Lowering.lean`), and the account's generation (`Account.lean`). |
+| `RuleCore/Soroban/` | Lean models of Soroban's behaviour at protocol 27: values and their XDR (`Val.lean`), storage as a map (`Storage.lean`), authorization contexts and what `rule-eval` reads of them (`Context.lean`), signed trees, credentials and the host's matching of `require_auth` (`Auth.lean`), and calls, rollback, `require_auth` and `__check_auth` (`Host.lean`). |
 | `RuleCore/Extracted/` | `RuleEval.lean`, the translation of `crates/rule-eval`, the lowering included, that Charon and Aeneas generate. Never edited by hand. |
 | `RuleCore/Equiv/` | Denotations from the translated types to the chain vocabulary, the cap model (`DenoteCap.lean`), the budget model (`DenoteBudget.lean`) and the document vocabulary (`DenoteDocument.lean`), and theorems that the translated functions compute the model's results (`Cap.lean` for the cap check, `Authorize.lean` for `authorize`, `Budget.lean` for the budget operations, `Lowering.lean` for the lowering). |
-| `RuleCore/Theorems/` | The theorems below, including the model's theorems carried over to the translation (`Extracted.lean`, `ExtractedCap.lean`, `ExtractedAuthorize.lean`, `ExtractedBudget.lean`, `ExtractedLowering.lean`), the cap theorems (`Cap.lean`), the authorization theorems (`Authorize.lean`), the budget theorems (`Budget.lean`), compile soundness (`Lowering.lean`), scoped documents, the generation and the chain (`Scoped.lean`), and kernel-checked examples of concrete verdicts. |
+| `RuleCore/Theorems/` | The theorems below, including the Soroban models' theorems (`Soroban.lean`) and the model's theorems carried over to the translation (`Extracted.lean`, `ExtractedCap.lean`, `ExtractedAuthorize.lean`, `ExtractedBudget.lean`, `ExtractedLowering.lean`), the cap theorems (`Cap.lean`), the authorization theorems (`Authorize.lean`), the budget theorems (`Budget.lean`), compile soundness (`Lowering.lean`), scoped documents, the generation and the chain (`Scoped.lean`), and kernel-checked examples of concrete verdicts. |
 | `RuleCore/Axioms.lean` | The axioms each theorem depends on, pinned under `#guard_msgs`. |
 
 ## Building
@@ -438,6 +439,42 @@ injective. `lower_eq`, `lower_scoped_eq` and `excluded_eq` prove that the
 translated lowering returns `ok` of the model's, under the stated rule
 `LowerRoom`.
 
+## The Soroban models
+
+`RuleCore/Soroban/` models, in namespace `RuleCore.Soroban`, the part of
+Soroban that `crates/soroban-facade` and the contract shells rely on, as
+`soroban-env-host` 27.0.1 behaves. The models are trusted specification
+([`TRUSTED.md`](../TRUSTED.md#the-soroban-models)); `conformance/host` tests
+them against the host.
+
+* `Val.lean`: an `Address` is an account key, a contract id or a muxed
+  account; a `Val` is `void`, `bool`, `u32`, `u64`, `i128`, bytes, a string, a
+  symbol, an address, a vector, a map or `other` of the XDR of any other kind.
+  `Val.xdr` and `Address.xdr` are their `ScVal` and `ScAddress` XDR, and
+  `Val.storable` says a key holds no muxed address.
+* `Storage.lean`: a `Store` maps a `Slot` (a contract, a `Durability` and a
+  key) to a value; `Op.apply` is a contract's `get`, `has`, `set` or `remove`
+  on its own storage, refusing a key that is not storable.
+* `Context.lean`: an `AuthFn` is one context, a call or a creation.
+  `AuthFn.toVal` is the value the host passes it as, `AuthFn.ofVal` and
+  `contextsOfVal` read such values back (nothing for a context SDK 27 does not
+  know), and `Val.toChain` and `AuthFn.toChain` are what `rule-eval` reads: a
+  denotation into the chain vocabulary.
+* `Auth.lean`: an `Entry` is an address's signed `Invocation` tree with a
+  nonce, a last valid ledger, a signature and `Credentials` (`address`,
+  `addressV2` or `withDelegates`); `Entry.preimage` is what its payload
+  hashes and `Invocation.preorder` the contexts `__check_auth` receives. A
+  `Tracker` follows the host's matching of one entry; `Tracker.extend` matches
+  a `require_auth`.
+* `Host.lean`: a `Call` runs `Step`s (storage operations, `requireAuth`, a
+  call caught or not, failure); an account's `__check_auth` runs
+  `AccountStep`s (storage operations, `checkRules` with `rule-eval`'s rules,
+  delegation, failure). `execCall` runs a call and rolls everything but the
+  `Event` log back when it fails; `requireAuth` is the invoker rule, then the
+  first matching tracker, authenticating its entry the first time
+  (`authenticate`: `__check_auth`, then expiry, then the nonce); `Tx.run` runs
+  a transaction from its entries.
+
 ## Theorems
 
 Generic model (`RuleCore`):
@@ -707,12 +744,30 @@ The lowering on the translation (`RuleCore.Extracted`, `Theorems/ExtractedLoweri
 | `lower_scoped_generation`, `lower_generation` | Scoped rules carry their generation; admin rules carry none. |
 | `chain`, `chain_trace` | The containment chain on the translated `excluded`, `lower_scoped`, attenuation steps and `authorize`. |
 
+The Soroban models (`RuleCore.Soroban`, `Theorems/Soroban.lean`):
+
+| Theorem | Statement |
+| --- | --- |
+| `Store.get_set`, `Store.get_set_ne`, `Store.get_remove`, `Store.get_remove_ne`, `Store.has_iff` | Storage is a map: a slot reads what was last written to it, and a write or removal changes no other slot. |
+| `Store.get_set_durability`, `Store.get_set_contract` | The same key under another durability, or in another contract's storage, is another slot. |
+| `Op.apply_eq_none_iff`, `Val.storable_address`, `Val.storable_muxed` | An operation is refused exactly when its key holds a muxed address. |
+| `AuthFn.toChain_contract`, `AuthFn.toChain_create`, `AuthFn.allows_create` | A call reaches `rule-eval` as a call of the contract's `ScAddress` XDR; a creation as a creation, which no rule allows. |
+| `Val.toChain_u32` | A `u32` reaches `rule-eval` as `other (u32Xdr v)`, the reading Perch's lowering compares a `u32` with. |
+| `Val.toChain_eq_i128_iff`, `Val.toChain_eq_u64_iff`, `Val.toChain_eq_bool_iff`, `Val.toChain_eq_bytes_iff`, `Val.toChain_eq_string_iff`, `Val.toChain_eq_symbol_iff`, `Val.toChain_eq_address_iff`, `Val.toChain_eq_address_xdr_iff`, `Address.xdr_injective` | `rule-eval` reads a value as an `i128`, `u64`, `bool`, bytes, a string or a symbol only when it is one, and as an address's XDR only when it is that address. |
+| `AuthFn.ofVal_toVal`, `contextsOfVal_toVal` | The host's encoding of contexts reads back as the same contexts. |
+| `Invocation.preorder_ne_nil`, `Invocation.preorder_head`, `Invocation.at_fn_mem`, `Tracker.extend_spec` | A tree's contexts start with its root's; every node a match reaches is one of them; a match leaves the entry and its authentication as they were. |
+| `Tx.run_checkAuth_contexts`, `authenticate_checkAuth`, `Entry.preimage_address` | Every `__check_auth` call receives its payload's tree in preorder, never an empty batch; a delegate receives the authenticated entry's payload and contexts; the payload binds the address exactly for `ADDRESS_V2` and delegated credentials. |
+| `Tx.run_authorized_allowed`, `requireAuth_spec`, `authenticate_spec`, `runAccount_spec`, `Tx.run_good` | The containment link: every `require_auth` an entry satisfies is for a context every rule set the address's `__check_auth` checks with `rule-eval` allows. |
+| `authenticate_store`, `runAccount_get` | `__check_auth` runs on the world the requiring call left, and reads that store, the call's own instance writes included. |
+| `execCall_fail`, `execStep_call_caught`, `execStep_call_uncaught`, `Tx.run_fail` | A failed call leaves storage and the used nonces as they were; a caught failure lets the caller go on from there, an uncaught one fails it; a failed transaction changes neither. |
+
 The empty batch is allowed by every rule set (`RuleCore.RuleSet.allowsAll_nil`;
 chain `allowsAll` is the generic one on the denotation, and the translated
 `allows_all` is the chain one, by `allows_all_eq`). A
 Soroban authorization tree always has a root context, so a batch collected from
-one is never empty; a caller that builds batches some other way must reject the
-empty batch itself.
+one is never empty (`RuleCore.Soroban.Tx.run_checkAuth_contexts` on the Soroban
+model); a caller that builds batches some other way must reject the empty
+batch itself.
 
 No rule set allows a creation in the chain vocabulary because every chain scope
 is false on a creation. The generic model makes no such claim: a generic scope

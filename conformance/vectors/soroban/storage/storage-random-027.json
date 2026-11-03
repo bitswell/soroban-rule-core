@@ -1,0 +1,40 @@
+{
+  "format": 1,
+  "name": "storage-random-027",
+  "description": "Randomized storage trace 27 of seed 20261102.",
+  "contract": {"contract": "0000000000000000000000000000000000000000000000000000000000000020"},
+  "ops": [
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 1},
+      "val": {"symbol": "76"},
+      "expected": "done"
+    },
+    {"op": "remove", "durability": "temporary", "key": {"string": "61"}, "expected": "done"},
+    {
+      "op": "has",
+      "durability": "temporary",
+      "key": {"string": "61"},
+      "expected": {"present": false}
+    },
+    {"op": "get", "durability": "instance", "key": {"symbol": "62"}, "expected": {"value": null}},
+    {"op": "remove", "durability": "instance", "key": {"symbol": "61"}, "expected": "done"},
+    {"op": "remove", "durability": "temporary", "key": {"u32": 1}, "expected": "done"},
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 1},
+      "val": {
+        "address": {
+          "muxed_account": {
+            "id": "7",
+            "key": "0101010101010101010101010101010101010101010101010101010101010101"
+          }
+        }
+      },
+      "expected": "done"
+    },
+    {"op": "remove", "durability": "temporary", "key": {"symbol": "61"}, "expected": "done"}
+  ]
+}

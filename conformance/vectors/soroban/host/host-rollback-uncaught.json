@@ -1,0 +1,62 @@
+{
+  "format": 1,
+  "name": "host-rollback-uncaught",
+  "description": "The caller does not catch the callee's failure: both writes are gone.",
+  "contracts": [
+    {"contract": "0000000000000000000000000000000000000000000000000000000000000002"},
+    {"contract": "0000000000000000000000000000000000000000000000000000000000000001"}
+  ],
+  "accounts": [],
+  "txs": [
+    {
+      "ledger": 100,
+      "entries": [],
+      "call": {
+        "contract": {"contract": "0000000000000000000000000000000000000000000000000000000000000002"},
+        "fn_name": "6f757465725f6e6f6361746368",
+        "args": [],
+        "body": [
+          {"put": {"durability": "persistent", "key": {"symbol": "6b"}, "val": {"u32": 1}}},
+          {
+            "call": {
+              "callee": {
+                "contract": {
+                  "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+                },
+                "fn_name": "7075745f7468656e5f74726170",
+                "args": [{"u32": 2}],
+                "body": [
+                  {"put": {"durability": "persistent", "key": {"symbol": "6b"}, "val": {"u32": 2}}},
+                  {"fail": "trap"}
+                ]
+              },
+              "catches": false
+            }
+          }
+        ]
+      },
+      "expected": {
+        "ok": false,
+        "events": [],
+        "store": [
+          {
+            "contract": {
+              "contract": "0000000000000000000000000000000000000000000000000000000000000002"
+            },
+            "durability": "persistent",
+            "key": {"symbol": "6b"},
+            "value": null
+          },
+          {
+            "contract": {
+              "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+            },
+            "durability": "persistent",
+            "key": {"symbol": "6b"},
+            "value": null
+          }
+        ]
+      }
+    }
+  ]
+}

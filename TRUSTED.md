@@ -200,6 +200,85 @@ of its readings come from outside the document:
 - a capped rule's spends are charged with the cap model, which mirrors OpenZeppelin's spending-limit policy with the differences `ARCHITECTURE.md` records;
 - the recovery rule's calls are checked by the recovery controller against its own state, which the meaning takes as a parameter `ctl`. The lowering's recovery rule allows every `apply_doc` on the account, which over-approximates every controller check that allows only `apply_doc` calls (`Doc.lower_authorize_of_check`).
 
+## The Soroban models
+
+`formal/RuleCore/Soroban/` models the part of Soroban the contract shells rely
+on: values and their XDR (`Val.lean`), contract storage as a finite map
+(`Storage.lean`), authorization contexts, the form the host passes them in
+and what `rule-eval` reads of them (`Context.lean`), signed authorization
+trees, credentials and the host's matching of `require_auth` (`Auth.lean`),
+and calls, rollback, `require_auth` and `__check_auth` (`Host.lean`). They are
+written from `soroban-env-host` 27.0.1 (`auth.rs`, `host/frame.rs`,
+`host.rs`, `host/conversion.rs` and `builtin_contracts/account_contract.rs`)
+and they are part of the specification, as the denotations are. The theorems
+in `RuleCore.Theorems.Soroban` are about the models; that they describe the
+host rests on the models, and nothing proves the models equal to the host.
+The host harness tests them against the host at the pin
+([the host harness](#the-host-harness)) on every change.
+
+The models leave out, and nothing here tests:
+
+- time to live, archival and automatic restoration of entries, footprints, fees and resources;
+- the checks stellar-core makes on a transaction before the host runs it, such as which protocol admits which credentials and frozen keys (CAP-77);
+- Stellar accounts' ed25519 signatures, source-account credentials, `require_auth` inside `__check_auth`, `require_auth_for_args`, `authorize_as_current_contract` and contract creation as a call (a creation context is modelled, and the facade reads it, as data);
+- a key holding a muxed address in instance storage, which host 27.0.1 refuses only when it writes the instance back at the end of the call (the facade refuses every such key at once);
+- every protocol but 27.
+
+## soroban-sdk and soroban-env-host
+
+`crates/soroban-facade`'s real implementation and the host harness build
+against soroban-sdk 27.0.6, which fixes soroban-env-host 27.0.1 and
+stellar-xdr 27.0.0 (protocol 27), the release set Stellar publishes for
+protocol 27 (`Cargo.lock`). The harness drives the host through
+soroban-sdk's testutils: native test contracts (`ContractFunctionSet`),
+`set_auths` and `try_invoke_contract`. That path shares storage, rollback
+within a transaction and enforcing authorization with the host function
+stellar-core calls (`e2e_invoke::invoke_host_function`), and it is trusted to
+behave as that path does for what the vectors exercise. A contract built at
+the pin runs on the host the network's protocol selects; nothing here runs the
+vectors on another host version.
+
+### SDK items the real implementation calls
+
+`SdkHost` (`crates/soroban-facade/src/sdk.rs`) is the only code in the
+repository that calls the SDK. It calls:
+
+| Item | Use |
+| --- | --- |
+| `Env::storage`, and `Storage::persistent`, `Storage::temporary`, `Storage::instance` | The storage of each durability. |
+| `get`, `has`, `set` and `remove` of `Persistent`, `Temporary` and `Instance`, on `Val` keys and values | The four storage operations. |
+| `Address::require_auth` | `require_auth`. |
+| `soroban_sdk::Val` | The host's value. |
+| `Bytes::from_slice`, `Bytes::len`, `Bytes::copy_into_slice` | Moving XDR between the host and the facade. |
+| `xdr::ToXdr::to_xdr` (the host's `serialize_to_bytes`) | A host value's `ScVal` XDR. |
+| `xdr::FromXdr::from_xdr` for `Val` and for `Address` (the host's `deserialize_from_bytes`) | The host value of a facade value, and the host address of a facade address. |
+
+The facade's own XDR writer and reader stand between these and its plain
+values. The host traps on XDR it cannot represent as a value, as it does for
+any contract.
+
+## The facade's conversion
+
+`crates/soroban-facade` is not translated to Lean. Its XDR writer
+(`xdr::encode`) is meant to be `Val.xdr`, its reading of contexts
+(`auth_contexts`) `contextsOfVal`, and its conversion to `rule-eval`'s types
+(`val_to_rule_eval`, `to_rule_eval`) `Val.toChain` and `AuthFn.toChain`; the
+value and context vectors check each one against the model, and the host
+harness checks them against what the host gives `__check_auth`. Nothing
+proves them equal.
+
+## The host harness
+
+`conformance/host` replays the Soroban vectors on the host. Three of its parts
+are trusted:
+
+- the signature payload it expects is SHA-256 (the `sha2` crate) of `stellar-xdr`'s encoding of the `HashIdPreimage` it builds from the model's preimage and the ledger's network id;
+- values pass between the vectors, the facade and the host through the facade's XDR and `stellar-xdr`'s reading and writing of it;
+- its native contracts run each step of a call or of `__check_auth` as the model's step says, and record what they see.
+
+A mistake in any of them shows up as a failing vector, unless it hides a
+difference between the model and the host in the same way on both sides.
+
 ## Stated rules
 
 The theorems take these as given about their inputs or callers.
@@ -246,8 +325,11 @@ holds at most `isize::MAX` bytes, so it never reaches that length.
 Every rule set, the empty one included, allows the empty batch
 (`RuleCore.RuleSet.allowsAll_nil`), because that is how `List.all` and
 `allows_all`'s loop behave. A Soroban authorization tree always has a root
-context, so a batch collected from one is never empty. A caller that builds
-batches some other way must reject the empty batch itself. `authorize` accepts
+context, so a batch collected from one is never empty: in the Soroban model,
+every `__check_auth` call receives its tree's contexts in preorder, root first
+(`RuleCore.Soroban.Tx.run_checkAuth_contexts`), and the host harness tests
+that the host passes exactly those. A caller that builds batches some other
+way must reject the empty batch itself. `authorize` accepts
 an empty batch only when it authenticates no signer, since no rule is chosen.
 
 ### No creation is a vocabulary property
@@ -277,12 +359,14 @@ window that eviction leaves at each ledger is bounded without the rule
 The vectors in `conformance/vectors`, the cap traces in
 `conformance/vectors/caps`, the authorization traces in
 `conformance/vectors/authorize`, the budget traces in
-`conformance/vectors/budget` and the document traces in
-`conformance/vectors/documents` are computed by the Lean model and written as
+`conformance/vectors/budget`, the document traces in
+`conformance/vectors/documents` and the Soroban vectors in
+`conformance/vectors/soroban` are computed by the Lean model and written as
 JSON by the generator's own encoder (`conformance/generator/Conformance/Json.lean`,
-`Conformance/Caps.lean`, `Conformance/Authorize.lean`, `Conformance/Budget.lean`
-and `Conformance/Documents.lean`). The Rust runner decodes them into
-`rule-eval`'s types (`conformance/runner/src/lib.rs`, `src/caps.rs`,
-`src/authorize.rs`, `src/budget.rs` and `src/documents.rs`). Neither the
+`Conformance/Caps.lean`, `Conformance/Authorize.lean`, `Conformance/Budget.lean`,
+`Conformance/Documents.lean` and `Conformance/Soroban/`). The Rust runner
+decodes them into `rule-eval`'s and `soroban-facade`'s types
+(`conformance/runner/src/lib.rs`, `src/caps.rs`, `src/authorize.rs`,
+`src/budget.rs`, `src/documents.rs` and `src/soroban.rs`). Neither the
 encoding nor the decoding is verified. A mismatch in either one shows up as a
 failing vector, unless both get the same field wrong in the same way.

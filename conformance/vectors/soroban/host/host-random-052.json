@@ -1,0 +1,129 @@
+{
+  "format": 1,
+  "name": "host-random-052",
+  "description": "Randomized host trace 52 of seed 20261102.",
+  "contracts": [
+    {"contract": "00000000000000000000000000000000000000000000000000000000000000a1"},
+    {"contract": "00000000000000000000000000000000000000000000000000000000000000a2"},
+    {"contract": "00000000000000000000000000000000000000000000000000000000000000d1"}
+  ],
+  "accounts": [
+    {
+      "address": {"contract": "00000000000000000000000000000000000000000000000000000000000000a1"},
+      "check_auth": []
+    },
+    {
+      "address": {"contract": "00000000000000000000000000000000000000000000000000000000000000a2"},
+      "check_auth": []
+    },
+    {
+      "address": {"contract": "00000000000000000000000000000000000000000000000000000000000000d1"},
+      "check_auth": [
+        {
+          "delegate": {
+            "contract": "00000000000000000000000000000000000000000000000000000000000000d2"
+          }
+        }
+      ]
+    }
+  ],
+  "txs": [
+    {
+      "ledger": 100,
+      "entries": [
+        {
+          "address": {
+            "contract": "00000000000000000000000000000000000000000000000000000000000000a2"
+          },
+          "nonce": "5200",
+          "expiration": 150,
+          "signature": {"u32": 1},
+          "credentials": "address_v2",
+          "root": {
+            "context": {
+              "contract": {
+                "contract": {
+                  "contract": "00000000000000000000000000000000000000000000000000000000000000a1"
+                },
+                "fn_name": "706179",
+                "args": [{"u32": 1}]
+              }
+            },
+            "subs": []
+          }
+        }
+      ],
+      "call": {
+        "contract": {"contract": "00000000000000000000000000000000000000000000000000000000000000a1"},
+        "fn_name": "706179",
+        "args": [{"u32": 0}],
+        "body": [
+          {"get": {"durability": "persistent", "key": {"symbol": "62"}}},
+          {"remove": {"durability": "temporary", "key": {"symbol": "62"}}},
+          {
+            "call": {
+              "callee": {
+                "contract": {
+                  "contract": "00000000000000000000000000000000000000000000000000000000000000a1"
+                },
+                "fn_name": "706179",
+                "args": [{"u32": 1}],
+                "body": [
+                  {"put": {"durability": "persistent", "key": {"symbol": "62"}, "val": {"u32": 0}}},
+                  {"has": {"durability": "persistent", "key": {"symbol": "61"}}},
+                  {
+                    "require_auth": {
+                      "contract": "00000000000000000000000000000000000000000000000000000000000000a2"
+                    }
+                  }
+                ]
+              },
+              "catches": true
+            }
+          }
+        ]
+      },
+      "expected": {
+        "ok": true,
+        "events": [
+          {
+            "read": {
+              "contract": {
+                "contract": "00000000000000000000000000000000000000000000000000000000000000a1"
+              },
+              "durability": "persistent",
+              "key": {"symbol": "62"},
+              "value": null
+            }
+          }
+        ],
+        "store": [
+          {
+            "contract": {
+              "contract": "00000000000000000000000000000000000000000000000000000000000000a1"
+            },
+            "durability": "persistent",
+            "key": {"symbol": "62"},
+            "value": null
+          },
+          {
+            "contract": {
+              "contract": "00000000000000000000000000000000000000000000000000000000000000a1"
+            },
+            "durability": "temporary",
+            "key": {"symbol": "62"},
+            "value": null
+          },
+          {
+            "contract": {
+              "contract": "00000000000000000000000000000000000000000000000000000000000000a1"
+            },
+            "durability": "persistent",
+            "key": {"symbol": "61"},
+            "value": null
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "format": 1,
+  "name": "storage-random-028",
+  "description": "Randomized storage trace 28 of seed 20261102.",
+  "contract": {"contract": "0000000000000000000000000000000000000000000000000000000000000020"},
+  "ops": [
+    {"op": "get", "durability": "temporary", "key": {"u32": 1}, "expected": {"value": null}},
+    {"op": "has", "durability": "instance", "key": {"symbol": "62"}, "expected": {"present": false}},
+    {
+      "op": "has",
+      "durability": "persistent",
+      "key": {
+        "address": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"}
+      },
+      "expected": {"present": false}
+    },
+    {"op": "get", "durability": "temporary", "key": {"string": "61"}, "expected": {"value": null}},
+    {"op": "remove", "durability": "instance", "key": {"u32": 1}, "expected": "done"},
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"string": "61"},
+      "val": {"i128": "-1"},
+      "expected": "done"
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"string": "61"},
+      "val": {"u32": 1},
+      "expected": "done"
+    },
+    {
+      "op": "has",
+      "durability": "persistent",
+      "key": {"string": "61"},
+      "expected": {"present": true}
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {
+        "address": {
+          "muxed_account": {
+            "id": "7",
+            "key": "0101010101010101010101010101010101010101010101010101010101010101"
+          }
+        }
+      },
+      "expected": "refused"
+    },
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"symbol": "62"},
+      "val": {"i128": "-1"},
+      "expected": "done"
+    },
+    {
+      "op": "set",
+      "durability": "instance",
+      "key": {"symbol": "61"},
+      "val": {"vec": [{"u32": 2}]},
+      "expected": "done"
+    },
+    {
+      "op": "has",
+      "durability": "persistent",
+      "key": {"symbol": "62"},
+      "expected": {"present": false}
+    },
+    {
+      "op": "has",
+      "durability": "persistent",
+      "key": {"symbol": "61"},
+      "expected": {"present": false}
+    },
+    {"op": "has", "durability": "instance", "key": {"symbol": "62"}, "expected": {"present": false}},
+    {"op": "remove", "durability": "temporary", "key": {"symbol": "62"}, "expected": "done"},
+    {"op": "get", "durability": "temporary", "key": {"symbol": "61"}, "expected": {"value": null}}
+  ]
+}

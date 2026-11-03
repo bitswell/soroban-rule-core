@@ -1,0 +1,19 @@
+[package]
+name = "soroban-facade"
+description = "A small part of the Soroban SDK as plain data and simple interfaces, for contract shells that use rule-eval"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+doctest = false
+
+[features]
+# The real implementation over soroban-sdk.
+sdk = ["dep:soroban-sdk"]
+
+[dependencies]
+rule-eval = { path = "../rule-eval" }
+soroban-sdk = { version = "27.0.6", optional = true }

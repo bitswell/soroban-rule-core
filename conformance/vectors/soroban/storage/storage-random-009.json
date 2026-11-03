@@ -1,0 +1,107 @@
+{
+  "format": 1,
+  "name": "storage-random-009",
+  "description": "Randomized storage trace 9 of seed 20261102.",
+  "contract": {"contract": "0000000000000000000000000000000000000000000000000000000000000020"},
+  "ops": [
+    {"op": "get", "durability": "persistent", "key": {"symbol": "62"}, "expected": {"value": null}},
+    {"op": "has", "durability": "instance", "key": {"symbol": "61"}, "expected": {"present": false}},
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"string": "61"},
+      "val": {"bool": true},
+      "expected": "done"
+    },
+    {
+      "op": "has",
+      "durability": "persistent",
+      "key": {"symbol": "61"},
+      "expected": {"present": false}
+    },
+    {"op": "has", "durability": "instance", "key": {"symbol": "61"}, "expected": {"present": false}},
+    {"op": "remove", "durability": "instance", "key": {"symbol": "61"}, "expected": "done"},
+    {"op": "remove", "durability": "persistent", "key": {"u32": 1}, "expected": "done"},
+    {"op": "get", "durability": "instance", "key": {"symbol": "62"}, "expected": {"value": null}},
+    {
+      "op": "has",
+      "durability": "temporary",
+      "key": {
+        "address": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"}
+      },
+      "expected": {"present": false}
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {
+        "address": {
+          "muxed_account": {
+            "id": "7",
+            "key": "0101010101010101010101010101010101010101010101010101010101010101"
+          }
+        }
+      },
+      "expected": "refused"
+    },
+    {"op": "get", "durability": "instance", "key": {"symbol": "62"}, "expected": {"value": null}},
+    {
+      "op": "get",
+      "durability": "instance",
+      "key": {
+        "address": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"}
+      },
+      "expected": {"value": null}
+    },
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {
+        "address": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"}
+      },
+      "val": {"vec": [{"u32": 2}]},
+      "expected": "done"
+    },
+    {"op": "get", "durability": "temporary", "key": {"symbol": "62"}, "expected": {"value": null}},
+    {
+      "op": "has",
+      "durability": "temporary",
+      "key": {"string": "61"},
+      "expected": {"present": false}
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"symbol": "62"},
+      "val": {"symbol": "76"},
+      "expected": "done"
+    },
+    {"op": "get", "durability": "persistent", "key": {"u32": 1}, "expected": {"value": null}},
+    {
+      "op": "remove",
+      "durability": "instance",
+      "key": {
+        "address": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"}
+      },
+      "expected": "done"
+    },
+    {"op": "has", "durability": "instance", "key": {"symbol": "62"}, "expected": {"present": false}},
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 1},
+      "val": {"bool": true},
+      "expected": "done"
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {
+        "address": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"}
+      },
+      "val": {"u32": 1},
+      "expected": "done"
+    },
+    {"op": "get", "durability": "temporary", "key": {"u32": 1}, "expected": {"value": null}}
+  ]
+}

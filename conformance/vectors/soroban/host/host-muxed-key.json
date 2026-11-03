@@ -1,0 +1,70 @@
+{
+  "format": 1,
+  "name": "host-muxed-key",
+  "description": "A call using a key that holds a muxed address fails, and its writes are rolled back.",
+  "contracts": [{"contract": "0000000000000000000000000000000000000000000000000000000000000001"}],
+  "accounts": [],
+  "txs": [
+    {
+      "ledger": 100,
+      "entries": [],
+      "call": {
+        "contract": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"},
+        "fn_name": "66",
+        "args": [],
+        "body": [
+          {
+            "put": {
+              "durability": "persistent",
+              "key": {"symbol": "6265666f7265"},
+              "val": {"u32": 1}
+            }
+          },
+          {
+            "put": {
+              "durability": "temporary",
+              "key": {
+                "address": {
+                  "muxed_account": {
+                    "id": "7",
+                    "key": "0101010101010101010101010101010101010101010101010101010101010101"
+                  }
+                }
+              },
+              "val": {"u32": 1}
+            }
+          }
+        ]
+      },
+      "expected": {
+        "ok": false,
+        "events": [],
+        "store": [
+          {
+            "contract": {
+              "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+            },
+            "durability": "persistent",
+            "key": {"symbol": "6265666f7265"},
+            "value": null
+          },
+          {
+            "contract": {
+              "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+            },
+            "durability": "temporary",
+            "key": {
+              "address": {
+                "muxed_account": {
+                  "id": "7",
+                  "key": "0101010101010101010101010101010101010101010101010101010101010101"
+                }
+              }
+            },
+            "value": null
+          }
+        ]
+      }
+    }
+  ]
+}

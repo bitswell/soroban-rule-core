@@ -1,0 +1,63 @@
+{
+  "format": 1,
+  "name": "storage-random-023",
+  "description": "Randomized storage trace 23 of seed 20261102.",
+  "contract": {"contract": "0000000000000000000000000000000000000000000000000000000000000020"},
+  "ops": [
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"symbol": "61"},
+      "val": {"symbol": "76"},
+      "expected": "done"
+    },
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"symbol": "61"},
+      "val": {"u32": 0},
+      "expected": "done"
+    },
+    {"op": "has", "durability": "instance", "key": {"symbol": "62"}, "expected": {"present": false}},
+    {"op": "get", "durability": "persistent", "key": {"symbol": "62"}, "expected": {"value": null}},
+    {"op": "has", "durability": "temporary", "key": {"u32": 1}, "expected": {"present": false}},
+    {"op": "remove", "durability": "persistent", "key": {"string": "61"}, "expected": "done"},
+    {
+      "op": "has",
+      "durability": "temporary",
+      "key": {"symbol": "62"},
+      "expected": {"present": false}
+    },
+    {"op": "get", "durability": "instance", "key": {"symbol": "61"}, "expected": {"value": null}},
+    {"op": "has", "durability": "instance", "key": {"string": "61"}, "expected": {"present": false}},
+    {"op": "remove", "durability": "temporary", "key": {"u32": 1}, "expected": "done"},
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"symbol": "62"},
+      "val": {"vec": [{"u32": 2}]},
+      "expected": "done"
+    },
+    {"op": "get", "durability": "persistent", "key": {"symbol": "62"}, "expected": {"value": null}},
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"symbol": "62"},
+      "val": {"vec": [{"u32": 2}]},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "temporary",
+      "key": {"symbol": "61"},
+      "expected": {"value": {"u32": 0}}
+    },
+    {
+      "op": "set",
+      "durability": "instance",
+      "key": {"symbol": "61"},
+      "val": {"u32": 0},
+      "expected": "done"
+    }
+  ]
+}

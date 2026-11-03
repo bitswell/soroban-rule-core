@@ -1,0 +1,51 @@
+{
+  "format": 1,
+  "name": "storage-random-008",
+  "description": "Randomized storage trace 8 of seed 20261102.",
+  "contract": {"contract": "0000000000000000000000000000000000000000000000000000000000000020"},
+  "ops": [
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 1},
+      "val": {"i128": "-1"},
+      "expected": "done"
+    },
+    {"op": "remove", "durability": "instance", "key": {"symbol": "61"}, "expected": "done"},
+    {"op": "get", "durability": "instance", "key": {"symbol": "62"}, "expected": {"value": null}},
+    {"op": "has", "durability": "instance", "key": {"symbol": "62"}, "expected": {"present": false}},
+    {"op": "has", "durability": "instance", "key": {"symbol": "61"}, "expected": {"present": false}},
+    {
+      "op": "get",
+      "durability": "temporary",
+      "key": {
+        "address": {
+          "muxed_account": {
+            "id": "7",
+            "key": "0101010101010101010101010101010101010101010101010101010101010101"
+          }
+        }
+      },
+      "expected": "refused"
+    },
+    {"op": "get", "durability": "instance", "key": {"symbol": "61"}, "expected": {"value": null}},
+    {
+      "op": "set",
+      "durability": "instance",
+      "key": {
+        "address": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"}
+      },
+      "val": {"bool": true},
+      "expected": "done"
+    },
+    {"op": "has", "durability": "instance", "key": {"symbol": "61"}, "expected": {"present": false}},
+    {
+      "op": "set",
+      "durability": "instance",
+      "key": {"symbol": "62"},
+      "val": {"vec": [{"u32": 2}]},
+      "expected": "done"
+    },
+    {"op": "has", "durability": "instance", "key": {"symbol": "61"}, "expected": {"present": false}}
+  ]
+}

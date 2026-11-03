@@ -1,0 +1,139 @@
+{
+  "format": 1,
+  "name": "storage-random-025",
+  "description": "Randomized storage trace 25 of seed 20261102.",
+  "contract": {"contract": "0000000000000000000000000000000000000000000000000000000000000020"},
+  "ops": [
+    {
+      "op": "remove",
+      "durability": "temporary",
+      "key": {
+        "address": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"}
+      },
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "instance",
+      "key": {
+        "address": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"}
+      },
+      "expected": {"value": null}
+    },
+    {"op": "get", "durability": "instance", "key": {"symbol": "61"}, "expected": {"value": null}},
+    {"op": "remove", "durability": "persistent", "key": {"string": "61"}, "expected": "done"},
+    {"op": "get", "durability": "persistent", "key": {"symbol": "62"}, "expected": {"value": null}},
+    {"op": "get", "durability": "instance", "key": {"symbol": "62"}, "expected": {"value": null}},
+    {
+      "op": "set",
+      "durability": "instance",
+      "key": {"string": "61"},
+      "val": {"bool": true},
+      "expected": "done"
+    },
+    {
+      "op": "has",
+      "durability": "instance",
+      "key": {
+        "address": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"}
+      },
+      "expected": {"present": false}
+    },
+    {
+      "op": "get",
+      "durability": "instance",
+      "key": {
+        "address": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"}
+      },
+      "expected": {"value": null}
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u32": 1},
+      "val": {"u32": 1},
+      "expected": "done"
+    },
+    {"op": "get", "durability": "persistent", "key": {"string": "61"}, "expected": {"value": null}},
+    {
+      "op": "get",
+      "durability": "instance",
+      "key": {
+        "address": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"}
+      },
+      "expected": {"value": null}
+    },
+    {"op": "remove", "durability": "temporary", "key": {"symbol": "62"}, "expected": "done"},
+    {
+      "op": "set",
+      "durability": "instance",
+      "key": {"string": "61"},
+      "val": {"symbol": "76"},
+      "expected": "done"
+    },
+    {"op": "get", "durability": "temporary", "key": {"symbol": "61"}, "expected": {"value": null}},
+    {
+      "op": "set",
+      "durability": "instance",
+      "key": {"string": "61"},
+      "val": {"bool": true},
+      "expected": "done"
+    },
+    {
+      "op": "set",
+      "durability": "instance",
+      "key": {"string": "61"},
+      "val": {"u32": 0},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "temporary",
+      "key": {
+        "address": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"}
+      },
+      "expected": {"value": null}
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {
+        "address": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"}
+      },
+      "val": {"symbol": "76"},
+      "expected": "done"
+    },
+    {
+      "op": "has",
+      "durability": "persistent",
+      "key": {"symbol": "61"},
+      "expected": {"present": false}
+    },
+    {"op": "has", "durability": "persistent", "key": {"u32": 1}, "expected": {"present": true}},
+    {"op": "remove", "durability": "temporary", "key": {"symbol": "61"}, "expected": "done"},
+    {"op": "get", "durability": "temporary", "key": {"symbol": "62"}, "expected": {"value": null}},
+    {"op": "get", "durability": "persistent", "key": {"string": "61"}, "expected": {"value": null}},
+    {
+      "op": "get",
+      "durability": "instance",
+      "key": {"string": "61"},
+      "expected": {"value": {"u32": 0}}
+    },
+    {
+      "op": "set",
+      "durability": "instance",
+      "key": {"string": "61"},
+      "val": {"i128": "-1"},
+      "expected": "done"
+    },
+    {
+      "op": "has",
+      "durability": "persistent",
+      "key": {
+        "address": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"}
+      },
+      "expected": {"present": true}
+    },
+    {"op": "has", "durability": "instance", "key": {"symbol": "61"}, "expected": {"present": false}}
+  ]
+}

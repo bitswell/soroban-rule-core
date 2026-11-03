@@ -1787,6 +1787,148 @@ info: 'RuleCore.RuleSet.step_of_error' depends on axioms: [propext]
 ---
 info: 'RuleCore.RuleSet.window_le_limit' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
+info: 'RuleCore.Soroban.AccountEvent.good' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Soroban.Address.xdr_injective' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Soroban.AuthFn.allows_create' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Soroban.AuthFn.ofVal_toVal' depends on axioms: [propext]
+---
+info: 'RuleCore.Soroban.AuthFn.toChain_contract' depends on axioms: [propext]
+---
+info: 'RuleCore.Soroban.AuthFn.toChain_create' depends on axioms: [propext]
+---
+info: 'RuleCore.Soroban.Checked.allows' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Soroban.Entry.preimage_address' depends on axioms: [propext]
+---
+info: 'RuleCore.Soroban.Grows.logged' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Soroban.Grows.mono' does not depend on any axioms
+---
+info: 'RuleCore.Soroban.Grows.refl' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Soroban.Grows.trans' depends on axioms: [propext]
+---
+info: 'RuleCore.Soroban.Invocation.at_append_child' depends on axioms: [propext]
+---
+info: 'RuleCore.Soroban.Invocation.at_fn_mem' depends on axioms: [propext]
+---
+info: 'RuleCore.Soroban.Invocation.mem_preorderList' depends on axioms: [propext]
+---
+info: 'RuleCore.Soroban.Invocation.preorder_head' depends on axioms: [propext]
+---
+info: 'RuleCore.Soroban.Invocation.preorder_ne_nil' depends on axioms: [propext]
+---
+info: 'RuleCore.Soroban.Invocation.preorder_node' does not depend on any axioms
+---
+info: 'RuleCore.Soroban.Op.apply_eq_none_iff' depends on axioms: [propext]
+---
+info: 'RuleCore.Soroban.Store.get_remove' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Soroban.Store.get_remove_ne' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Soroban.Store.get_set' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Soroban.Store.get_set_contract' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Soroban.Store.get_set_durability' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Soroban.Store.get_set_ne' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Soroban.Store.has_iff' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Soroban.Tracker.extend_spec' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Soroban.TrackersOk.pop' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Soroban.TrackersOk.push' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Soroban.TrackersOk.set' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Soroban.Tx.run_authorized_allowed' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Soroban.Tx.run_checkAuth_contexts' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Soroban.Tx.run_fail' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Soroban.Tx.run_good' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Soroban.Val.storable_address' depends on axioms: [propext]
+---
+info: 'RuleCore.Soroban.Val.storable_muxed' depends on axioms: [propext]
+---
+info: 'RuleCore.Soroban.Val.toChain_eq_address_iff' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Soroban.Val.toChain_eq_address_xdr_iff' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Soroban.Val.toChain_eq_bool_iff' depends on axioms: [propext]
+---
+info: 'RuleCore.Soroban.Val.toChain_eq_bytes_iff' depends on axioms: [propext]
+---
+info: 'RuleCore.Soroban.Val.toChain_eq_i128_iff' depends on axioms: [propext]
+---
+info: 'RuleCore.Soroban.Val.toChain_eq_string_iff' depends on axioms: [propext]
+---
+info: 'RuleCore.Soroban.Val.toChain_eq_symbol_iff' depends on axioms: [propext]
+---
+info: 'RuleCore.Soroban.Val.toChain_eq_u64_iff' depends on axioms: [propext]
+---
+info: 'RuleCore.Soroban.Val.toChain_u32' depends on axioms: [propext]
+---
+info: 'RuleCore.Soroban.World.op_account' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Soroban.World.op_spec' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Soroban.authenticate_checkAuth' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Soroban.authenticate_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Soroban.authenticate_store' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Soroban.be32_inj' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Soroban.be32_length' does not depend on any axioms
+---
+info: 'RuleCore.Soroban.be64_inj' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Soroban.be64_length' does not depend on any axioms
+---
+info: 'RuleCore.Soroban.contextsOfVal_toVal' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Soroban.execCall_fail' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Soroban.execCall_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Soroban.execStep_call_caught' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Soroban.execStep_call_uncaught' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Soroban.execStep_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Soroban.execSteps_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Soroban.find?_filter_of_imp' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Soroban.findDelegate_mem' depends on axioms: [propext]
+---
+info: 'RuleCore.Soroban.findTracker_spec' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Soroban.firstFree_spec' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Soroban.isSym_sym' depends on axioms: [propext]
+---
+info: 'RuleCore.Soroban.ofBe32_be32' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Soroban.requireAuth_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Soroban.runAccount_get' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Soroban.runAccount_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Soroban.sizeOf_nested_lt' depends on axioms: [propext, Quot.sound]
+---
 info: 'RuleCore.foldlM_except_append' depends on axioms: [propext]
 ---
 info: 'RuleCore.foldlM_except_cons' depends on axioms: [propext]

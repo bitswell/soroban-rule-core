@@ -1,0 +1,121 @@
+{
+  "format": 1,
+  "name": "values-scalars",
+  "description": "void, both booleans, and u32, u64 and i128 at their extremes and in between.",
+  "values": [
+    {
+      "value": {"void": null},
+      "xdr": "00000001",
+      "rule_eval": {"other": "00000001"},
+      "storable": true
+    },
+    {
+      "value": {"bool": false},
+      "xdr": "0000000000000000",
+      "rule_eval": {"bool": false},
+      "storable": true
+    },
+    {
+      "value": {"bool": true},
+      "xdr": "0000000000000001",
+      "rule_eval": {"bool": true},
+      "storable": true
+    },
+    {
+      "value": {"u32": 0},
+      "xdr": "0000000300000000",
+      "rule_eval": {"other": "0000000300000000"},
+      "storable": true
+    },
+    {
+      "value": {"u32": 1},
+      "xdr": "0000000300000001",
+      "rule_eval": {"other": "0000000300000001"},
+      "storable": true
+    },
+    {
+      "value": {"u32": 7},
+      "xdr": "0000000300000007",
+      "rule_eval": {"other": "0000000300000007"},
+      "storable": true
+    },
+    {
+      "value": {"u32": 4294967295},
+      "xdr": "00000003ffffffff",
+      "rule_eval": {"other": "00000003ffffffff"},
+      "storable": true
+    },
+    {
+      "value": {"u64": "0"},
+      "xdr": "000000050000000000000000",
+      "rule_eval": {"u64": "0"},
+      "storable": true
+    },
+    {
+      "value": {"u64": "1"},
+      "xdr": "000000050000000000000001",
+      "rule_eval": {"u64": "1"},
+      "storable": true
+    },
+    {
+      "value": {"u64": "18446744073709551615"},
+      "xdr": "00000005ffffffffffffffff",
+      "rule_eval": {"u64": "18446744073709551615"},
+      "storable": true
+    },
+    {
+      "value": {"i128": "0"},
+      "xdr": "0000000a00000000000000000000000000000000",
+      "rule_eval": {"i128": "0"},
+      "storable": true
+    },
+    {
+      "value": {"i128": "1"},
+      "xdr": "0000000a00000000000000000000000000000001",
+      "rule_eval": {"i128": "1"},
+      "storable": true
+    },
+    {
+      "value": {"i128": "-1"},
+      "xdr": "0000000affffffffffffffffffffffffffffffff",
+      "rule_eval": {"i128": "-1"},
+      "storable": true
+    },
+    {
+      "value": {"i128": "100"},
+      "xdr": "0000000a00000000000000000000000000000064",
+      "rule_eval": {"i128": "100"},
+      "storable": true
+    },
+    {
+      "value": {"i128": "-100"},
+      "xdr": "0000000affffffffffffffffffffffffffffff9c",
+      "rule_eval": {"i128": "-100"},
+      "storable": true
+    },
+    {
+      "value": {"i128": "-170141183460469231731687303715884105728"},
+      "xdr": "0000000a80000000000000000000000000000000",
+      "rule_eval": {"i128": "-170141183460469231731687303715884105728"},
+      "storable": true
+    },
+    {
+      "value": {"i128": "170141183460469231731687303715884105727"},
+      "xdr": "0000000a7fffffffffffffffffffffffffffffff",
+      "rule_eval": {"i128": "170141183460469231731687303715884105727"},
+      "storable": true
+    },
+    {
+      "value": {"i128": "18446744073709551616"},
+      "xdr": "0000000a00000000000000010000000000000000",
+      "rule_eval": {"i128": "18446744073709551616"},
+      "storable": true
+    },
+    {
+      "value": {"i128": "-18446744073709551616"},
+      "xdr": "0000000affffffffffffffff0000000000000000",
+      "rule_eval": {"i128": "-18446744073709551616"},
+      "storable": true
+    }
+  ]
+}

@@ -1,0 +1,190 @@
+{
+  "format": 1,
+  "name": "host-random-023",
+  "description": "Randomized host trace 23 of seed 20261102.",
+  "contracts": [
+    {"contract": "0000000000000000000000000000000000000000000000000000000000000001"},
+    {"contract": "0000000000000000000000000000000000000000000000000000000000000002"},
+    {"contract": "00000000000000000000000000000000000000000000000000000000000000a1"},
+    {"contract": "00000000000000000000000000000000000000000000000000000000000000a2"},
+    {"contract": "00000000000000000000000000000000000000000000000000000000000000d1"}
+  ],
+  "accounts": [
+    {
+      "address": {"contract": "00000000000000000000000000000000000000000000000000000000000000a1"},
+      "check_auth": [{"fail": "error"}]
+    },
+    {
+      "address": {"contract": "00000000000000000000000000000000000000000000000000000000000000a2"},
+      "check_auth": [
+        {
+          "check_rules": {
+            "rules": [
+              {
+                "contract": "000000010000000000000000000000000000000000000000000000000000000000000001",
+                "functions": {"any_except": []},
+                "conds": [],
+                "signers": [],
+                "threshold": 0,
+                "cap": null,
+                "valid_until": null,
+                "generation": null
+              },
+              {
+                "contract": "000000010000000000000000000000000000000000000000000000000000000000000002",
+                "functions": {"any_except": []},
+                "conds": [],
+                "signers": [],
+                "threshold": 0,
+                "cap": null,
+                "valid_until": null,
+                "generation": null
+              },
+              {
+                "contract": "000000010000000000000000000000000000000000000000000000000000000000000003",
+                "functions": {"any_except": []},
+                "conds": [],
+                "signers": [],
+                "threshold": 0,
+                "cap": null,
+                "valid_until": null,
+                "generation": null
+              },
+              {
+                "contract": "0000000100000000000000000000000000000000000000000000000000000000000000a1",
+                "functions": {"any_except": []},
+                "conds": [],
+                "signers": [],
+                "threshold": 0,
+                "cap": null,
+                "valid_until": null,
+                "generation": null
+              },
+              {
+                "contract": "0000000100000000000000000000000000000000000000000000000000000000000000a2",
+                "functions": {"any_except": []},
+                "conds": [],
+                "signers": [],
+                "threshold": 0,
+                "cap": null,
+                "valid_until": null,
+                "generation": null
+              }
+            ],
+            "authenticated": []
+          }
+        }
+      ]
+    },
+    {
+      "address": {"contract": "00000000000000000000000000000000000000000000000000000000000000d1"},
+      "check_auth": []
+    }
+  ],
+  "txs": [
+    {
+      "ledger": 100,
+      "entries": [],
+      "call": {
+        "contract": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"},
+        "fn_name": "72756e",
+        "args": [
+          {
+            "address": {
+              "contract": "00000000000000000000000000000000000000000000000000000000000000a2"
+            }
+          },
+          {"i128": "5"},
+          {"u32": 0}
+        ],
+        "body": [
+          {"has": {"durability": "instance", "key": {"symbol": "62"}}},
+          {"has": {"durability": "persistent", "key": {"symbol": "62"}}}
+        ]
+      },
+      "expected": {
+        "ok": true,
+        "events": [
+          {
+            "found": {
+              "contract": {
+                "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+              },
+              "durability": "instance",
+              "key": {"symbol": "62"},
+              "present": false
+            }
+          },
+          {
+            "found": {
+              "contract": {
+                "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+              },
+              "durability": "persistent",
+              "key": {"symbol": "62"},
+              "present": false
+            }
+          }
+        ],
+        "store": [
+          {
+            "contract": {
+              "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+            },
+            "durability": "instance",
+            "key": {"symbol": "62"},
+            "value": null
+          },
+          {
+            "contract": {
+              "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+            },
+            "durability": "persistent",
+            "key": {"symbol": "62"},
+            "value": null
+          }
+        ]
+      }
+    },
+    {
+      "ledger": 101,
+      "entries": [],
+      "call": {
+        "contract": {"contract": "0000000000000000000000000000000000000000000000000000000000000002"},
+        "fn_name": "72756e",
+        "args": [
+          {
+            "address": {
+              "contract": "00000000000000000000000000000000000000000000000000000000000000a2"
+            }
+          },
+          {"i128": "5"},
+          {"u32": 100}
+        ],
+        "body": [{"fail": "error"}]
+      },
+      "expected": {
+        "ok": false,
+        "events": [],
+        "store": [
+          {
+            "contract": {
+              "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+            },
+            "durability": "instance",
+            "key": {"symbol": "62"},
+            "value": null
+          },
+          {
+            "contract": {
+              "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+            },
+            "durability": "persistent",
+            "key": {"symbol": "62"},
+            "value": null
+          }
+        ]
+      }
+    }
+  ]
+}

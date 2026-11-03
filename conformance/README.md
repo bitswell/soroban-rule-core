@@ -13,8 +13,13 @@ differential test.
 | `vectors/authorize/*.json` | One authorization trace per file: a rule set, its starting records, and authorizations, each with the outcome the Lean model computes for it. |
 | `vectors/budget/*.json` | One budget trace per file: a starting tree, and spends, delegations and refills, each with the outcome the Lean model computes for it. |
 | `vectors/documents/*.json` | One document trace per file: a document, its account, the rules the Lean model lowers it to, and authorizations, each with the document's own verdict. |
+| `vectors/soroban/values/*.json` | Soroban values, each with its XDR, its reading by `rule-eval` and whether it may be a storage key. |
+| `vectors/soroban/contexts/*.json` | One value per file as `__check_auth` would receive it, with the contexts the model reads from it, or none. |
+| `vectors/soroban/storage/*.json` | One storage trace per file: a contract's operations on its storage, each with what the model returns. |
+| `vectors/soroban/host/*.json` | One host trace per file: contract accounts' `__check_auth` programs and transactions of calls and signed entries, each with the model's outcome, events and storage. |
 | `generator/` | The Lake package that writes the vectors and traces: the case specifications and the JSON encoding. |
-| `runner/` | The Rust crate `rule-eval-conformance`, which loads every vector and trace and checks `rule-eval` against it. |
+| `runner/` | The Rust crate `rule-eval-conformance`, which loads every vector and trace and checks `rule-eval` and `soroban-facade` against it. |
+| `host/` | The host harness: `src/` and `tests/` replay the Soroban vectors on `soroban-env-host`, and each crate beside them (`p27/`) pins one host version. |
 
 ## How the vectors are made
 
@@ -32,7 +37,11 @@ the budget traces (`Conformance/Budget.lean`) with `RuleCore.Budget.Op.apply`
 and written to `budget/<name>.json`, and the document traces
 (`Conformance/Documents.lean`) with `RuleCore.Document.Doc.lower`,
 `Doc.lowerScoped`, `Doc.excluded` and `Doc.authorize` and written to
-`documents/<name>.json`. No expected result is written by hand.
+`documents/<name>.json`. The Soroban vectors (`Conformance/Soroban/`) are
+computed with the Soroban models' own functions, `Val.xdr`, `Val.toChain`,
+`Val.storable`, `contextsOfVal`, `AuthFn.toChain`, `Op.apply` and `Tx.run`,
+and written to `soroban/values`, `soroban/contexts`, `soroban/storage` and
+`soroban/host`. No expected result is written by hand.
 
 ```sh
 cd conformance/generator
@@ -44,16 +53,21 @@ lake exe gen-vectors ../vectors
 case plus 100 randomized cases of seed 20261102, every named cap trace plus 50
 randomized traces of the same seed, every named authorization trace plus 50
 randomized traces of the same seed, every named budget trace plus 50
-randomized traces of the same seed, and every named document trace plus 40
-randomized traces of the same seed. It refuses to write a document trace whose
-document is not valid or that chooses the recovery rule. `--seed <n>`,
-`--count <n>`, `--cap-count <n>`, `--auth-count <n>`, `--budget-count <n>` and
-`--doc-count <n>` choose another randomized set, for a larger run outside the
-committed vectors:
+randomized traces of the same seed, every named document trace plus 40
+randomized traces of the same seed, the Soroban value and context vectors,
+every named storage trace plus 30 randomized traces of the same seed, and
+every named host trace plus 60 randomized traces of the same seed. It refuses
+to write a document trace whose document is not valid or that chooses the
+recovery rule, and a host trace the harness cannot drive on the host
+(`Trace.inDomain`). `--seed <n>`, `--count <n>`, `--cap-count <n>`,
+`--auth-count <n>`, `--budget-count <n>`, `--doc-count <n>`,
+`--storage-count <n>` and `--host-count <n>` choose another randomized set,
+for a larger run outside the committed vectors:
 
 ```sh
-lake exe gen-vectors /tmp/vectors --seed 7 --count 5000 --cap-count 5000 --auth-count 5000 --budget-count 5000 --doc-count 5000
+lake exe gen-vectors /tmp/vectors --seed 7 --count 5000 --cap-count 5000 --auth-count 5000 --budget-count 5000 --doc-count 5000 --storage-count 1000 --host-count 2000
 CONFORMANCE_VECTORS=/tmp/vectors cargo test -p rule-eval-conformance
+CONFORMANCE_VECTORS=/tmp/vectors cargo test -p soroban-host-p27
 ```
 
 The randomized cases use SplitMix64, written out in `Conformance/Random.lean`,
@@ -118,8 +132,34 @@ record, that the traces still cover admin and scoped documents, recovery,
 both scopes, both kinds of principals, rules without functions, caps,
 not-after ledgers, every predicate and both scoped refusals, and that a changed
 expectation is reported.
-`rule-eval` itself keeps no dependencies; the runner depends on it, `serde` and
-`serde_json`.
+Its Soroban tests (`tests/soroban.rs`) check that `soroban-facade` writes and
+reads back every value as the model's XDR, converts it for `rule-eval` as the
+model does and agrees on which values may be keys; reads every context vector
+as the model, refusing the same values; and that its plain storage gives
+every storage trace's results.
+`rule-eval` itself keeps no dependencies; the runner depends on it,
+`soroban-facade`, `serde` and `serde_json`.
+
+## Running them against the host
+
+```sh
+cargo test --locked --manifest-path host/p27/Cargo.toml
+```
+
+`host/p27` is the harness at the pin, soroban-sdk 27.0.6 with
+soroban-env-host 27.0.1 (protocol 27), and a workspace member. Its tests
+(`host/tests/host.rs`) replay the value vectors, the storage traces and the
+host traces on the host, through soroban-sdk's testutils with enforcing
+authorization (`set_auths`, not `mock_all_auths`), and compare outcomes,
+events and storage, not error codes: every refusal reaches the caller as the
+same host error whatever its cause. Every contract a trace names is a native
+contract that runs what the trace says, and with the `facade` feature its
+storage, `require_auth` and reading of `__check_auth`'s contexts go through
+`soroban-facade`'s real implementation. `.github/workflows/host.yml` runs it,
+one matrix entry per host crate. A crate for another host version is a
+directory beside `p27` with its own `Cargo.toml` and `Cargo.lock` naming
+`../src/lib.rs` and `../tests/host.rs`; a version whose SDK is not the
+facade's leaves the `facade` feature off and drives the SDK directly.
 
 `.github/workflows/conformance.yml` rebuilds the generator, regenerates the
 vectors and traces into an empty directory and fails if they differ from
@@ -731,3 +771,77 @@ accepts or refuses, and the records stay as they were.
 
 `document-random-00.json` to `document-random-39.json` are the randomized
 traces.
+
+## Soroban vector formats
+
+Values, contexts and the rest share one encoding:
+
+- an address is `{"account": key}`, `{"contract": id}` or `{"muxed_account": {"id": "<decimal u64>", "key": key}}`, keys and ids 32 bytes of lowercase hex;
+- a value is `{"void": null}`, `{"bool": b}`, `{"u32": n}`, `{"u64": "<decimal>"}`, `{"i128": "<decimal>"}`, `{"bytes": hex}`, `{"string": hex}`, `{"symbol": hex}`, `{"address": address}`, `{"vec": [value, ...]}`, `{"map": [[key, value], ...]}` with keys in the host's order, or `{"other": hex}`, the full `ScVal` XDR of a value of another kind;
+- a durability is `"persistent"`, `"temporary"` or `"instance"`;
+- a context is `{"contract": {"contract": address, "fn_name": hex, "args": [value, ...]}}` or `{"create_contract": {"wasm_hash": hex, "salt": hex, "constructor_args": [value, ...]}}`.
+
+### Value and context vectors
+
+```json
+{"format": 1, "name": "values-scalars", "description": "...",
+ "values": [{"value": Value, "xdr": "<hex>", "rule_eval": Val, "storable": true}, ...]}
+
+{"format": 1, "name": "contexts-one-call", "description": "...",
+ "value": Value, "xdr": "<hex>",
+ "expected": {"contexts": [Context, ...], "rule_eval": [Context, ...]} | null}
+```
+
+`rule_eval` is a value or context in the encoding of `rule-eval`'s types
+above. A context vector's `expected` is `null` when one of the value's
+contexts cannot be read.
+
+### Storage traces
+
+```json
+{"format": 1, "name": "storage-set-get-remove", "description": "...", "contract": Address,
+ "ops": [{"op": "set", "durability": "persistent", "key": Value, "val": Value, "expected": "done"},
+         {"op": "get", "durability": "persistent", "key": Value, "expected": {"value": Value | null}},
+         {"op": "has", "durability": "temporary", "key": Value, "expected": {"present": true}},
+         {"op": "remove", "durability": "instance", "key": Value, "expected": "refused"}, ...]}
+```
+
+`refused` marks a key holding a muxed address; it changes nothing.
+
+### Host traces
+
+```json
+{"format": 1, "name": "host-exact-tree", "description": "...",
+ "contracts": [Address, ...],
+ "accounts": [{"address": Address, "check_auth": [AccountStep, ...]}, ...],
+ "txs": [{"ledger": 100, "entries": [Entry, ...], "call": Call,
+          "expected": {"ok": true, "events": [Event, ...],
+                       "store": [{"contract": Address, "durability": "persistent", "key": Value,
+                                  "value": Value | null}, ...]}}, ...]}
+```
+
+- `contracts` lists every contract the trace calls, signs as or delegates to; an account without an entry in `accounts` accepts every `__check_auth`.
+- A call is `{"contract": Address, "fn_name": hex, "args": [Value, ...], "body": [Step, ...]}`. A step is `{"get": {"durability", "key"}}`, `{"has": ...}`, `{"put": {"durability", "key", "val"}}`, `{"remove": ...}`, `{"require_auth": Address}`, `{"call": {"callee": Call, "catches": bool}}` or `{"fail": "error" | "trap"}`.
+- An account step is `get`, `put` or `remove` as above, `{"check_rules": {"rules": [Rule, ...], "authenticated": [Signer, ...]}}` (fail unless `rule-eval`'s `allows_all` accepts the contexts read with the facade), `{"delegate": Address}` or `{"fail": kind}`.
+- An entry is `{"address": Address, "nonce": "<decimal i64>", "expiration": n, "signature": Value, "credentials": "address" | "address_v2" | {"with_delegates": [Delegate, ...]}, "root": Invocation}`, a delegate `{"address": Address, "signature": Value, "nested": [Delegate, ...]}` and an invocation `{"context": Context, "subs": [Invocation, ...]}`.
+- An event is `{"check_auth": {"account", "preimage": {"address": Address | null, "nonce", "expiration", "invocation"}, "signature", "contexts": [Context, ...], "contexts_value": Value, "rule_eval_contexts": [Context, ...]}}`, `{"read": {"contract", "durability", "key", "value"}}`, `{"found": {"contract", "durability", "key", "present"}}` or `{"authorized": {"address", "context", "via": "invoker" | "entry"}}`. The harness compares `via` with nothing: the host does not report it.
+- `store` lists every slot the trace touches, with its value after the transaction, `null` when absent.
+
+Two calls of one transaction with the same context have the same body, so a
+contract finds its body by the call that runs it. Every transaction runs
+between ledgers 100 and 115 and every signature is valid for at most 1000
+ledgers past it, so temporary entries and used nonces stay live.
+
+### The named traces
+
+- Matching: `host-exact-tree`, `host-arguments-mismatch`, `host-nonce-replay`, `host-expired-signature`, `host-signature-valid-in-its-last-ledger`, `host-check-auth-refuses`, `host-nested-tree`, `host-nested-call-missing`, `host-disjoint-entries`, `host-root-below-top-call`, `host-unused-signed-node`, `host-require-auth-twice-in-one-frame`, `host-two-signers`, `host-invoker`, `host-account-deeper-on-stack`.
+- `__check_auth`'s input: `host-address-bound-payload`, `host-delegation`, `host-nested-delegation`, `host-delegate-twice`, `host-delegate-not-listed`, `host-delegate-refuses`, `host-unused-delegate`.
+- Storage and rollback: `host-reentrant-instance`, `host-check-auth-writes-instance`, `host-rollback-error-and-trap`, `host-rollback-caught`, `host-rollback-uncaught`, `host-rollback-unconsumes-nonce`, `host-rollback-rematches-node`, `host-reentrant-call`, `host-muxed-key`, `host-storage-in-calls`.
+- `rule-eval` in `__check_auth`: `host-check-rules-allows`, `host-check-rules-refuses-unused-node`, `host-check-rules-arguments`.
+
+The randomized traces draw call trees of depth up to three over three
+contracts and two accounts, with `require_auth`s, storage operations, caught
+and uncaught calls and failures; entries are the tree of each account's
+`require_auth`s, often changed (an argument, a dropped or an extra node, an
+expired signature, a reused nonce), with each kind of credentials; account
+programs read and write storage, check rules, delegate or refuse.

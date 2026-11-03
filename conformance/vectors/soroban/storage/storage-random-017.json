@@ -1,0 +1,102 @@
+{
+  "format": 1,
+  "name": "storage-random-017",
+  "description": "Randomized storage trace 17 of seed 20261102.",
+  "contract": {"contract": "0000000000000000000000000000000000000000000000000000000000000020"},
+  "ops": [
+    {"op": "has", "durability": "instance", "key": {"string": "61"}, "expected": {"present": false}},
+    {
+      "op": "remove",
+      "durability": "temporary",
+      "key": {
+        "address": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"}
+      },
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {
+        "address": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"}
+      },
+      "expected": {"value": null}
+    },
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"symbol": "62"},
+      "val": {"vec": [{"u32": 2}]},
+      "expected": "done"
+    },
+    {"op": "has", "durability": "instance", "key": {"symbol": "61"}, "expected": {"present": false}},
+    {
+      "op": "set",
+      "durability": "instance",
+      "key": {"symbol": "61"},
+      "val": {"u32": 1},
+      "expected": "done"
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"symbol": "62"},
+      "val": {"symbol": "76"},
+      "expected": "done"
+    },
+    {"op": "get", "durability": "temporary", "key": {"u32": 1}, "expected": {"value": null}},
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {
+        "address": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"}
+      },
+      "val": {"i128": "-1"},
+      "expected": "done"
+    },
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"symbol": "62"},
+      "val": {
+        "address": {
+          "muxed_account": {
+            "id": "7",
+            "key": "0101010101010101010101010101010101010101010101010101010101010101"
+          }
+        }
+      },
+      "expected": "done"
+    },
+    {
+      "op": "has",
+      "durability": "temporary",
+      "key": {
+        "address": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"}
+      },
+      "expected": {"present": true}
+    },
+    {"op": "get", "durability": "temporary", "key": {"u32": 1}, "expected": {"value": null}},
+    {
+      "op": "set",
+      "durability": "instance",
+      "key": {"u32": 1},
+      "val": {"symbol": "76"},
+      "expected": "done"
+    },
+    {"op": "get", "durability": "temporary", "key": {"u32": 1}, "expected": {"value": null}},
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"u32": 1},
+      "val": {"u32": 1},
+      "expected": "done"
+    },
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"symbol": "61"},
+      "val": {"i128": "-1"},
+      "expected": "done"
+    }
+  ]
+}
