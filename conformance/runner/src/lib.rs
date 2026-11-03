@@ -26,6 +26,19 @@ pub mod caps;
 pub mod documents;
 pub mod soroban;
 
+/// The directory of the conformance vectors: the one the `CONFORMANCE_VECTORS`
+/// environment variable names, or `conformance/vectors` beside this crate.
+///
+/// A consumer that takes this crate as a git dependency gets the vectors of
+/// the same revision, since cargo checks out the whole repository.
+#[must_use]
+pub fn vectors_dir() -> PathBuf {
+    std::env::var_os("CONFORMANCE_VECTORS").map_or_else(
+        || Path::new(env!("CARGO_MANIFEST_DIR")).join("../vectors"),
+        PathBuf::from,
+    )
+}
+
 /// The vector format version this runner reads.
 pub const FORMAT: u32 = 4;
 

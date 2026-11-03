@@ -3,19 +3,14 @@
 //! one the `CONFORMANCE_VECTORS` environment variable names.
 
 use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use rule_eval_conformance::documents::{
     JsonPred, JsonPrincipals, JsonScope, JsonScopeError, Lowered, Trace, Verdict, check, load_dir,
 };
 
 fn dir() -> PathBuf {
-    std::env::var_os("CONFORMANCE_VECTORS")
-        .map_or_else(
-            || Path::new(env!("CARGO_MANIFEST_DIR")).join("../vectors"),
-            PathBuf::from,
-        )
-        .join("documents")
+    rule_eval_conformance::vectors_dir().join("documents")
 }
 
 fn traces() -> Vec<(PathBuf, Trace)> {

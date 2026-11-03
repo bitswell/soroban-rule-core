@@ -2,7 +2,8 @@
 //! directory the `CONFORMANCE_VECTORS` environment variable names.
 
 use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
+use std::fs;
+use std::path::PathBuf;
 
 use rule_eval_conformance::{
     JsonCond, JsonContext, JsonError, JsonFunctions, JsonRule, JsonSigner, JsonStep, JsonVal,
@@ -11,14 +12,35 @@ use rule_eval_conformance::{
 
 /// `conformance/vectors`, or the directory `CONFORMANCE_VECTORS` names.
 fn dir() -> PathBuf {
-    std::env::var_os("CONFORMANCE_VECTORS").map_or_else(
-        || Path::new(env!("CARGO_MANIFEST_DIR")).join("../vectors"),
-        PathBuf::from,
-    )
+    rule_eval_conformance::vectors_dir()
 }
 
 fn vectors() -> Vec<(PathBuf, Vector)> {
     load_dir(&dir()).unwrap_or_else(|e| panic!("{e}"))
+}
+
+#[test]
+fn vectors_dir_holds_every_kind() {
+    let dir = rule_eval_conformance::vectors_dir();
+    for kind in [
+        "authorize",
+        "budget",
+        "caps",
+        "documents",
+        "soroban/values",
+        "soroban/contexts",
+        "soroban/storage",
+        "soroban/host",
+    ] {
+        assert!(dir.join(kind).is_dir(), "{} has no {kind}", dir.display());
+    }
+    assert!(
+        fs::read_dir(&dir)
+            .unwrap_or_else(|e| panic!("{}: {e}", dir.display()))
+            .any(|e| e.is_ok_and(|e| e.path().extension().is_some_and(|x| x == "json"))),
+        "{} has no rule vectors",
+        dir.display()
+    );
 }
 
 #[test]
