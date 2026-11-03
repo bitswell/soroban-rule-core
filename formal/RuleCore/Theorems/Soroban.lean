@@ -14,8 +14,9 @@ import RuleCore.Theorems.Chain
   nothing else is read as them; an address is read as its `ScAddress` XDR,
   which no two addresses share.
 * **The contexts the host passes can be read.** Reading the host's encoding
-  of contexts gives them back, so the facade refuses only contexts SDK 27
-  does not know.
+  of contexts gives them back, creations from uploaded Wasm and from an
+  external reference alike, so the facade refuses only contexts SDK 29 does
+  not know.
 * **What `__check_auth` receives.** In every transaction, each `__check_auth`
   call receives contexts that are its payload's invocation tree in preorder,
   root first, so never an empty batch; a delegate receives the payload and
@@ -105,15 +106,25 @@ theorem Val.storable_muxed (id : UInt64) (key : Bytes) :
 
 /-! ## What `rule-eval` reads of a context -/
 
-@[simp] theorem AuthFn.toChain_create (h s : Bytes) (args : List Val) :
-    (AuthFn.create h s args).toChain = .create h := rfl
+@[simp] theorem AuthFn.toChain_create (e : Executable) (s : Bytes) (args : List Val) :
+    (AuthFn.create e s args).toChain = .create e.id := rfl
+
+theorem Executable.id_wasm (h : Bytes) : (Executable.wasm h).id = h := rfl
+
+/-- An external reference is read as more than 32 bytes, so never as the
+same creation as uploaded Wasm, whose hash has 32. -/
+theorem Executable.id_externalRef_length (o : Address) (t : Bytes) :
+    32 < (Executable.externalRef o t).id.length := by
+  simp [Executable.id, Executable.toVal, Val.xdr, Val.xdrList, Val.xdrEntries, sym,
+    Bytes.ofString, xdrOpaque, be32]
+  omega
 
 theorem AuthFn.toChain_contract (c : Address) (f : Bytes) (args : List Val) :
     (AuthFn.contract c f args).toChain = .call c.xdr f (args.map Val.toChain) := rfl
 
 /-- No rule allows a creation context. -/
-theorem AuthFn.allows_create (rs : Chain.RuleSet) (h s : Bytes) (args : List Val)
-    (auth : List Chain.Signer) : rs.allows (AuthFn.create h s args).toChain auth = false := by
+theorem AuthFn.allows_create (rs : Chain.RuleSet) (e : Executable) (s : Bytes) (args : List Val)
+    (auth : List Chain.Signer) : rs.allows (AuthFn.create e s args).toChain auth = false := by
   simp
 
 /-- A `u32` is read as `other` of its XDR, the reading Perch's lowering
@@ -200,23 +211,39 @@ theorem Val.toChain_eq_address_xdr_iff (v : Val) (a : Address) :
 
 /-! ## Reading the host's encoding of contexts -/
 
-/-- A context whose creation hash and salt are 32 bytes, as the host's are. -/
+/-- An executable as the host passes it: a Wasm hash of 32 bytes. -/
+def Executable.WellFormed : Executable → Prop
+  | .wasm h => h.length = 32
+  | .externalRef .. => True
+
+/-- A context whose creation salt is 32 bytes and whose executable is well
+formed, as the host's are. -/
 def AuthFn.WellFormed : AuthFn → Prop
   | .contract .. => True
-  | .create h s _ => h.length = 32 ∧ s.length = 32
+  | .create e s _ => e.WellFormed ∧ s.length = 32
 
 theorem isSym_sym (s : String) : isSym (sym s) s = true := by
   simp [isSym]
 
+theorem Executable.ofVal_toVal (e : Executable) (he : e.WellFormed) :
+    Executable.ofVal e.toVal = some e := by
+  cases e with
+  | wasm h =>
+    simp only [Executable.WellFormed] at he
+    simp [Executable.toVal, Executable.ofVal, isSym_sym, bytes32, he]
+  | externalRef o t =>
+    simp [Executable.toVal, Executable.ofVal, isSym_sym]
+
 theorem AuthFn.ofVal_toVal (f : AuthFn) (hf : f.WellFormed) : AuthFn.ofVal f.toVal = some f := by
   cases f with
   | contract c fn args => simp [AuthFn.toVal, AuthFn.ofVal, isSym_sym]
-  | create h s args =>
-    obtain ⟨hh, hs⟩ := hf
+  | create e s args =>
+    obtain ⟨he, hs⟩ := hf
+    have hev := Executable.ofVal_toVal e he
     cases args with
-    | nil => simp [AuthFn.toVal, AuthFn.ofVal, isSym_sym, wasmHash, bytes32, hh, hs]
+    | nil => simp [AuthFn.toVal, AuthFn.ofVal, isSym_sym, hev, bytes32, hs]
     | cons a as =>
-      simp [AuthFn.toVal, AuthFn.ofVal, wasmHash, bytes32, hh, hs, isSym, sym, Bytes.ofString]
+      simp [AuthFn.toVal, AuthFn.ofVal, hev, bytes32, hs, isSym, sym, Bytes.ofString]
 
 theorem contextsOfVal_toVal (fs : List AuthFn) (hf : ∀ f ∈ fs, f.WellFormed) :
     contextsOfVal (.vec (fs.map AuthFn.toVal)) = some fs := by

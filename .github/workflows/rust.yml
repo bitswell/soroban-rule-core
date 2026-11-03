@@ -45,14 +45,19 @@ jobs:
         run: cargo build -p rule-eval --profile contract --target wasm32v1-none --locked
 
       # The facade's plain part and its real implementation over soroban-sdk,
-      # as a contract shell builds them.
+      # as a contract shell builds them. On a wasm target soroban-sdk 29 builds
+      # only when SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2 is set,
+      # which stellar-cli sets when it builds a contract and then shakes the
+      # contract's spec. The facade is a library that exports no contract
+      # functions, so these steps set it themselves to compile it for the
+      # shells' target.
       - name: Build the facade, native (release)
         run: cargo build -p soroban-facade --features sdk --release --locked
 
       - name: Build the facade, wasm32v1-none (contract profile)
         run: |
           cargo build -p soroban-facade --profile contract --target wasm32v1-none --locked
-          cargo build -p soroban-facade --features sdk --profile contract --target wasm32v1-none --locked
+          SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2=1 cargo build -p soroban-facade --features sdk --profile contract --target wasm32v1-none --locked
 
   stable:
     name: Test and build (stable)
@@ -89,4 +94,4 @@ jobs:
       - name: Build the facade, wasm32v1-none (contract profile)
         run: |
           cargo "+$STABLE" build -p soroban-facade --profile contract --target wasm32v1-none --locked
-          cargo "+$STABLE" build -p soroban-facade --features sdk --profile contract --target wasm32v1-none --locked
+          SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2=1 cargo "+$STABLE" build -p soroban-facade --features sdk --profile contract --target wasm32v1-none --locked

@@ -16,4 +16,4 @@ sdk = ["dep:soroban-sdk"]
 
 [dependencies]
 rule-eval = { path = "../rule-eval" }
-soroban-sdk = { version = "27.0.6", optional = true }
+soroban-sdk = { version = "=29.0.1", optional = true }

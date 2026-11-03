@@ -4,7 +4,7 @@ members = [
     "crates/rule-eval",
     "crates/soroban-facade",
     "conformance/runner",
-    "conformance/host/p27",
+    "conformance/host/p29",
 ]
 
 [workspace.package]

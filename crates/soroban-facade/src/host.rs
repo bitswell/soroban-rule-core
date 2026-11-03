@@ -7,7 +7,9 @@ use crate::val::{Address, Durability, Val};
 pub enum Refusal {
     /// A storage key holds a muxed address, or `require_auth` names one.
     MuxedAddress,
-    /// A stored value has no [`Val`] form.
+    /// A stored value has no [`Val`] form, or a key or value given is no
+    /// value the facade models (an `Other` holding XDR the facade does not
+    /// read, such as an executable tag).
     Undecodable,
     /// The address has not authorized the call.
     Unauthorized,

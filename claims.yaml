@@ -1089,7 +1089,9 @@ claims:
     claim: >-
       What rule-eval reads of a Soroban context (AuthFn.toChain): a call is a
       call of the contract's ScAddress XDR with each argument read; a
-      creation is a creation, which no rule allows; a u32 is other of
+      creation is a creation, which no rule allows, of its executable's
+      identity: the Wasm hash, or the XDR of an external reference, which is
+      longer than any hash; a u32 is other of
       u32Xdr, the reading Perch's lowering compares a u32 with; a value is
       read as an i128, u64, bool, bytes, string or symbol only when it is
       one, and as an address's XDR only when it is that address, since no two
@@ -1098,6 +1100,8 @@ claims:
     evidence:
       - theorem: RuleCore.Soroban.AuthFn.toChain_contract
       - theorem: RuleCore.Soroban.AuthFn.toChain_create
+      - theorem: RuleCore.Soroban.Executable.id_wasm
+      - theorem: RuleCore.Soroban.Executable.id_externalRef_length
       - theorem: RuleCore.Soroban.AuthFn.allows_create
       - theorem: RuleCore.Soroban.Val.toChain_u32
       - theorem: RuleCore.Soroban.Val.toChain_eq_i128_iff
@@ -1113,10 +1117,12 @@ claims:
   - id: soroban.contexts-read-back
     claim: >-
       Reading the form the host passes contexts in (contextsOfVal) gives back
-      every context written in it, so only a context SDK 27 does not know
-      makes a batch unreadable.
+      every context written in it, creations from uploaded Wasm and from an
+      external reference (CAP-85) alike, so only a context SDK 29 does not
+      know makes a batch unreadable.
     status: proven
     evidence:
+      - theorem: RuleCore.Soroban.Executable.ofVal_toVal
       - theorem: RuleCore.Soroban.AuthFn.ofVal_toVal
       - theorem: RuleCore.Soroban.contextsOfVal_toVal
 
@@ -1987,8 +1993,8 @@ claims:
   - id: trusted.soroban-models
     claim: >-
       The Soroban models in formal/RuleCore/Soroban say what soroban-env-host
-      27.0.1 does with storage, rollback, require_auth and __check_auth's
-      input for contract accounts at protocol 27, within the domain
+      29.0.1 does with storage, rollback, require_auth and __check_auth's
+      input for contract accounts at protocol 29, within the domain
       TRUSTED.md states; they are part of the specification.
     status: assumed
     evidence:
@@ -1996,7 +2002,7 @@ claims:
 
   - id: trusted.soroban-host
     claim: >-
-      soroban-sdk 27.0.6's testutils, driving soroban-env-host 27.0.1 with
+      soroban-sdk 29.0.1's testutils, driving soroban-env-host 29.0.1 with
       native contracts and set_auths, behave as the host function
       stellar-core calls for storage, rollback within a transaction and
       enforcing authorization.
@@ -2006,7 +2012,7 @@ claims:
 
   - id: trusted.sdk-items
     claim: >-
-      The soroban-sdk items the facade's real implementation calls (storage
+      The soroban-sdk 29.0.1 items the facade's real implementation calls (storage
       by durability, require_auth, Bytes, and the host's XDR serialization
       and deserialization) do what their names say.
     status: assumed
@@ -2383,8 +2389,9 @@ claims:
       the kinds no contract holds as a value and nesting past its limit;
       writes addresses as their ScAddress XDR and a u32 for rule-eval as
       rule-eval's u32_xdr; reads back every context it writes and refuses a
-      whole batch with one unknown context; gives rule-eval creations as
-      creations; and its plain implementation keeps storage as a map by
+      whole batch with one unknown context; gives rule-eval creations from
+      uploaded Wasm and from an external reference as creations, an external
+      reference as its XDR; and its plain implementation keeps storage as a map by
       durability and key, refuses muxed keys and answers require_auth from
       the addresses that authorized.
     status: tested
@@ -2403,6 +2410,7 @@ claims:
       - test: soroban-facade/context::one_unreadable_context_refuses_the_batch
       - test: soroban-facade/context::a_call_reaches_rule_eval_with_scaddress_xdr
       - test: soroban-facade/context::creations_reach_rule_eval_as_creations
+      - test: soroban-facade/context::an_external_reference_reaches_rule_eval_as_its_xdr
       - test: soroban-facade/plain::storage_is_a_map_by_durability_and_key
       - test: soroban-facade/plain::a_key_holding_a_muxed_address_is_refused
       - test: soroban-facade/plain::require_auth_holds_for_authorized_addresses
@@ -2429,35 +2437,39 @@ claims:
 
   - id: host.pin
     claim: >-
-      The host harness runs on soroban-env-host 27.0.1, fixed by soroban-sdk
-      27.0.6, at ledger protocol 27, and the facade's real implementation is
-      built against the same SDK.
+      The host harness runs on soroban-env-host 29.0.1, fixed by soroban-sdk
+      29.0.1 with stellar-xdr 28.0.0, at ledger protocol 29, and the facade's
+      real implementation is built against the same SDK.
     status: tested
     evidence:
-      - test: soroban-host-p27/host::the_host_runs_the_pinned_protocol
-      - file: conformance/host/p27/Cargo.toml
-        contains: "soroban-sdk = { version = \"=27.0.6\""
+      - test: soroban-host-p29/host::the_host_runs_the_pinned_protocol
+      - file: conformance/host/p29/Cargo.toml
+        contains: "soroban-sdk = { version = \"=29.0.1\""
+      - file: crates/soroban-facade/Cargo.toml
+        contains: "soroban-sdk = { version = \"=29.0.1\""
       - file: Cargo.lock
-        contains: "name = \"soroban-env-host\"\nversion = \"27.0.1\""
+        contains: "name = \"soroban-env-host\"\nversion = \"29.0.1\""
       - file: Cargo.lock
-        contains: "name = \"soroban-sdk\"\nversion = \"27.0.6\""
+        contains: "name = \"soroban-sdk\"\nversion = \"29.0.1\""
+      - file: Cargo.lock
+        contains: "name = \"stellar-xdr\"\nversion = \"28.0.0\""
       - ci: {workflow: .github/workflows/host.yml, job: host, step: Replay the vectors on the host, runs: cargo test --locked}
 
   - id: host.values
     claim: >-
-      On soroban-env-host 27.0.1, every value of the value vectors crosses
+      On soroban-env-host 29.0.1, every value of the value vectors crosses
       the host unchanged: stellar-xdr reads the model's XDR and writes it back
       byte for byte, the host takes it and gives the same value back, and
       the facade reads it as the vector's value.
     status: tested
     assumes: [trusted.soroban-host, trusted.host-harness]
     evidence:
-      - test: soroban-host-p27/host::every_value_crosses_the_host_unchanged
+      - test: soroban-host-p29/host::every_value_crosses_the_host_unchanged
       - file: conformance/vectors/soroban/values
 
   - id: host.storage-map
     claim: >-
-      On soroban-env-host 27.0.1, through the facade's real implementation,
+      On soroban-env-host 29.0.1, through the facade's real implementation,
       every operation of every storage trace returns what the storage model
       gives, each as a transaction of its own (muxed keys in persistent and
       temporary storage refused), and storage across calls, durabilities and
@@ -2466,14 +2478,14 @@ claims:
     status: tested
     assumes: [trusted.soroban-models, trusted.soroban-host, trusted.sdk-items, trusted.host-harness]
     evidence:
-      - test: soroban-host-p27/host::storage_on_the_host_agrees_with_every_storage_trace
-      - test: soroban-host-p27/host::the_host_agrees_with_every_host_trace
+      - test: soroban-host-p29/host::storage_on_the_host_agrees_with_every_storage_trace
+      - test: soroban-host-p29/host::the_host_agrees_with_every_host_trace
       - file: conformance/vectors/soroban/storage
       - file: conformance/vectors/soroban/host/host-storage-in-calls.json
 
   - id: host.rollback
     claim: >-
-      On soroban-env-host 27.0.1, a call that fails with an error or a trap
+      On soroban-env-host 29.0.1, a call that fails with an error or a trap
       leaves storage as it was; a caught failure keeps the caller's writes and
       drops the callee's; an uncaught one drops both; an authorized call
       inside a failed, caught call is rolled back with it, its nonce and its
@@ -2483,7 +2495,7 @@ claims:
     status: tested
     assumes: [trusted.soroban-models, trusted.soroban-host, trusted.host-harness]
     evidence:
-      - test: soroban-host-p27/host::the_host_agrees_with_every_host_trace
+      - test: soroban-host-p29/host::the_host_agrees_with_every_host_trace
       - file: conformance/vectors/soroban/host/host-rollback-error-and-trap.json
       - file: conformance/vectors/soroban/host/host-rollback-caught.json
       - file: conformance/vectors/soroban/host/host-rollback-uncaught.json
@@ -2493,7 +2505,7 @@ claims:
 
   - id: host.require-auth
     claim: >-
-      On soroban-env-host 27.0.1 with enforcing authorization, require_auth
+      On soroban-env-host 29.0.1 with enforcing authorization, require_auth
       is accepted and refused exactly as the matching model says on every
       host trace: an exact tree, a nested tree with one __check_auth, a tree
       rooted below the top call and a signed node that never runs are
@@ -2505,8 +2517,8 @@ claims:
     status: tested
     assumes: [trusted.soroban-models, trusted.soroban-host, trusted.host-harness]
     evidence:
-      - test: soroban-host-p27/host::the_host_agrees_with_every_host_trace
-      - test: soroban-host-p27/host::a_wrong_host_expectation_is_reported
+      - test: soroban-host-p29/host::the_host_agrees_with_every_host_trace
+      - test: soroban-host-p29/host::a_wrong_host_expectation_is_reported
       - file: conformance/vectors/soroban/host/host-exact-tree.json
       - file: conformance/vectors/soroban/host/host-nested-tree.json
       - file: conformance/vectors/soroban/host/host-root-below-top-call.json
@@ -2523,7 +2535,7 @@ claims:
 
   - id: host.check-auth-input
     claim: >-
-      On soroban-env-host 27.0.1, every __check_auth call of every host trace
+      On soroban-env-host 29.0.1, every __check_auth call of every host trace
       receives the payload the model's preimage hashes to (address-bound for
       ADDRESS_V2 and delegated credentials), the entry's or the delegate's
       signature, and the contexts of the signed tree in preorder, as the
@@ -2534,7 +2546,7 @@ claims:
     status: tested
     assumes: [trusted.soroban-models, trusted.soroban-host, trusted.sdk-items, trusted.host-harness]
     evidence:
-      - test: soroban-host-p27/host::the_host_agrees_with_every_host_trace
+      - test: soroban-host-p29/host::the_host_agrees_with_every_host_trace
       - file: conformance/vectors/soroban/host/host-address-bound-payload.json
       - file: conformance/vectors/soroban/host/host-delegation.json
       - file: conformance/vectors/soroban/host/host-nested-delegation.json
@@ -2546,30 +2558,55 @@ claims:
 
   - id: host.reentrant-instance
     claim: >-
-      On soroban-env-host 27.0.1, a contract account's re-entrant __check_auth
+      On soroban-env-host 29.0.1, a contract account's re-entrant __check_auth
       sees the instance storage its own call wrote before require_auth, and
       the call sees afterwards what __check_auth wrote there, as the model's
       single store says.
     status: tested
     assumes: [trusted.soroban-models, trusted.soroban-host, trusted.host-harness]
     evidence:
-      - test: soroban-host-p27/host::the_host_agrees_with_every_host_trace
+      - test: soroban-host-p29/host::the_host_agrees_with_every_host_trace
       - file: conformance/vectors/soroban/host/host-reentrant-instance.json
       - file: conformance/vectors/soroban/host/host-check-auth-writes-instance.json
 
   - id: host.rule-eval-in-check-auth
     claim: >-
-      On soroban-env-host 27.0.1, an account whose __check_auth reads its
+      On soroban-env-host 29.0.1, an account whose __check_auth reads its
       contexts with the facade's real implementation and checks them with
       rule-eval's allows_all accepts and refuses as the model says: every
       signed context is checked, a node that never runs included.
     status: tested
     assumes: [trusted.soroban-models, trusted.soroban-host, trusted.sdk-items, trusted.host-harness]
     evidence:
-      - test: soroban-host-p27/host::the_host_agrees_with_every_host_trace
+      - test: soroban-host-p29/host::the_host_agrees_with_every_host_trace
       - file: conformance/vectors/soroban/host/host-check-rules-allows.json
       - file: conformance/vectors/soroban/host/host-check-rules-refuses-unused-node.json
       - file: conformance/vectors/soroban/host/host-check-rules-arguments.json
+
+  - id: host.sdk-contexts
+    claim: >-
+      With soroban-sdk 29.0.1 on soroban-env-host 29.0.1, the SDK's
+      auth::Context, the type a shell's __check_auth takes its contexts as,
+      reads every context vector exactly when the model reads it, creations
+      from an external reference included, and writes what it read back as
+      the vector's XDR; a refusal the SDK does not make is reported.
+    status: tested
+    assumes: [trusted.soroban-host, trusted.host-harness]
+    evidence:
+      - test: soroban-host-p29/host::the_sdk_reads_every_context_vector_as_the_model_does
+      - file: conformance/vectors/soroban/contexts/contexts-create-external-ref.json
+
+  - id: host.executable-tag
+    claim: >-
+      soroban-env-host 29.0.1 takes an executable tag (CAP-85) as a value
+      from its XDR, which the facade does not read; the facade's real
+      implementation refuses one as a storage key under every durability and
+      as a stored value, before it reaches the host, so no key the storage
+      model sees is one the host treats apart.
+    status: tested
+    assumes: [trusted.soroban-host, trusted.sdk-items]
+    evidence:
+      - test: soroban-host-p29/host::the_facade_refuses_an_executable_tag
 
   # The restricted subset and the build.
 

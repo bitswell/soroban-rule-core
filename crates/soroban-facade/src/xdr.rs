@@ -1,11 +1,12 @@
-//! The `ScVal` and `ScAddress` XDR of values, as `stellar-xdr` 27.0.0 writes
+//! The `ScVal` and `ScAddress` XDR of values, as `stellar-xdr` 28.0.0 writes
 //! them.
 //!
 //! [`encode`] is `Val.xdr` of the Lean model (`formal/RuleCore/Soroban/Val.lean`).
 //! [`decode`] reads one whole value back: it returns `None` for bytes that are
-//! not the XDR of one value, and for the `ScVal`s no contract holds as a value
+//! not the XDR of one value, for the `ScVal`s no contract holds as a value
 //! (a contract instance, the two ledger keys, and claimable balance and
-//! liquidity pool addresses). A value
+//! liquidity pool addresses), and for an executable tag (CAP-85), which the
+//! facade does not model. A value
 //! of a kind [`Val`] does not model is [`Val::Other`] of its XDR, so for every
 //! value `v`, `decode(&encode(&v)) == Some(v)` when every `Other` in `v` holds
 //! the XDR of such a kind.

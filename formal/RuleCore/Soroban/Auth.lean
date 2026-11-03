@@ -5,8 +5,8 @@ import RuleCore.Soroban.Context
 
 An authorization entry (`Entry`) is what an address signs: an invocation tree
 (`Invocation`), a nonce, the last ledger the signature is valid in, the
-signature and the kind of credentials. There are three kinds, as in protocol
-27 (CAP-46-11, CAP-71):
+signature and the kind of credentials. There are three kinds, as in protocols
+27 to 29 (CAP-46-11, CAP-71):
 
 * `address` (`SOROBAN_CREDENTIALS_ADDRESS`): the signature payload is the hash
   of `HashIdPreimage::SorobanAuthorization`, which does not name the address;
@@ -23,7 +23,7 @@ preorder, the contexts `__check_auth` receives.
 
 ## Matching
 
-`Tracker` follows `soroban-env-host` 27.0.1's `AccountAuthorizationTracker`.
+`Tracker` follows `soroban-env-host` 29.0.1's `AccountAuthorizationTracker`.
 It holds one entry, the nodes of its tree already matched (`exhausted`, as
 paths of child indices, `[]` the root), and a match state for each frame on
 the call stack (`stack`, outermost first): unmatched, the root, or the child

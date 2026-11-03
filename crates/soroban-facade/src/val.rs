@@ -38,7 +38,8 @@ pub enum Val {
     /// A map's entries, in the host's key order.
     Map(Vec<(Val, Val)>),
     /// A value of any other type (`i32`, `i64`, `u128`, `u256`, `i256`, a time
-    /// point, a duration or an error), as its full `ScVal` XDR.
+    /// point, a duration or an error), as its full `ScVal` XDR. The real
+    /// implementation refuses any other XDR here.
     Other(Vec<u8>),
 }
 

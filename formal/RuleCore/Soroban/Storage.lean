@@ -11,7 +11,7 @@ appears at most once (`Store.set` and `Store.remove` drop every earlier entry
 for the slot), and `get` reads the first entry for the slot.
 
 `Op.apply` is an operation a contract makes on its own storage, as
-`soroban-env-host` 27.0.1 performs it: `get` returns the value or nothing,
+`soroban-env-host` 29.0.1 performs it: `get` returns the value or nothing,
 `has` whether there is one, `set` and `remove` change the map (removing an
 absent key changes nothing). A key holding a muxed address is refused
 (`Val.storable`), and the call making the operation fails. The host refuses
@@ -20,7 +20,15 @@ refuses it when it writes the instance back, at the end of the call, and the
 model leaves that case out (the vectors never use such a key in instance
 storage).
 
-Time to live and archival are not modelled: every entry stays live.
+Keys and values are facade values (`Soroban/Val.lean`), so no key is an
+executable tag (CAP-85, protocol 28), the one key the host treats apart: it
+lets a contract put one only in persistent storage and only with the hash of
+uploaded Wasm, and never remove it. The facade refuses an executable tag
+before it reaches the host.
+
+Time to live and archival are not modelled: every entry stays live, and so
+the host's clamping of `extend_ttl` to the network's maximum (protocol 29) is
+outside the model too.
 -/
 
 namespace RuleCore.Soroban

@@ -19,7 +19,7 @@ differential test.
 | `vectors/soroban/host/*.json` | One host trace per file: contract accounts' `__check_auth` programs and transactions of calls and signed entries, each with the model's outcome, events and storage. |
 | `generator/` | The Lake package that writes the vectors and traces: the case specifications and the JSON encoding. |
 | `runner/` | The Rust crate `rule-eval-conformance`, which loads every vector and trace and checks `rule-eval` and `soroban-facade` against it. |
-| `host/` | The host harness: `src/` and `tests/` replay the Soroban vectors on `soroban-env-host`, and each crate beside them (`p27/`) pins one host version. |
+| `host/` | The host harness: `src/` and `tests/` replay the Soroban vectors on `soroban-env-host`, and each crate beside them (`p29/`) pins one host version. |
 
 ## How the vectors are made
 
@@ -67,7 +67,7 @@ for a larger run outside the committed vectors:
 ```sh
 lake exe gen-vectors /tmp/vectors --seed 7 --count 5000 --cap-count 5000 --auth-count 5000 --budget-count 5000 --doc-count 5000 --storage-count 1000 --host-count 2000
 CONFORMANCE_VECTORS=/tmp/vectors cargo test -p rule-eval-conformance
-CONFORMANCE_VECTORS=/tmp/vectors cargo test -p soroban-host-p27
+CONFORMANCE_VECTORS=/tmp/vectors cargo test -p soroban-host-p29
 ```
 
 The randomized cases use SplitMix64, written out in `Conformance/Random.lean`,
@@ -143,21 +143,24 @@ every storage trace's results.
 ## Running them against the host
 
 ```sh
-cargo test --locked --manifest-path host/p27/Cargo.toml
+cargo test --locked --manifest-path host/p29/Cargo.toml
 ```
 
-`host/p27` is the harness at the pin, soroban-sdk 27.0.6 with
-soroban-env-host 27.0.1 (protocol 27), and a workspace member. Its tests
-(`host/tests/host.rs`) replay the value vectors, the storage traces and the
-host traces on the host, through soroban-sdk's testutils with enforcing
+`host/p29` is the harness at the pin, soroban-sdk 29.0.1 with
+soroban-env-host 29.0.1 and stellar-xdr 28.0.0 (protocol 29), and a
+workspace member. Its tests (`host/tests/host.rs`) replay the value vectors,
+the storage traces and the host traces on the host, through soroban-sdk's testutils with enforcing
 authorization (`set_auths`, not `mock_all_auths`), and compare outcomes,
 events and storage, not error codes: every refusal reaches the caller as the
 same host error whatever its cause. Every contract a trace names is a native
 contract that runs what the trace says, and with the `facade` feature its
 storage, `require_auth` and reading of `__check_auth`'s contexts go through
-`soroban-facade`'s real implementation. `.github/workflows/host.yml` runs it,
-one matrix entry per host crate. A crate for another host version is a
-directory beside `p27` with its own `Cargo.toml` and `Cargo.lock` naming
+`soroban-facade`'s real implementation. They also read every context vector
+with the SDK's `auth::Context`, which must read exactly the vectors the model
+reads and write them back as the same XDR. `.github/workflows/host.yml` runs
+it, one matrix entry per host crate. A crate for another host version is a
+directory beside `p29`, named `soroban-host-p<protocol>` with its library
+named `harness`, with its own `Cargo.toml` and `Cargo.lock` naming
 `../src/lib.rs` and `../tests/host.rs`; a version whose SDK is not the
 facade's leaves the `facade` feature off and drives the SDK directly.
 
@@ -779,7 +782,7 @@ Values, contexts and the rest share one encoding:
 - an address is `{"account": key}`, `{"contract": id}` or `{"muxed_account": {"id": "<decimal u64>", "key": key}}`, keys and ids 32 bytes of lowercase hex;
 - a value is `{"void": null}`, `{"bool": b}`, `{"u32": n}`, `{"u64": "<decimal>"}`, `{"i128": "<decimal>"}`, `{"bytes": hex}`, `{"string": hex}`, `{"symbol": hex}`, `{"address": address}`, `{"vec": [value, ...]}`, `{"map": [[key, value], ...]}` with keys in the host's order, or `{"other": hex}`, the full `ScVal` XDR of a value of another kind;
 - a durability is `"persistent"`, `"temporary"` or `"instance"`;
-- a context is `{"contract": {"contract": address, "fn_name": hex, "args": [value, ...]}}` or `{"create_contract": {"wasm_hash": hex, "salt": hex, "constructor_args": [value, ...]}}`.
+- a context is `{"contract": {"contract": address, "fn_name": hex, "args": [value, ...]}}` or `{"create_contract": {"executable": Executable, "salt": hex, "constructor_args": [value, ...]}}`, where an executable is `{"wasm": hex}` (the Wasm hash) or `{"external_ref": {"owner": address, "tag": hex}}` (CAP-85; the tag's string as hex). `rule-eval` reads a creation as `{"create": {"wasm_hash": hex}}` of the Wasm hash, or of the external reference's `ScVal` XDR.
 
 ### Value and context vectors
 
