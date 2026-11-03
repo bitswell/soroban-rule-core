@@ -4,8 +4,8 @@
 //! contexts, the signers the batch's authorization authenticated, attenuation
 //! step lists, and the results the Lean model computes for them. [`check`]
 //! decodes a vector into `rule-eval`'s types, evaluates it with `rule-eval`,
-//! and reports the first result that differs. [`caps`] checks the cap traces
-//! and [`authorize`] the authorization traces.
+//! and reports the first result that differs. [`caps`] checks the cap traces,
+//! [`authorize`] the authorization traces and [`budget`] the budget traces.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -18,6 +18,7 @@ use rule_eval::{
 use serde::Deserialize;
 
 pub mod authorize;
+pub mod budget;
 pub mod caps;
 
 /// The vector format version this runner reads.

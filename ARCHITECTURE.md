@@ -19,10 +19,10 @@ rule sets:
 Each link of the chain is a theorem about rule sets, or about the code that
 builds, stores and checks them:
 
-- **Grant inside scope.** A delegated grant is reached from its scope by attenuation steps, so it allows only what the scope allows, under any signers. Milestones 1 and 2 prove this for rule matching and signer requirements (`Derives.narrower`, `Derives.allows_all`), and for spending caps on rules as trace inclusion: every run of authorizations a derived rule set accepts from empty records, its root accepts from its own ([Milestone 2: caps on rules](#milestone-2-caps-on-rules)). Budgets on the delegation tree come in M3.
+- **Grant inside scope.** A delegated grant is reached from its scope by attenuation steps, so it allows only what the scope allows, under any signers. Milestones 1 and 2 prove this for rule matching and signer requirements (`Derives.narrower`, `Derives.allows_all`), and for spending caps on rules as trace inclusion: every run of authorizations a derived rule set accepts from empty records, its root accepts from its own ([Milestone 2: caps on rules](#milestone-2-caps-on-rules)). Milestone 3 bounds what is spent under each grant on the delegation tree: from a tree with nothing spent, the total successfully spent at or under any node never exceeds its allowance, however the allowances below it oversubscribe it (`spentUnder_le_allowance`, [Milestone 3: the budget tree](#milestone-3-the-budget-tree)).
 - **Scope inside the owner's authority.** A scoped document compiles to rules that reach none of the account, its recovery or the ZK adapter. That is M4.
 - **Recovery.** A completed recovery bumps a generation, and every scoped rule issued under an older generation then authorizes nothing. That is also M4.
-- **The code is the model.** The Rust that Perch's smart account, the grant signer, the agent host and the relay run is proven equal to the Lean model the theorems are about (M1 for rule matching and attenuation, M2 for signers, spending caps and the stateful `authorize`). Soroban's own behaviour enters through Lean models that are tested against the host (M5).
+- **The code is the model.** The Rust that Perch's smart account, the grant signer, the agent host and the relay run is proven equal to the Lean model the theorems are about (M1 for rule matching and attenuation, M2 for signers, spending caps and the stateful `authorize`, M3 for the budget tree). Soroban's own behaviour enters through Lean models that are tested against the host (M5).
 
 ## Dependency direction
 
@@ -363,19 +363,97 @@ These are mapping notes for M4, not decisions:
 - **OpenZeppelin's spending-limit policy meters only `transfer` at argument 2.** At Perch's pin, `enforce` accepts a call only when its function is `transfer` and its argument 2 is an `i128`, and refuses every other context with `NotAllowed` (`policies/spending_limit.rs` lines 242–244, 298 and 301); it also refuses an empty set of authenticated signers (line 232). Here a cap names its argument (`amount_arg`), and which functions a rule covers is its function list, so a policy-capped OpenZeppelin rule corresponds to a rule whose functions are `["transfer"]` and whose cap reads argument 2.
 - **The history bound differs between upstream and Perch's pin.** Upstream OpenZeppelin bounds the history at 815 entries ([`stellar-contracts@ddc327eb`](https://github.com/OpenZeppelin/stellar-contracts/blob/ddc327eb92d63709436da3a8455f641c2d5476c5/packages/accounts/src/policies/spending_limit.rs) line 169), and Perch's pin at 1000 (line 158 of the fork). `rule-eval` follows the pin, so a record past 815 entries is one the pin accepts and upstream refuses.
 
+## Milestone 3: the budget tree
+
+Allowances sit on the delegation tree. Each grant a holder delegates is a node
+with an allowance, and a spend under a grant is charged to its node and to
+every node above it. The code is `crates/rule-eval/src/budget.rs`, the model
+`formal/RuleCore/Model/Budget.lean`, the theorems `Theorems/Budget.lean` and,
+on the translation, `Theorems/ExtractedBudget.lean`.
+
+### The tree
+
+- A tree is a slice of `Node { parent: Option<u32>, allowance: i128, spent: i128 }`. `parent` is the index of the node's parent, or `None` for a root; `spent` is what has been spent at or under the node. A tree may have several roots.
+- A tree is well formed (`tree_valid`) when every node's parent index is below its own index and no allowance or spent amount is negative. Parent indices below their own make the tree acyclic by construction: each step of the walk from a node to its root moves to a smaller index, so the walk ends within as many steps as the tree has nodes.
+- Every operation first checks the whole tree and refuses one that is not well formed with `Malformed`, whatever its other arguments.
+- Well-formedness says nothing about how allowances relate. A node's spent amount may even start above its allowance; then no spend through it, not even a zero one, passes until a refill covers it.
+
+### The operations
+
+Each takes the tree as a slice and returns a new `Vec<Node>` or a `BudgetError`.
+
+- `spend(tree, node, amount)` charges `node` and every ancestor up to its root by `amount`. In order, it refuses a malformed tree (`Malformed`), a node out of range (`NoSuchNode(node)`) and a negative amount (`NegativeAmount`). It then walks the chain from `node` and checks every node on it: a node can take the amount when `spent + amount` fits in an `i128` and is at most its allowance, so an overflowing sum counts as overdrawn. The first node that cannot is named in the refusal, `Overdrawn(j)`, counting from the spender; it is the node a refill request goes to. Only when every node on the chain can take the amount does `spend` build the new tree: a copy with the amount added to each node of the chain. A refusal returns no tree, so the input is unchanged by construction.
+- `delegate(tree, parent, allowance)` appends a child of `parent` with `allowance` and nothing spent, at index `tree.len()`. It refuses a malformed tree, a parent out of range (`NoSuchNode(parent)`), a negative allowance (`NegativeAmount`), and a tree that already holds `MAX_NODES` nodes (`TreeFull`). `MAX_NODES` is `u32::MAX`, so every node a delegation appends has an index that fits in a `u32`.
+- `refill(tree, node, amount)` raises `node`'s allowance by `amount`. It refuses a malformed tree, a node out of range, a negative amount, which would lower the allowance (`NegativeAmount`), and a raised allowance that does not fit in an `i128` (`Overflow`). A refill is the owner's action, not a holder's: the shell accepts one only on the owner's authority.
+
+### Oversubscription
+
+`delegate` does not compare a child's allowance with its parent's, so the
+allowances of a node's children may sum to more than its own. Two children of
+a root with allowance 10 may hold 8 each; once one has spent 8, the other's
+spend of 3 is refused at the root, which has 2 left, and its spend of 2 passes.
+The bound on each node holds because every spend under it is charged to it,
+not because its children's allowances fit inside its own.
+
+### Amounts and indices in Lean and Rust
+
+Amounts, allowances and spent amounts are `i128` in Rust and integers in the
+model; node indices are `u32` in Rust and natural numbers in the model. The
+denotation (`Equiv/DenoteBudget.lean`) takes each to its value. The model's
+sums are `Cap.addI128`, Rust's `i128::checked_add`, so the model refuses an
+overflowing spend or refill exactly where Rust does. The model also has trees
+no Rust value denotes, with indices of `2^32` or more or amounts outside the
+`i128` range; its theorems hold for those too, and the equivalence says
+nothing about them. Every Rust input denotes a model input, so the equivalence
+and the theorems carried to the translation cover every Rust input. Indices are
+widened with `as usize`, lossless because `usize` has at least 32 bits, and
+`MAX_NODES` keeps every tree `delegate` pushes onto below `Usize.max`, so no
+stated rule is needed.
+
+### Theorems
+
+`Tree.run` runs a list of spends, delegations and refills, keeping the tree on
+a refusal and logging each successful spend; `Tree.Within t i a` says `a` is
+`i` or one of its ancestors, and `spentUnder t log a` totals the logged spends
+made at or under `a`.
+
+- **Charging** (`spend_ok_charges`, `spend_ok_unchanged`, `spend_ok_length`, `spend_ok_parentOf`, `spend_ok_allowance`): a successful spend adds the amount to the spender and every ancestor and changes nothing else.
+- **Refusals change nothing** (`step_of_error`, `run_cons_of_error`).
+- **The named node** (`spend_overdrawn`): it is on the spender's chain and cannot take the amount, and every node before it on the chain can.
+- **Refusing only what it must** (`spend_accepts_iff`, `spend_error_overdrawn`): on a well-formed tree, a spend of a non-negative amount at an existing node succeeds exactly when every node on its chain can take it.
+- **Delegation and refills** (`delegate_ok_iff`, `refill_ok_iff`): what each appends or raises, and nothing else.
+- **Invariants** (`run_valid`, `run_withinAllowance`, and the single-operation versions): every operation keeps the tree well formed and every spent amount within its allowance.
+- **Budget safety** (`spent_run`, `spentUnder_eq_spent`, `spentUnder_le_allowance`): after any run, each node's spent amount is what it started with plus the total successfully spent at or under it, so from a well-formed tree with nothing spent that total is the node's spent amount and never exceeds its allowance. The theorem has no hypothesis on allowances.
+- **On the translation**: `spend_eq`, `delegate_eq` and `refill_eq` prove that each translated operation returns `ok` of the model's result on every input, so it terminates and never panics. `runBudget_eq` carries this to runs of the Rust functions, and `runBudget_spentUnder_le_allowance`, `budget_spend_charges`, `budget_spend_overdrawn` and `budget_spend_accepts_iff` state the theorems for the code.
+
+### Edges
+
+- **`TreeFull`** needs a tree of `u32::MAX` nodes, so no test or vector reaches it; `delegate_eq` covers it.
+- **A zero spend** passes when every node on the chain has spent at most its allowance, and charges nothing.
+- **The walk's other refusals.** The checking walk refuses `Malformed` when it meets a parent index that is not below the current one, a missing node, or runs out of steps. On a well-formed tree none of these happens (`walk_error`), and `spend` checks well-formedness first, so `spend` never returns them from the walk.
+- **Cost.** Each operation checks the whole tree, and each that succeeds copies it, so it is linear in the tree's size; the walk is linear in the spender's depth.
+
+### The shell's part
+
+The operations are pure. Linking an authorization to a node is the shell's job:
+the grant signer (M6) decides which node an authorization's spend is charged
+to and how much it spends, calls `spend`, and stores the returned tree only on
+`Ok`, as a failed Soroban invocation rolls back. It accepts a refill only on
+the owner's authority, and storing the tree in a contract is the shell's too.
+None of this is built here.
+
+### In the restricted subset
+
+- `tree_valid` is one `while i < tree.len()` loop over the nodes.
+- The checking walk (`check_chain`) and the charging walk (`charged`) are each one `while step < tree.len()` loop. The current node is read with `tree.get(current as usize)`, and a parent index not below the current one ends the walk, so every step moves to a smaller index. `check_chain_loop_eq` proves the checking walk is the model's `Tree.walk` with the steps left as fuel.
+- `charged` copies the tree and walks the chain again, writing each charged node back through `out.get_mut(current as usize)`. Its `checked_add` cannot fail after the check: the walk found the same sum fits at each node it visits (`charged_loop_eq`).
+- `refill` rebuilds the tree in one loop, replacing the node at its index, as `raise_threshold` does for a rule. `delegate` copies the tree and pushes the new node.
+
 ## Later milestones
 
 These are design notes for work that is not built. Where the brief leaves a
 choice open, it is listed under [Open questions](#open-questions) and not
 decided here.
-
-### M3: the budget tree
-
-Allowances sit on the delegation tree.
-
-- **Charging.** A spend charges the spender and every ancestor, or fails and changes nothing. Oversubscription is allowed: the children's allowances may sum to more than the parent's.
-- **Theorem.** For every node and every sequence of spends, what is spent under the node stays within its allowance.
-- **Shape in the restricted subset.** The tree is a slice of nodes, each holding its parent's index, its allowance and what it has spent. Walking to the root is a loop bounded by the slice length. The charge first checks every ancestor and then builds the new slice, so a failure leaves the input unchanged by construction. The tree lives in `rule-eval`, or in a sibling crate under the same rules, and depends on nothing.
 
 ### M4: compile soundness and scopes
 
@@ -447,7 +525,7 @@ This repository differs from all of these in four ways.
 Perch moves its pure rule check behind `rule-eval` in small pull requests.
 Each one is pinned by a differential test against Perch's current behaviour:
 the conformance vectors, plus recorded verdicts of the code being replaced.
-The grant signer moves last, once budgets (M3) are proven. Each consumer runs
+The grant signer moves last, onto the budget tree of M3. Each consumer runs
 the conformance vectors in its own CI, so a change to the model shows up as a
 failing vector in every consumer.
 

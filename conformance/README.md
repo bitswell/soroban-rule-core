@@ -1,8 +1,8 @@
 # conformance
 
 Test vectors for rule-set evaluation and attenuation, traces of the
-spending-cap check and traces of `authorize`, computed by the Lean model in
-`formal/`, and a runner that checks `rule-eval` against them. Any other implementation of the same rules
+spending-cap check, traces of `authorize` and traces of the budget tree,
+computed by the Lean model in `formal/`, and a runner that checks `rule-eval` against them. Any other implementation of the same rules
 (Perch's smart account, the grant signer) can run the same vectors as a
 differential test.
 
@@ -11,6 +11,7 @@ differential test.
 | `vectors/*.json` | One vector per file: a rule set, a batch of contexts, the authenticated signers, attenuation step lists, and the results the Lean model computes for them. |
 | `vectors/caps/*.json` | One cap trace per file: a cap, a starting record, and calls, each with the outcome the Lean model computes for it. |
 | `vectors/authorize/*.json` | One authorization trace per file: a rule set, its starting records, and authorizations, each with the outcome the Lean model computes for it. |
+| `vectors/budget/*.json` | One budget trace per file: a starting tree, and spends, delegations and refills, each with the outcome the Lean model computes for it. |
 | `generator/` | The Lake package that writes the vectors and traces: the case specifications and the JSON encoding. |
 | `runner/` | The Rust crate `rule-eval-conformance`, which loads every vector and trace and checks `rule-eval` against it. |
 
@@ -25,23 +26,26 @@ every expected result with the chain vocabulary's own functions,
 writes each case to `<name>.json`. The cap traces (`Conformance/Caps.lean`) are
 computed with `RuleCore.Cap.Params.check` and written to `caps/<name>.json`, and
 the authorization traces (`Conformance/Authorize.lean`) with
-`RuleCore.Chain.RuleSet.authorize` and written to `authorize/<name>.json`. No
-expected result is written by hand.
+`RuleCore.Chain.RuleSet.authorize` and written to `authorize/<name>.json`, and
+the budget traces (`Conformance/Budget.lean`) with `RuleCore.Budget.Op.apply`
+and written to `budget/<name>.json`. No expected result is written by hand.
 
 ```sh
 cd conformance/generator
 lake exe gen-vectors ../vectors
 ```
 
-`gen-vectors <dir>` removes the `.json` files in `<dir>`, `<dir>/caps` and
-`<dir>/authorize` and writes every named case plus 100 randomized cases of seed
-20261102, every named cap trace plus 50 randomized traces of the same seed, and
-every named authorization trace plus 50 randomized traces of the same seed.
-`--seed <n>`, `--count <n>`, `--cap-count <n>` and `--auth-count <n>` choose
-another randomized set, for a larger run outside the committed vectors:
+`gen-vectors <dir>` removes the `.json` files in `<dir>`, `<dir>/caps`,
+`<dir>/authorize` and `<dir>/budget` and writes every named case plus 100
+randomized cases of seed 20261102, every named cap trace plus 50 randomized
+traces of the same seed, every named authorization trace plus 50 randomized
+traces of the same seed, and every named budget trace plus 50 randomized traces
+of the same seed. `--seed <n>`, `--count <n>`, `--cap-count <n>`,
+`--auth-count <n>` and `--budget-count <n>` choose another randomized set, for
+a larger run outside the committed vectors:
 
 ```sh
-lake exe gen-vectors /tmp/vectors --seed 7 --count 5000 --cap-count 5000 --auth-count 5000
+lake exe gen-vectors /tmp/vectors --seed 7 --count 5000 --cap-count 5000 --auth-count 5000 --budget-count 5000
 CONFORMANCE_VECTORS=/tmp/vectors cargo test -p rule-eval-conformance
 ```
 
@@ -61,7 +65,11 @@ carry a cap a third of the time, and random steps include the three cap steps.
 The randomized authorization traces draw rule sets with caps, batches built
 from their rules with amounts near the caps' limits at the caps' argument
 indices, choices that usually name the rule a call was built from, and ledgers
-that mostly advance.
+that mostly advance. The randomized budget traces draw trees of up to six
+nodes with parents below their own index, allowances from a small universe
+that includes the `i128` extremes, an occasional node with a spent amount and
+one tree in eight made malformed, and operations whose indices are mostly in
+range.
 
 ## Running them against rule-eval
 
@@ -80,7 +88,12 @@ refusal, ledger 0, `u32::MAX` and invalid caps, and that a changed expectation
 is reported. Its authorization tests (`tests/authorize.rs`) check that
 `authorize` reproduces every outcome and record of every trace, that the traces
 still cover every refusal, two contexts charging one rule, eviction, mismatched
-records and the empty batch, and that a changed expectation is reported.
+records and the empty batch, and that a changed expectation is reported. Its
+budget tests (`tests/budget.rs`) check that `spend`, `delegate` and `refill`
+reproduce every outcome and tree of every trace, that the traces still cover
+every refusal but `tree_full`, overdrawn refusals at the spender and at an
+ancestor, malformed and empty trees and several roots, and that a changed
+expectation is reported.
 `rule-eval` itself keeps no dependencies; the runner depends on it, `serde` and
 `serde_json`.
 
@@ -482,3 +495,81 @@ entry by entry and total for total. `error` names the refusal:
 
 `authorize-random-00.json` to `authorize-random-49.json` are the randomized
 traces.
+
+## Budget trace format
+
+A budget trace runs spends, delegations and refills through the budget
+operations, `spend`, `delegate` and `refill` in `rule-eval` and `Op.apply` in
+the model. Every file is one JSON object. Object fields appear in the order
+below; readers should not depend on it.
+
+```json
+{
+  "format": 1,
+  "name": "budget-oversubscribed-siblings",
+  "description": "...",
+  "start": [Node, ...],
+  "valid": true,
+  "ops": [
+    {"op": "spend", "node": 1, "amount": "8", "expected": Outcome},
+    {"op": "delegate", "parent": 1, "allowance": "20", "expected": Outcome},
+    {"op": "refill", "node": 0, "amount": "5", "expected": Outcome},
+    ...
+  ]
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `format` | The version of this format, `1`. It is versioned apart from the rule vectors and the other traces. |
+| `name` | The file name without `.json`. |
+| `description` | What the trace exercises, for a reader; carries no data. |
+| `start` | The tree the first operation starts from, its nodes in index order. |
+| `valid` | Whether `start` is well formed: every parent index below its node's index, and no allowance or spent amount negative. The operations run on it either way. |
+| `ops` | The operations, in order. Each starts from the tree the operations before it left: the tree after an accepted one, the same tree after a refused one. |
+| `ops[i].op` | `spend`, `delegate` or `refill`. |
+| `ops[i].node` | For a spend or a refill, the node's index, a `u32`. |
+| `ops[i].parent` | For a delegation, the parent's index, a `u32`. |
+| `ops[i].amount` | For a spend, the amount spent; for a refill, the amount the allowance is raised by. An `i128`. |
+| `ops[i].allowance` | For a delegation, the new child's allowance, an `i128`. |
+| `ops[i].expected` | The outcome of the operation. |
+
+A node is `{"parent": p, "allowance": "...", "spent": "..."}`, with `parent` a
+`u32` index or `null` for a root, and allowances and spent amounts as decimal
+`i128` strings.
+
+### The operations
+
+Each refuses a tree that is not well formed (`malformed`) first. Then:
+
+- **spend** refuses a node out of range (`no_such_node`) and a negative amount (`negative_amount`), then walks from the node to its root. A node can take the amount when its spent amount plus the amount fits in an `i128` and is at most its allowance. The first node on the walk that cannot is named in `overdrawn`; otherwise the amount is added to the spent amount of every node on the walk.
+- **delegate** refuses a parent out of range (`no_such_node`), a negative allowance (`negative_amount`) and a tree of `u32::MAX` nodes (`tree_full`), and otherwise appends `{"parent": parent, "allowance": allowance, "spent": "0"}`.
+- **refill** refuses a node out of range (`no_such_node`), a negative amount (`negative_amount`) and a raised allowance that does not fit in an `i128` (`overflow`), and otherwise raises the node's allowance by the amount.
+
+### Outcomes
+
+```json
+{"ok": [Node, ...]}
+{"error": "malformed"}
+{"error": {"no_such_node": 3}}
+{"error": {"overdrawn": 0}}
+```
+
+`ok` holds the tree after the operation, compared node by node. `error` names
+the refusal: `malformed`, `negative_amount`, `overflow` and `tree_full` as
+strings, and `no_such_node` and `overdrawn` as an object holding the index.
+
+### The named traces
+
+| Trace | What it exercises |
+| --- | --- |
+| `budget-oversubscribed-siblings` | Children whose allowances sum to more than their parent's, sharing it. |
+| `budget-middle-exhausted`, `budget-chain-to-root` | A spend exhausting a middle ancestor, and a deep spend charging the whole chain and nothing else. |
+| `budget-nearest-overdrawn` | Several overdrawn nodes on a chain, the one nearest the spender named. |
+| `budget-overflow` | Spends and refills whose sums do not fit in an `i128`. |
+| `budget-malformed-parent-self`, `budget-malformed-parent-later`, `budget-malformed-negative-allowance`, `budget-malformed-negative-spent` | Malformed trees, on which every operation refuses. |
+| `budget-delegate-then-spend`, `budget-delegate-refusals` | Delegation, above the parent's allowance included, then spends at the new nodes; delegation's refusals. |
+| `budget-refill`, `budget-start-overspent` | Refills unblocking a spend, their refusals, and a tree starting with a node spent above its allowance. |
+| `budget-negative-amount`, `budget-no-such-node`, `budget-empty-tree`, `budget-zero-spend`, `budget-several-roots`, `budget-empty-run` | The other refusals and edges. |
+
+`budget-random-00.json` to `budget-random-49.json` are the randomized traces.

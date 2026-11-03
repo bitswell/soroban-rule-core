@@ -1,0 +1,49 @@
+{
+  "format": 1,
+  "name": "budget-start-overspent",
+  "description": "A well-formed tree may start with a node spent above its allowance; even a zero spend through it is refused until a refill covers it.",
+  "start": [
+    {"parent": null, "allowance": "5", "spent": "8"},
+    {"parent": 0, "allowance": "5", "spent": "0"}
+  ],
+  "valid": true,
+  "ops": [
+    {"op": "spend", "node": 1, "amount": "0", "expected": {"error": {"overdrawn": 0}}},
+    {"op": "spend", "node": 0, "amount": "0", "expected": {"error": {"overdrawn": 0}}},
+    {
+      "op": "refill",
+      "node": 0,
+      "amount": "2",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "7", "spent": "8"},
+          {"parent": 0, "allowance": "5", "spent": "0"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 1, "amount": "0", "expected": {"error": {"overdrawn": 0}}},
+    {
+      "op": "refill",
+      "node": 0,
+      "amount": "1",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "8", "spent": "8"},
+          {"parent": 0, "allowance": "5", "spent": "0"}
+        ]
+      }
+    },
+    {
+      "op": "spend",
+      "node": 1,
+      "amount": "0",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "8", "spent": "8"},
+          {"parent": 0, "allowance": "5", "spent": "0"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 1, "amount": "1", "expected": {"error": {"overdrawn": 0}}}
+  ]
+}

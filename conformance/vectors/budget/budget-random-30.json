@@ -1,0 +1,33 @@
+{
+  "format": 1,
+  "name": "budget-random-30",
+  "description": "Randomized trace 30 of seed 20261102.",
+  "start": [
+    {"parent": null, "allowance": "50", "spent": "0"},
+    {"parent": 2, "allowance": "1", "spent": "0"},
+    {"parent": 1, "allowance": "1", "spent": "0"}
+  ],
+  "valid": false,
+  "ops": [
+    {
+      "op": "spend",
+      "node": 0,
+      "amount": "170141183460469231731687303715884105727",
+      "expected": {"error": "malformed"}
+    },
+    {
+      "op": "delegate",
+      "parent": 2,
+      "allowance": "170141183460469231731687303715884105726",
+      "expected": {"error": "malformed"}
+    },
+    {"op": "spend", "node": 2, "amount": "0", "expected": {"error": "malformed"}},
+    {
+      "op": "spend",
+      "node": 0,
+      "amount": "170141183460469231731687303715884105727",
+      "expected": {"error": "malformed"}
+    },
+    {"op": "refill", "node": 0, "amount": "2", "expected": {"error": "malformed"}}
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "format": 1,
+  "name": "budget-random-08",
+  "description": "Randomized trace 8 of seed 20261102.",
+  "start": [
+    {"parent": null, "allowance": "2", "spent": "1"},
+    {"parent": 0, "allowance": "10", "spent": "0"},
+    {"parent": 1, "allowance": "1", "spent": "0"},
+    {"parent": 0, "allowance": "10", "spent": "0"},
+    {"parent": 2, "allowance": "5", "spent": "0"}
+  ],
+  "valid": true,
+  "ops": [
+    {"op": "spend", "node": 1, "amount": "10", "expected": {"error": {"overdrawn": 0}}},
+    {
+      "op": "spend",
+      "node": 4,
+      "amount": "1",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "2", "spent": "2"},
+          {"parent": 0, "allowance": "10", "spent": "1"},
+          {"parent": 1, "allowance": "1", "spent": "1"},
+          {"parent": 0, "allowance": "10", "spent": "0"},
+          {"parent": 2, "allowance": "5", "spent": "1"}
+        ]
+      }
+    },
+    {
+      "op": "refill",
+      "node": 0,
+      "amount": "3",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "5", "spent": "2"},
+          {"parent": 0, "allowance": "10", "spent": "1"},
+          {"parent": 1, "allowance": "1", "spent": "1"},
+          {"parent": 0, "allowance": "10", "spent": "0"},
+          {"parent": 2, "allowance": "5", "spent": "1"}
+        ]
+      }
+    },
+    {
+      "op": "spend",
+      "node": 2,
+      "amount": "170141183460469231731687303715884105727",
+      "expected": {"error": {"overdrawn": 2}}
+    },
+    {
+      "op": "refill",
+      "node": 0,
+      "amount": "25",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "30", "spent": "2"},
+          {"parent": 0, "allowance": "10", "spent": "1"},
+          {"parent": 1, "allowance": "1", "spent": "1"},
+          {"parent": 0, "allowance": "10", "spent": "0"},
+          {"parent": 2, "allowance": "5", "spent": "1"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 4, "amount": "3", "expected": {"error": {"overdrawn": 2}}},
+    {"op": "spend", "node": 4, "amount": "2", "expected": {"error": {"overdrawn": 2}}},
+    {"op": "spend", "node": 0, "amount": "-1", "expected": {"error": "negative_amount"}},
+    {"op": "spend", "node": 4, "amount": "1", "expected": {"error": {"overdrawn": 2}}},
+    {"op": "spend", "node": 2, "amount": "100", "expected": {"error": {"overdrawn": 2}}},
+    {
+      "op": "spend",
+      "node": 1,
+      "amount": "1",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "30", "spent": "3"},
+          {"parent": 0, "allowance": "10", "spent": "2"},
+          {"parent": 1, "allowance": "1", "spent": "1"},
+          {"parent": 0, "allowance": "10", "spent": "0"},
+          {"parent": 2, "allowance": "5", "spent": "1"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 1, "amount": "10", "expected": {"error": {"overdrawn": 1}}}
+  ]
+}

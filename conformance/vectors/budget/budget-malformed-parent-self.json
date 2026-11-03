@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "name": "budget-malformed-parent-self",
+  "description": "A node whose parent is itself makes the tree malformed: every operation refuses.",
+  "start": [
+    {"parent": null, "allowance": "10", "spent": "0"},
+    {"parent": 1, "allowance": "5", "spent": "0"}
+  ],
+  "valid": false,
+  "ops": [
+    {"op": "spend", "node": 0, "amount": "1", "expected": {"error": "malformed"}},
+    {"op": "spend", "node": 1, "amount": "1", "expected": {"error": "malformed"}},
+    {"op": "delegate", "parent": 0, "allowance": "1", "expected": {"error": "malformed"}},
+    {"op": "refill", "node": 0, "amount": "1", "expected": {"error": "malformed"}},
+    {"op": "spend", "node": 5, "amount": "1", "expected": {"error": "malformed"}},
+    {"op": "spend", "node": 0, "amount": "-1", "expected": {"error": "malformed"}}
+  ]
+}

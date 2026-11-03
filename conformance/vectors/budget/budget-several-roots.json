@@ -1,0 +1,56 @@
+{
+  "format": 1,
+  "name": "budget-several-roots",
+  "description": "A tree may have several roots; a spend charges only its own root's chain.",
+  "start": [
+    {"parent": null, "allowance": "10", "spent": "0"},
+    {"parent": null, "allowance": "20", "spent": "0"},
+    {"parent": 0, "allowance": "10", "spent": "0"},
+    {"parent": 1, "allowance": "10", "spent": "0"}
+  ],
+  "valid": true,
+  "ops": [
+    {
+      "op": "spend",
+      "node": 2,
+      "amount": "10",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "10", "spent": "10"},
+          {"parent": null, "allowance": "20", "spent": "0"},
+          {"parent": 0, "allowance": "10", "spent": "10"},
+          {"parent": 1, "allowance": "10", "spent": "0"}
+        ]
+      }
+    },
+    {
+      "op": "spend",
+      "node": 3,
+      "amount": "10",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "10", "spent": "10"},
+          {"parent": null, "allowance": "20", "spent": "10"},
+          {"parent": 0, "allowance": "10", "spent": "10"},
+          {"parent": 1, "allowance": "10", "spent": "10"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 3, "amount": "1", "expected": {"error": {"overdrawn": 3}}},
+    {
+      "op": "spend",
+      "node": 1,
+      "amount": "10",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "10", "spent": "10"},
+          {"parent": null, "allowance": "20", "spent": "20"},
+          {"parent": 0, "allowance": "10", "spent": "10"},
+          {"parent": 1, "allowance": "10", "spent": "10"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 1, "amount": "1", "expected": {"error": {"overdrawn": 1}}},
+    {"op": "spend", "node": 2, "amount": "1", "expected": {"error": {"overdrawn": 2}}}
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "name": "budget-random-02",
+  "description": "Randomized trace 2 of seed 20261102.",
+  "start": [{"parent": null, "allowance": "1", "spent": "-1"}],
+  "valid": false,
+  "ops": [
+    {"op": "delegate", "parent": 0, "allowance": "10", "expected": {"error": "malformed"}},
+    {"op": "spend", "node": 1, "amount": "0", "expected": {"error": "malformed"}},
+    {"op": "refill", "node": 0, "amount": "-1", "expected": {"error": "malformed"}},
+    {"op": "spend", "node": 1, "amount": "2", "expected": {"error": "malformed"}},
+    {"op": "delegate", "parent": 1, "allowance": "5", "expected": {"error": "malformed"}},
+    {"op": "refill", "node": 0, "amount": "100", "expected": {"error": "malformed"}}
+  ]
+}

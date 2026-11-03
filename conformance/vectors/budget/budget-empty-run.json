@@ -1,0 +1,8 @@
+{
+  "format": 1,
+  "name": "budget-empty-run",
+  "description": "A trace with no operations.",
+  "start": [{"parent": null, "allowance": "1", "spent": "0"}],
+  "valid": true,
+  "ops": []
+}

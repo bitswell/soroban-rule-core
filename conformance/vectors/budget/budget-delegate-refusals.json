@@ -1,0 +1,35 @@
+{
+  "format": 1,
+  "name": "budget-delegate-refusals",
+  "description": "A delegation under a missing parent, or with a negative allowance, is refused and changes nothing.",
+  "start": [{"parent": null, "allowance": "10", "spent": "0"}],
+  "valid": true,
+  "ops": [
+    {"op": "delegate", "parent": 1, "allowance": "5", "expected": {"error": {"no_such_node": 1}}},
+    {
+      "op": "delegate",
+      "parent": 4294967295,
+      "allowance": "5",
+      "expected": {"error": {"no_such_node": 4294967295}}
+    },
+    {"op": "delegate", "parent": 0, "allowance": "-1", "expected": {"error": "negative_amount"}},
+    {
+      "op": "delegate",
+      "parent": 0,
+      "allowance": "-170141183460469231731687303715884105728",
+      "expected": {"error": "negative_amount"}
+    },
+    {
+      "op": "delegate",
+      "parent": 0,
+      "allowance": "170141183460469231731687303715884105727",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "10", "spent": "0"},
+          {"parent": 0, "allowance": "170141183460469231731687303715884105727", "spent": "0"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 1, "amount": "11", "expected": {"error": {"overdrawn": 0}}}
+  ]
+}

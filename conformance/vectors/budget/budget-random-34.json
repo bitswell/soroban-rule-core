@@ -1,0 +1,104 @@
+{
+  "format": 1,
+  "name": "budget-random-34",
+  "description": "Randomized trace 34 of seed 20261102.",
+  "start": [
+    {"parent": null, "allowance": "100", "spent": "0"},
+    {"parent": 0, "allowance": "10", "spent": "0"}
+  ],
+  "valid": true,
+  "ops": [
+    {
+      "op": "spend",
+      "node": 1,
+      "amount": "1",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "100", "spent": "1"},
+          {"parent": 0, "allowance": "10", "spent": "1"}
+        ]
+      }
+    },
+    {"op": "delegate", "parent": 2, "allowance": "10", "expected": {"error": {"no_such_node": 2}}},
+    {
+      "op": "delegate",
+      "parent": 1,
+      "allowance": "170141183460469231731687303715884105727",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "100", "spent": "1"},
+          {"parent": 0, "allowance": "10", "spent": "1"},
+          {"parent": 1, "allowance": "170141183460469231731687303715884105727", "spent": "0"}
+        ]
+      }
+    },
+    {
+      "op": "spend",
+      "node": 0,
+      "amount": "0",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "100", "spent": "1"},
+          {"parent": 0, "allowance": "10", "spent": "1"},
+          {"parent": 1, "allowance": "170141183460469231731687303715884105727", "spent": "0"}
+        ]
+      }
+    },
+    {
+      "op": "spend",
+      "node": 1,
+      "amount": "1",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "100", "spent": "2"},
+          {"parent": 0, "allowance": "10", "spent": "2"},
+          {"parent": 1, "allowance": "170141183460469231731687303715884105727", "spent": "0"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 3, "amount": "10", "expected": {"error": {"no_such_node": 3}}},
+    {
+      "op": "delegate",
+      "parent": 1,
+      "allowance": "170141183460469231731687303715884105727",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "100", "spent": "2"},
+          {"parent": 0, "allowance": "10", "spent": "2"},
+          {"parent": 1, "allowance": "170141183460469231731687303715884105727", "spent": "0"},
+          {"parent": 1, "allowance": "170141183460469231731687303715884105727", "spent": "0"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 1, "amount": "50", "expected": {"error": {"overdrawn": 1}}},
+    {
+      "op": "spend",
+      "node": 1,
+      "amount": "3",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "100", "spent": "5"},
+          {"parent": 0, "allowance": "10", "spent": "5"},
+          {"parent": 1, "allowance": "170141183460469231731687303715884105727", "spent": "0"},
+          {"parent": 1, "allowance": "170141183460469231731687303715884105727", "spent": "0"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 2, "amount": "100", "expected": {"error": {"overdrawn": 1}}},
+    {
+      "op": "delegate",
+      "parent": 1,
+      "allowance": "1",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "100", "spent": "5"},
+          {"parent": 0, "allowance": "10", "spent": "5"},
+          {"parent": 1, "allowance": "170141183460469231731687303715884105727", "spent": "0"},
+          {"parent": 1, "allowance": "170141183460469231731687303715884105727", "spent": "0"},
+          {"parent": 1, "allowance": "1", "spent": "0"}
+        ]
+      }
+    },
+    {"op": "refill", "node": 5, "amount": "5", "expected": {"error": {"no_such_node": 5}}}
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "format": 1,
+  "name": "budget-random-12",
+  "description": "Randomized trace 12 of seed 20261102.",
+  "start": [
+    {"parent": null, "allowance": "5", "spent": "0"},
+    {"parent": null, "allowance": "100", "spent": "0"},
+    {"parent": 1, "allowance": "10", "spent": "0"},
+    {"parent": null, "allowance": "5", "spent": "0"}
+  ],
+  "valid": true,
+  "ops": [
+    {
+      "op": "delegate",
+      "parent": 3,
+      "allowance": "10",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "5", "spent": "0"},
+          {"parent": null, "allowance": "100", "spent": "0"},
+          {"parent": 1, "allowance": "10", "spent": "0"},
+          {"parent": null, "allowance": "5", "spent": "0"},
+          {"parent": 3, "allowance": "10", "spent": "0"}
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "format": 1,
+  "name": "budget-random-18",
+  "description": "Randomized trace 18 of seed 20261102.",
+  "start": [{"parent": null, "allowance": "100", "spent": "0"}],
+  "valid": true,
+  "ops": [
+    {
+      "op": "delegate",
+      "parent": 0,
+      "allowance": "10",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "100", "spent": "0"},
+          {"parent": 0, "allowance": "10", "spent": "0"}
+        ]
+      }
+    },
+    {
+      "op": "spend",
+      "node": 1,
+      "amount": "2",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "100", "spent": "2"},
+          {"parent": 0, "allowance": "10", "spent": "2"}
+        ]
+      }
+    },
+    {
+      "op": "delegate",
+      "parent": 0,
+      "allowance": "100",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "100", "spent": "2"},
+          {"parent": 0, "allowance": "10", "spent": "2"},
+          {"parent": 0, "allowance": "100", "spent": "0"}
+        ]
+      }
+    }
+  ]
+}

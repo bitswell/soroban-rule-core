@@ -1,0 +1,68 @@
+{
+  "format": 1,
+  "name": "budget-random-35",
+  "description": "Randomized trace 35 of seed 20261102.",
+  "start": [
+    {"parent": null, "allowance": "50", "spent": "0"},
+    {"parent": 0, "allowance": "5", "spent": "0"}
+  ],
+  "valid": true,
+  "ops": [
+    {
+      "op": "spend",
+      "node": 0,
+      "amount": "1",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "50", "spent": "1"},
+          {"parent": 0, "allowance": "5", "spent": "0"}
+        ]
+      }
+    },
+    {
+      "op": "refill",
+      "node": 0,
+      "amount": "25",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "75", "spent": "1"},
+          {"parent": 0, "allowance": "5", "spent": "0"}
+        ]
+      }
+    },
+    {
+      "op": "spend",
+      "node": 0,
+      "amount": "25",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "75", "spent": "26"},
+          {"parent": 0, "allowance": "5", "spent": "0"}
+        ]
+      }
+    },
+    {
+      "op": "spend",
+      "node": 0,
+      "amount": "1",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "75", "spent": "27"},
+          {"parent": 0, "allowance": "5", "spent": "0"}
+        ]
+      }
+    },
+    {
+      "op": "refill",
+      "node": 1,
+      "amount": "100",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "75", "spent": "27"},
+          {"parent": 0, "allowance": "105", "spent": "0"}
+        ]
+      }
+    },
+    {"op": "refill", "node": 2, "amount": "1", "expected": {"error": {"no_such_node": 2}}}
+  ]
+}

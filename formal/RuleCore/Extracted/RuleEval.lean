@@ -1845,6 +1845,384 @@ def authorize.authorize
         authorize.charge_all rules records contexts choices now
       | core.result.Result.Err e => ok (core.result.Result.Err e)
 
+/-- [rule_eval::budget::MAX_NODES]
+    Source: 'crates/rule-eval/src/budget.rs', lines 35:0-35:47
+    Visibility: public -/
+@[global_simps, irreducible]
+def budget.MAX_NODES : Result Std.Usize :=
+  ok (UScalar.cast .Usize core.num.U32.MAX)
+
+/-- [rule_eval::budget::Node]
+    Source: 'crates/rule-eval/src/budget.rs', lines 38:0-45:1
+    Visibility: public -/
+structure budget.Node where
+  parent : Option Std.U32
+  allowance : Std.I128
+  spent : Std.I128
+
+/-- [rule_eval::budget::BudgetError]
+    Source: 'crates/rule-eval/src/budget.rs', lines 48:0-63:1
+    Visibility: public -/
+@[discriminant isize]
+inductive budget.BudgetError where
+| Malformed : budget.BudgetError
+| NoSuchNode : Std.U32 → budget.BudgetError
+| NegativeAmount : budget.BudgetError
+| Overdrawn : Std.U32 → budget.BudgetError
+| Overflow : budget.BudgetError
+| TreeFull : budget.BudgetError
+
+/-- [rule_eval::budget::node_valid]:
+    Source: 'crates/rule-eval/src/budget.rs', lines 67:0-73:1 -/
+def budget.node_valid (n : budget.Node) (index : Std.Usize) : Result Bool := do
+  let parent_below ←
+    match n.parent with
+    | none => ok true
+    | some p => do
+                let i ← lift (UScalar.cast .Usize p)
+                ok (i < index)
+  if parent_below
+  then if n.allowance >= 0#i128
+       then ok (n.spent >= 0#i128)
+       else ok false
+  else ok false
+
+/-- [rule_eval::budget::tree_valid]: loop body 0:
+    Source: 'crates/rule-eval/src/budget.rs', lines 79:4-86:1
+    Visibility: public -/
+@[rust_loop_body]
+def budget.tree_valid_loop.body
+  (tree : Slice budget.Node) (i : Std.Usize) :
+  Result (ControlFlow Std.Usize Bool)
+  := do
+  let i1 := Slice.len tree
+  if i < i1
+  then
+    let n ← Slice.index_usize tree i
+    let b ← budget.node_valid n i
+    if b
+    then let i2 ← i + 1#usize
+         ok (cont i2)
+    else ok (done false)
+  else ok (done true)
+
+/-- [rule_eval::budget::tree_valid]: loop 0:
+    Source: 'crates/rule-eval/src/budget.rs', lines 79:4-86:1
+    Visibility: public -/
+@[rust_loop]
+def budget.tree_valid_loop
+  (tree : Slice budget.Node) (i : Std.Usize) : Result Bool := do
+  loop
+    (fun i1 => budget.tree_valid_loop.body tree i1)
+    i
+
+/-- [rule_eval::budget::tree_valid]:
+    Source: 'crates/rule-eval/src/budget.rs', lines 77:0-86:1
+    Visibility: public -/
+@[reducible]
+def budget.tree_valid (tree : Slice budget.Node) : Result Bool := do
+  budget.tree_valid_loop tree 0#usize
+
+/-- [rule_eval::budget::fits]:
+    Source: 'crates/rule-eval/src/budget.rs', lines 90:0-95:1 -/
+def budget.fits (n : budget.Node) (amount : Std.I128) : Result Bool := do
+  let o ← lift (I128.checked_add n.spent amount)
+  match o with
+  | none => ok false
+  | some total => ok (total <= n.allowance)
+
+/-- [rule_eval::budget::check_chain]: loop body 0:
+    Source: 'crates/rule-eval/src/budget.rs', lines 102:4-122:1 -/
+@[rust_loop_body]
+def budget.check_chain_loop.body
+  (tree : Slice budget.Node) (amount : Std.I128) (current : Std.U32)
+  (step : Std.Usize) :
+  Result (ControlFlow (Std.U32 × Std.Usize) (core.result.Result Unit
+    budget.BudgetError))
+  := do
+  let i := Slice.len tree
+  if step < i
+  then
+    let i1 ← lift (UScalar.cast .Usize current)
+    let o ←
+      core.slice.Slice.get (core.slice.index.SliceIndexUsizeSlice budget.Node)
+        tree i1
+    match o with
+    | none => ok (done (core.result.Result.Err budget.BudgetError.Malformed))
+    | some n =>
+      let b ← budget.fits n amount
+      if b
+      then
+        match n.parent with
+        | none => ok (done (core.result.Result.Ok ()))
+        | some p =>
+          if p >= current
+          then ok (done (core.result.Result.Err budget.BudgetError.Malformed))
+          else let step1 ← step + 1#usize
+               ok (cont (p, step1))
+      else
+        ok (done (core.result.Result.Err (budget.BudgetError.Overdrawn
+          current)))
+  else ok (done (core.result.Result.Err budget.BudgetError.Malformed))
+
+/-- [rule_eval::budget::check_chain]: loop 0:
+    Source: 'crates/rule-eval/src/budget.rs', lines 102:4-122:1 -/
+@[rust_loop]
+def budget.check_chain_loop
+  (tree : Slice budget.Node) (amount : Std.I128) (current : Std.U32)
+  (step : Std.Usize) :
+  Result (core.result.Result Unit budget.BudgetError)
+  := do
+  loop
+    (fun (current1, step1) => budget.check_chain_loop.body tree amount current1
+      step1)
+    (current, step)
+
+/-- [rule_eval::budget::check_chain]:
+    Source: 'crates/rule-eval/src/budget.rs', lines 99:0-122:1 -/
+@[reducible]
+def budget.check_chain
+  (tree : Slice budget.Node) (node : Std.U32) (amount : Std.I128) :
+  Result (core.result.Result Unit budget.BudgetError)
+  := do
+  budget.check_chain_loop tree amount node 0#usize
+
+/-- [rule_eval::budget::node_copy]:
+    Source: 'crates/rule-eval/src/budget.rs', lines 125:0-131:1 -/
+def budget.node_copy (n : budget.Node) : Result budget.Node := do
+  ok n
+
+/-- [rule_eval::budget::nodes_copy]: loop body 0:
+    Source: 'crates/rule-eval/src/budget.rs', lines 137:4-140:5 -/
+@[rust_loop_body]
+def budget.nodes_copy_loop.body
+  (tree : Slice budget.Node) (out : alloc.vec.Vec budget.Node) (i : Std.Usize)
+  :
+  Result (ControlFlow ((alloc.vec.Vec budget.Node) × Std.Usize) (alloc.vec.Vec
+    budget.Node))
+  := do
+  let i1 := Slice.len tree
+  if i < i1
+  then
+    let n ← Slice.index_usize tree i
+    let n1 ← budget.node_copy n
+    let out1 ← alloc.vec.Vec.push out n1
+    let i2 ← i + 1#usize
+    ok (cont (out1, i2))
+  else ok (done out)
+
+/-- [rule_eval::budget::nodes_copy]: loop 0:
+    Source: 'crates/rule-eval/src/budget.rs', lines 137:4-140:5 -/
+@[rust_loop]
+def budget.nodes_copy_loop
+  (tree : Slice budget.Node) (out : alloc.vec.Vec budget.Node) (i : Std.Usize)
+  :
+  Result (alloc.vec.Vec budget.Node)
+  := do
+  loop
+    (fun (out1, i1) => budget.nodes_copy_loop.body tree out1 i1)
+    (out, i)
+
+/-- [rule_eval::budget::nodes_copy]:
+    Source: 'crates/rule-eval/src/budget.rs', lines 134:0-142:1 -/
+@[reducible]
+def budget.nodes_copy
+  (tree : Slice budget.Node) : Result (alloc.vec.Vec budget.Node) := do
+  budget.nodes_copy_loop tree (alloc.vec.Vec.new budget.Node) 0#usize
+
+/-- [rule_eval::budget::charged]: loop body 0:
+    Source: 'crates/rule-eval/src/budget.rs', lines 151:4-176:1 -/
+@[rust_loop_body]
+def budget.charged_loop.body
+  (tree : Slice budget.Node) (amount : Std.I128)
+  (out : alloc.vec.Vec budget.Node) (current : Std.U32) (step : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec budget.Node) × Std.U32 × Std.Usize)
+    (core.result.Result (alloc.vec.Vec budget.Node) budget.BudgetError))
+  := do
+  let i := Slice.len tree
+  if step < i
+  then
+    let i1 ← lift (UScalar.cast .Usize current)
+    let o ←
+      core.slice.Slice.get (core.slice.index.SliceIndexUsizeSlice budget.Node)
+        tree i1
+    match o with
+    | none => ok (done (core.result.Result.Err budget.BudgetError.Malformed))
+    | some n =>
+      let o1 ← lift (I128.checked_add n.spent amount)
+      match o1 with
+      | none =>
+        ok (done (core.result.Result.Err (budget.BudgetError.Overdrawn
+          current)))
+      | some spent =>
+        let (s, deref_mut_back) ← lift (alloc.vec.Vec.deref_mut out)
+        let i2 ← lift (UScalar.cast .Usize current)
+        let (o2, get_mut_back) ←
+          core.slice.Slice.get_mut (core.slice.index.SliceIndexUsizeSlice
+            budget.Node) s i2
+        match o2 with
+        | none =>
+          ok (done (core.result.Result.Err budget.BudgetError.Malformed))
+        | some m =>
+          match n.parent with
+          | none =>
+            let s1 := get_mut_back (some { m with spent })
+            let out1 := deref_mut_back s1
+            ok (done (core.result.Result.Ok out1))
+          | some p =>
+            if p >= current
+            then
+              ok (done (core.result.Result.Err budget.BudgetError.Malformed))
+            else
+              let step1 ← step + 1#usize
+              let s1 := get_mut_back (some { m with spent })
+              let out1 := deref_mut_back s1
+              ok (cont (out1, p, step1))
+  else ok (done (core.result.Result.Err budget.BudgetError.Malformed))
+
+/-- [rule_eval::budget::charged]: loop 0:
+    Source: 'crates/rule-eval/src/budget.rs', lines 151:4-176:1 -/
+@[rust_loop]
+def budget.charged_loop
+  (tree : Slice budget.Node) (amount : Std.I128)
+  (out : alloc.vec.Vec budget.Node) (current : Std.U32) (step : Std.Usize) :
+  Result (core.result.Result (alloc.vec.Vec budget.Node) budget.BudgetError)
+  := do
+  loop
+    (fun (out1, current1, step1) => budget.charged_loop.body tree amount out1
+      current1 step1)
+    (out, current, step)
+
+/-- [rule_eval::budget::charged]:
+    Source: 'crates/rule-eval/src/budget.rs', lines 147:0-176:1 -/
+def budget.charged
+  (tree : Slice budget.Node) (node : Std.U32) (amount : Std.I128) :
+  Result (core.result.Result (alloc.vec.Vec budget.Node) budget.BudgetError)
+  := do
+  let out ← budget.nodes_copy tree
+  budget.charged_loop tree amount out node 0#usize
+
+/-- [rule_eval::budget::spend]:
+    Source: 'crates/rule-eval/src/budget.rs', lines 191:0-205:1
+    Visibility: public -/
+def budget.spend
+  (tree : Slice budget.Node) (node : Std.U32) (amount : Std.I128) :
+  Result (core.result.Result (alloc.vec.Vec budget.Node) budget.BudgetError)
+  := do
+  let b ← budget.tree_valid tree
+  if b
+  then
+    let i ← lift (UScalar.cast .Usize node)
+    let i1 := Slice.len tree
+    if i >= i1
+    then ok (core.result.Result.Err (budget.BudgetError.NoSuchNode node))
+    else
+      if amount < 0#i128
+      then ok (core.result.Result.Err budget.BudgetError.NegativeAmount)
+      else
+        let r ← budget.check_chain tree node amount
+        match r with
+        | core.result.Result.Ok _ => budget.charged tree node amount
+        | core.result.Result.Err e => ok (core.result.Result.Err e)
+  else ok (core.result.Result.Err budget.BudgetError.Malformed)
+
+/-- [rule_eval::budget::delegate]:
+    Source: 'crates/rule-eval/src/budget.rs', lines 219:0-239:1
+    Visibility: public -/
+def budget.delegate
+  (tree : Slice budget.Node) (parent : Std.U32) (allowance : Std.I128) :
+  Result (core.result.Result (alloc.vec.Vec budget.Node) budget.BudgetError)
+  := do
+  let b ← budget.tree_valid tree
+  if b
+  then
+    let i ← lift (UScalar.cast .Usize parent)
+    let i1 := Slice.len tree
+    if i >= i1
+    then ok (core.result.Result.Err (budget.BudgetError.NoSuchNode parent))
+    else
+      if allowance < 0#i128
+      then ok (core.result.Result.Err budget.BudgetError.NegativeAmount)
+      else
+        let i2 := Slice.len tree
+        let i3 ← budget.MAX_NODES
+        if i2 >= i3
+        then ok (core.result.Result.Err budget.BudgetError.TreeFull)
+        else
+          let out ← budget.nodes_copy tree
+          let out1 ←
+            alloc.vec.Vec.push out
+              ({ parent := (some parent), allowance, spent := 0#i128 } :
+              budget.Node)
+          ok (core.result.Result.Ok out1)
+  else ok (core.result.Result.Err budget.BudgetError.Malformed)
+
+/-- [rule_eval::budget::refill]: loop body 0:
+    Source: 'crates/rule-eval/src/budget.rs', lines 274:4-281:5
+    Visibility: public -/
+@[rust_loop_body]
+def budget.refill_loop.body
+  (tree : Slice budget.Node) (index : Std.Usize) (allowance : Std.I128)
+  (out : alloc.vec.Vec budget.Node) (i : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec budget.Node) × Std.Usize) (alloc.vec.Vec
+    budget.Node))
+  := do
+  let i1 := Slice.len tree
+  if i < i1
+  then
+    let n ← Slice.index_usize tree i
+    let n1 ← budget.node_copy n
+    let n2 ← if i = index
+               then ok { n1 with allowance }
+               else ok n1
+    let out1 ← alloc.vec.Vec.push out n2
+    let i2 ← i + 1#usize
+    ok (cont (out1, i2))
+  else ok (done out)
+
+/-- [rule_eval::budget::refill]: loop 0:
+    Source: 'crates/rule-eval/src/budget.rs', lines 274:4-281:5
+    Visibility: public -/
+@[rust_loop]
+def budget.refill_loop
+  (tree : Slice budget.Node) (index : Std.Usize) (allowance : Std.I128)
+  (out : alloc.vec.Vec budget.Node) (i : Std.Usize) :
+  Result (alloc.vec.Vec budget.Node)
+  := do
+  loop
+    (fun (out1, i1) => budget.refill_loop.body tree index allowance out1 i1)
+    (out, i)
+
+/-- [rule_eval::budget::refill]:
+    Source: 'crates/rule-eval/src/budget.rs', lines 255:0-283:1
+    Visibility: public -/
+def budget.refill
+  (tree : Slice budget.Node) (node : Std.U32) (amount : Std.I128) :
+  Result (core.result.Result (alloc.vec.Vec budget.Node) budget.BudgetError)
+  := do
+  let b ← budget.tree_valid tree
+  if b
+  then
+    let index ← lift (UScalar.cast .Usize node)
+    let o ←
+      core.slice.Slice.get (core.slice.index.SliceIndexUsizeSlice budget.Node)
+        tree index
+    match o with
+    | none => ok (core.result.Result.Err (budget.BudgetError.NoSuchNode node))
+    | some n =>
+      if amount < 0#i128
+      then ok (core.result.Result.Err budget.BudgetError.NegativeAmount)
+      else
+        let o1 ← lift (I128.checked_add n.allowance amount)
+        match o1 with
+        | none => ok (core.result.Result.Err budget.BudgetError.Overflow)
+        | some allowance =>
+          let out ←
+            budget.refill_loop tree index allowance (alloc.vec.Vec.new
+              budget.Node) 0#usize
+          ok (core.result.Result.Ok out)
+  else ok (core.result.Result.Err budget.BudgetError.Malformed)
+
 /-- [rule_eval::cap::CapParams]
     Source: 'crates/rule-eval/src/cap.rs', lines 51:0-54:1
     Visibility: public -/
@@ -1867,7 +2245,7 @@ def cap.empty_record : Result cap.SpendRecord := do
   ok { history := (alloc.vec.Vec.new cap.SpendEntry), total := 0#i128 }
 
 /-- [rule_eval::_]
-    Source: 'crates/rule-eval/src/lib.rs', lines 126:0-126:41 -/
+    Source: 'crates/rule-eval/src/lib.rs', lines 134:0-134:41 -/
 @[global_simps, irreducible]
 def «_» : Result Unit := massert (core.num.Usize.BITS >= 32#u32)
 

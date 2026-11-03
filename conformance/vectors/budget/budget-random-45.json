@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "name": "budget-random-45",
+  "description": "Randomized trace 45 of seed 20261102.",
+  "start": [],
+  "valid": true,
+  "ops": [
+    {"op": "spend", "node": 0, "amount": "1", "expected": {"error": {"no_such_node": 0}}},
+    {"op": "spend", "node": 0, "amount": "50", "expected": {"error": {"no_such_node": 0}}},
+    {"op": "spend", "node": 0, "amount": "1", "expected": {"error": {"no_such_node": 0}}},
+    {"op": "spend", "node": 0, "amount": "25", "expected": {"error": {"no_such_node": 0}}},
+    {"op": "spend", "node": 0, "amount": "0", "expected": {"error": {"no_such_node": 0}}}
+  ]
+}

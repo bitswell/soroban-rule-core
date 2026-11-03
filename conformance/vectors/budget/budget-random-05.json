@@ -1,0 +1,25 @@
+{
+  "format": 1,
+  "name": "budget-random-05",
+  "description": "Randomized trace 5 of seed 20261102.",
+  "start": [
+    {"parent": null, "allowance": "170141183460469231731687303715884105727", "spent": "0"},
+    {"parent": 0, "allowance": "5", "spent": "0"}
+  ],
+  "valid": true,
+  "ops": [
+    {
+      "op": "delegate",
+      "parent": 4294967295,
+      "allowance": "10",
+      "expected": {"error": {"no_such_node": 4294967295}}
+    },
+    {"op": "spend", "node": 2, "amount": "10", "expected": {"error": {"no_such_node": 2}}},
+    {
+      "op": "spend",
+      "node": 4294967295,
+      "amount": "50",
+      "expected": {"error": {"no_such_node": 4294967295}}
+    }
+  ]
+}

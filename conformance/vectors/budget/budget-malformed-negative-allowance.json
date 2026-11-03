@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "name": "budget-malformed-negative-allowance",
+  "description": "A negative allowance anywhere makes the tree malformed: every operation refuses, even at another node.",
+  "start": [
+    {"parent": null, "allowance": "10", "spent": "0"},
+    {"parent": 0, "allowance": "-1", "spent": "0"},
+    {"parent": 0, "allowance": "5", "spent": "0"}
+  ],
+  "valid": false,
+  "ops": [
+    {"op": "spend", "node": 2, "amount": "1", "expected": {"error": "malformed"}},
+    {"op": "delegate", "parent": 0, "allowance": "1", "expected": {"error": "malformed"}},
+    {"op": "refill", "node": 1, "amount": "5", "expected": {"error": "malformed"}}
+  ]
+}

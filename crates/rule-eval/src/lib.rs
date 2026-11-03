@@ -63,6 +63,12 @@
 //! amount of a new spend, it returns the record after the spend or a
 //! [`CapError`]. [`authorize`] calls it for every charge.
 //!
+//! [`spend`], [`delegate`] and [`refill`] keep budgets on the delegation
+//! tree, a slice of [`Node`]s: a spend charges the spender and every ancestor
+//! up to its root, or refuses with a [`BudgetError`] that changes nothing and
+//! names the first node that would be overdrawn; a delegation appends a child
+//! with any allowance; a refill raises one node's allowance.
+//!
 //! Identifiers and byte payloads compare exactly (same length, same bytes).
 //! Values of different [`Val`] constructors are never equal, and signers of
 //! different [`Signer`] constructors are never equal. The evaluator
@@ -85,13 +91,13 @@
 //!   every target with at least 32-bit pointers (asserted at compile time
 //!   below);
 //! - no parameter or local variable is named after a module of the crate
-//!   (`attenuate`, `authorize`, `bytes`, `cap`, `context`, `rule`, `rule_set`,
-//!   `signer`, `val`): the translation puts each module's items in a Lean
+//!   (`attenuate`, `authorize`, `budget`, `bytes`, `cap`, `context`, `rule`,
+//!   `rule_set`, `signer`, `val`): the translation puts each module's items in a Lean
 //!   namespace of that name, which a binding of the same name would shadow.
 //!
 //! The only panic left is allocation failure in `Vec::push`, which the
-//! attenuation steps, [`check_spend`] and [`authorize`] call to build their
-//! result; [`allows`] and [`allows_all`] do not allocate.
+//! attenuation steps, [`check_spend`], [`authorize`] and the budget operations
+//! call to build their result; [`allows`] and [`allows_all`] do not allocate.
 #![no_std]
 #![forbid(unsafe_code)]
 
@@ -99,6 +105,7 @@ extern crate alloc;
 
 mod attenuate;
 mod authorize;
+mod budget;
 mod bytes;
 mod cap;
 mod context;
@@ -112,6 +119,7 @@ pub use attenuate::{
     raise_threshold, remove_functions, remove_signers,
 };
 pub use authorize::{Refusal, authorize};
+pub use budget::{BudgetError, MAX_NODES, Node, delegate, refill, spend, tree_valid};
 pub use bytes::{bytes_eq, bytes_in};
 pub use cap::{
     CapError, CapParams, MAX_HISTORY_ENTRIES, SpendEntry, SpendRecord, check_spend, empty_record,

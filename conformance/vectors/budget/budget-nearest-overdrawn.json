@@ -1,0 +1,42 @@
+{
+  "format": 1,
+  "name": "budget-nearest-overdrawn",
+  "description": "When several nodes on the chain would be overdrawn, the refusal names the one nearest the spender.",
+  "start": [
+    {"parent": null, "allowance": "5", "spent": "0"},
+    {"parent": 0, "allowance": "3", "spent": "0"},
+    {"parent": 1, "allowance": "1", "spent": "0"}
+  ],
+  "valid": true,
+  "ops": [
+    {"op": "spend", "node": 2, "amount": "6", "expected": {"error": {"overdrawn": 2}}},
+    {"op": "spend", "node": 2, "amount": "4", "expected": {"error": {"overdrawn": 2}}},
+    {"op": "spend", "node": 2, "amount": "2", "expected": {"error": {"overdrawn": 2}}},
+    {"op": "spend", "node": 1, "amount": "4", "expected": {"error": {"overdrawn": 1}}},
+    {
+      "op": "spend",
+      "node": 2,
+      "amount": "1",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "5", "spent": "1"},
+          {"parent": 0, "allowance": "3", "spent": "1"},
+          {"parent": 1, "allowance": "1", "spent": "1"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 1, "amount": "3", "expected": {"error": {"overdrawn": 1}}},
+    {
+      "op": "spend",
+      "node": 0,
+      "amount": "2",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "5", "spent": "3"},
+          {"parent": 0, "allowance": "3", "spent": "1"},
+          {"parent": 1, "allowance": "1", "spent": "1"}
+        ]
+      }
+    }
+  ]
+}

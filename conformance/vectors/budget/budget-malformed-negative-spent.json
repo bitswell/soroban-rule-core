@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "name": "budget-malformed-negative-spent",
+  "description": "A negative spent amount anywhere makes the tree malformed: every operation refuses.",
+  "start": [
+    {"parent": null, "allowance": "10", "spent": "0"},
+    {"parent": 0, "allowance": "5", "spent": "-1"}
+  ],
+  "valid": false,
+  "ops": [
+    {"op": "spend", "node": 0, "amount": "1", "expected": {"error": "malformed"}},
+    {"op": "delegate", "parent": 1, "allowance": "1", "expected": {"error": "malformed"}},
+    {"op": "refill", "node": 0, "amount": "1", "expected": {"error": "malformed"}}
+  ]
+}

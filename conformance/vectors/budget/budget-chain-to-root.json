@@ -1,0 +1,77 @@
+{
+  "format": 1,
+  "name": "budget-chain-to-root",
+  "description": "A spend at a deep node charges it and every ancestor up to the root, and no other node.",
+  "start": [
+    {"parent": null, "allowance": "1000", "spent": "0"},
+    {"parent": 0, "allowance": "500", "spent": "0"},
+    {"parent": 1, "allowance": "400", "spent": "0"},
+    {"parent": 2, "allowance": "300", "spent": "0"},
+    {"parent": 3, "allowance": "200", "spent": "0"},
+    {"parent": 0, "allowance": "100", "spent": "0"}
+  ],
+  "valid": true,
+  "ops": [
+    {
+      "op": "spend",
+      "node": 4,
+      "amount": "50",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "1000", "spent": "50"},
+          {"parent": 0, "allowance": "500", "spent": "50"},
+          {"parent": 1, "allowance": "400", "spent": "50"},
+          {"parent": 2, "allowance": "300", "spent": "50"},
+          {"parent": 3, "allowance": "200", "spent": "50"},
+          {"parent": 0, "allowance": "100", "spent": "0"}
+        ]
+      }
+    },
+    {
+      "op": "spend",
+      "node": 3,
+      "amount": "25",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "1000", "spent": "75"},
+          {"parent": 0, "allowance": "500", "spent": "75"},
+          {"parent": 1, "allowance": "400", "spent": "75"},
+          {"parent": 2, "allowance": "300", "spent": "75"},
+          {"parent": 3, "allowance": "200", "spent": "50"},
+          {"parent": 0, "allowance": "100", "spent": "0"}
+        ]
+      }
+    },
+    {
+      "op": "spend",
+      "node": 5,
+      "amount": "100",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "1000", "spent": "175"},
+          {"parent": 0, "allowance": "500", "spent": "75"},
+          {"parent": 1, "allowance": "400", "spent": "75"},
+          {"parent": 2, "allowance": "300", "spent": "75"},
+          {"parent": 3, "allowance": "200", "spent": "50"},
+          {"parent": 0, "allowance": "100", "spent": "100"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 4, "amount": "151", "expected": {"error": {"overdrawn": 4}}},
+    {
+      "op": "spend",
+      "node": 4,
+      "amount": "150",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "1000", "spent": "325"},
+          {"parent": 0, "allowance": "500", "spent": "225"},
+          {"parent": 1, "allowance": "400", "spent": "225"},
+          {"parent": 2, "allowance": "300", "spent": "225"},
+          {"parent": 3, "allowance": "200", "spent": "200"},
+          {"parent": 0, "allowance": "100", "spent": "100"}
+        ]
+      }
+    }
+  ]
+}

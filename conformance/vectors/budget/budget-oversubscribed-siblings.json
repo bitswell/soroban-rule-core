@@ -1,0 +1,52 @@
+{
+  "format": 1,
+  "name": "budget-oversubscribed-siblings",
+  "description": "Two children of a root with allowance 10 hold allowance 8 each; after one spends 8, the other's spend of 3 is refused at the root and its spend of 2 passes.",
+  "start": [
+    {"parent": null, "allowance": "10", "spent": "0"},
+    {"parent": 0, "allowance": "8", "spent": "0"},
+    {"parent": 0, "allowance": "8", "spent": "0"}
+  ],
+  "valid": true,
+  "ops": [
+    {
+      "op": "spend",
+      "node": 1,
+      "amount": "8",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "10", "spent": "8"},
+          {"parent": 0, "allowance": "8", "spent": "8"},
+          {"parent": 0, "allowance": "8", "spent": "0"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 2, "amount": "3", "expected": {"error": {"overdrawn": 0}}},
+    {
+      "op": "spend",
+      "node": 2,
+      "amount": "2",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "10", "spent": "10"},
+          {"parent": 0, "allowance": "8", "spent": "8"},
+          {"parent": 0, "allowance": "8", "spent": "2"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 2, "amount": "1", "expected": {"error": {"overdrawn": 0}}},
+    {"op": "spend", "node": 1, "amount": "1", "expected": {"error": {"overdrawn": 1}}},
+    {
+      "op": "spend",
+      "node": 0,
+      "amount": "0",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "10", "spent": "10"},
+          {"parent": 0, "allowance": "8", "spent": "8"},
+          {"parent": 0, "allowance": "8", "spent": "2"}
+        ]
+      }
+    }
+  ]
+}

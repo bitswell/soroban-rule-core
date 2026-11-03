@@ -1,0 +1,22 @@
+{
+  "format": 1,
+  "name": "budget-random-13",
+  "description": "Randomized trace 13 of seed 20261102.",
+  "start": [],
+  "valid": true,
+  "ops": [
+    {
+      "op": "spend",
+      "node": 0,
+      "amount": "170141183460469231731687303715884105727",
+      "expected": {"error": {"no_such_node": 0}}
+    },
+    {
+      "op": "delegate",
+      "parent": 0,
+      "allowance": "170141183460469231731687303715884105726",
+      "expected": {"error": {"no_such_node": 0}}
+    },
+    {"op": "spend", "node": 0, "amount": "2", "expected": {"error": {"no_such_node": 0}}}
+  ]
+}

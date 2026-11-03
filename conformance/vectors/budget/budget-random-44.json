@@ -1,0 +1,89 @@
+{
+  "format": 1,
+  "name": "budget-random-44",
+  "description": "Randomized trace 44 of seed 20261102.",
+  "start": [
+    {"parent": null, "allowance": "10", "spent": "0"},
+    {"parent": null, "allowance": "2", "spent": "1"},
+    {"parent": 0, "allowance": "170141183460469231731687303715884105726", "spent": "0"}
+  ],
+  "valid": true,
+  "ops": [
+    {
+      "op": "spend",
+      "node": 2,
+      "amount": "5",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "10", "spent": "5"},
+          {"parent": null, "allowance": "2", "spent": "1"},
+          {"parent": 0, "allowance": "170141183460469231731687303715884105726", "spent": "5"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 1, "amount": "5", "expected": {"error": {"overdrawn": 1}}},
+    {"op": "spend", "node": 1, "amount": "3", "expected": {"error": {"overdrawn": 1}}},
+    {
+      "op": "delegate",
+      "parent": 0,
+      "allowance": "1",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "10", "spent": "5"},
+          {"parent": null, "allowance": "2", "spent": "1"},
+          {"parent": 0, "allowance": "170141183460469231731687303715884105726", "spent": "5"},
+          {"parent": 0, "allowance": "1", "spent": "0"}
+        ]
+      }
+    },
+    {
+      "op": "delegate",
+      "parent": 2,
+      "allowance": "5",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "10", "spent": "5"},
+          {"parent": null, "allowance": "2", "spent": "1"},
+          {"parent": 0, "allowance": "170141183460469231731687303715884105726", "spent": "5"},
+          {"parent": 0, "allowance": "1", "spent": "0"},
+          {"parent": 2, "allowance": "5", "spent": "0"}
+        ]
+      }
+    },
+    {
+      "op": "spend",
+      "node": 1,
+      "amount": "1",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "10", "spent": "5"},
+          {"parent": null, "allowance": "2", "spent": "2"},
+          {"parent": 0, "allowance": "170141183460469231731687303715884105726", "spent": "5"},
+          {"parent": 0, "allowance": "1", "spent": "0"},
+          {"parent": 2, "allowance": "5", "spent": "0"}
+        ]
+      }
+    },
+    {
+      "op": "spend",
+      "node": 4294967295,
+      "amount": "-1",
+      "expected": {"error": {"no_such_node": 4294967295}}
+    },
+    {
+      "op": "spend",
+      "node": 0,
+      "amount": "5",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "10", "spent": "10"},
+          {"parent": null, "allowance": "2", "spent": "2"},
+          {"parent": 0, "allowance": "170141183460469231731687303715884105726", "spent": "5"},
+          {"parent": 0, "allowance": "1", "spent": "0"},
+          {"parent": 2, "allowance": "5", "spent": "0"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 6, "amount": "5", "expected": {"error": {"no_such_node": 6}}}
+  ]
+}
