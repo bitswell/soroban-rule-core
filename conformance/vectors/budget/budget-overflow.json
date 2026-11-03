@@ -1,0 +1,61 @@
+{
+  "format": 1,
+  "name": "budget-overflow",
+  "description": "A spent amount plus the spend that does not fit in an i128 counts as overdrawn; a refill whose raised allowance does not fit is refused with overflow.",
+  "start": [
+    {
+      "parent": null,
+      "allowance": "170141183460469231731687303715884105727",
+      "spent": "170141183460469231731687303715884105726"
+    },
+    {"parent": 0, "allowance": "170141183460469231731687303715884105727", "spent": "0"}
+  ],
+  "valid": true,
+  "ops": [
+    {"op": "spend", "node": 1, "amount": "2", "expected": {"error": {"overdrawn": 0}}},
+    {
+      "op": "spend",
+      "node": 1,
+      "amount": "1",
+      "expected": {
+        "ok": [
+          {
+            "parent": null,
+            "allowance": "170141183460469231731687303715884105727",
+            "spent": "170141183460469231731687303715884105727"
+          },
+          {"parent": 0, "allowance": "170141183460469231731687303715884105727", "spent": "1"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 1, "amount": "1", "expected": {"error": {"overdrawn": 0}}},
+    {"op": "refill", "node": 0, "amount": "1", "expected": {"error": "overflow"}},
+    {
+      "op": "refill",
+      "node": 1,
+      "amount": "0",
+      "expected": {
+        "ok": [
+          {
+            "parent": null,
+            "allowance": "170141183460469231731687303715884105727",
+            "spent": "170141183460469231731687303715884105727"
+          },
+          {"parent": 0, "allowance": "170141183460469231731687303715884105727", "spent": "1"}
+        ]
+      }
+    },
+    {
+      "op": "spend",
+      "node": 0,
+      "amount": "170141183460469231731687303715884105727",
+      "expected": {"error": {"overdrawn": 0}}
+    },
+    {
+      "op": "refill",
+      "node": 1,
+      "amount": "170141183460469231731687303715884105727",
+      "expected": {"error": "overflow"}
+    }
+  ]
+}

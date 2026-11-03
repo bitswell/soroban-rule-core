@@ -679,6 +679,135 @@ claims:
       - theorem: RuleCore.Chain.RuleSet.attenuate_capsValid
       - theorem: RuleCore.Chain.RuleSet.attenuateAll_capsValid
 
+  # Budgets on the delegation tree (formal/RuleCore/Model/Budget.lean,
+  # theorems in RuleCore.Budget).
+
+  - id: budget.spend-charges
+    claim: >-
+      A successful spend at a node adds the amount to the spent amount of that
+      node and of every ancestor up to its root, and changes nothing else: no
+      other node, no node's parent or allowance, and not the number of nodes.
+      It succeeds only on a well-formed tree, at an existing node, with a
+      non-negative amount and a walk that reaches the root.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Budget.Tree.spend_ok_charges
+      - theorem: RuleCore.Budget.Tree.spend_ok_unchanged
+      - theorem: RuleCore.Budget.Tree.spend_ok_length
+      - theorem: RuleCore.Budget.Tree.spend_ok_parentOf
+      - theorem: RuleCore.Budget.Tree.spend_ok_allowance
+      - theorem: RuleCore.Budget.Tree.spend_ok_iff
+      - theorem: RuleCore.Budget.Tree.mem_walk
+      - theorem: RuleCore.Budget.Tree.walk_fits
+
+  - id: budget.refusal-changes-nothing
+    claim: >-
+      A refused spend, delegation or refill returns no tree, and a run keeps
+      the tree it had and logs no spend.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Budget.Tree.step_of_error
+      - theorem: RuleCore.Budget.Tree.run_cons_of_error
+      - theorem: RuleCore.Budget.Tree.logged_of_error
+
+  - id: budget.overdrawn-names-nearest
+    claim: >-
+      The node an overdrawn refusal names is on the spender's chain and cannot
+      take the amount, and every node before it on the chain, counting from
+      the spender, can: it is the first node that would be overdrawn, the
+      target of a refill request. A node cannot take an amount when its spent
+      amount plus the amount exceeds its allowance or does not fit in an
+      i128.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Budget.Tree.spend_overdrawn
+      - theorem: RuleCore.Budget.Tree.walk_overdrawn
+      - theorem: RuleCore.Budget.Tree.fits_iff
+
+  - id: budget.refuses-only-what-it-must
+    claim: >-
+      On a well-formed tree, a spend of a non-negative amount at an existing
+      node succeeds exactly when every node on its chain can take the amount,
+      and is otherwise refused as overdrawn.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Budget.Tree.spend_accepts_iff
+      - theorem: RuleCore.Budget.Tree.spend_error_overdrawn
+      - theorem: RuleCore.Budget.Tree.walk_total
+      - theorem: RuleCore.Budget.Tree.walk_error
+
+  - id: budget.delegate-and-refill
+    claim: >-
+      A successful delegation appends exactly a child of an existing node
+      with the given non-negative allowance and nothing spent, at the next
+      index, without comparing the allowance with its parent's, so children's
+      allowances may sum to more than their parent's; it is refused on a tree
+      of maxNodes (u32::MAX) nodes. A successful refill raises exactly one
+      node's allowance by a non-negative amount whose sum fits in an i128.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Budget.Tree.delegate_ok_iff
+      - theorem: RuleCore.Budget.Tree.refill_ok_iff
+
+  - id: budget.well-formed
+    claim: >-
+      A tree is well formed when every node's parent index is below its own
+      and no allowance or spent amount is negative; on a well-formed tree a
+      node's ancestors have smaller indices, and every successful operation,
+      and so every run, keeps the tree well formed.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Budget.Tree.valid_iff
+      - theorem: RuleCore.Budget.Tree.validFrom_iff
+      - theorem: RuleCore.Budget.Tree.node_valid_iff
+      - theorem: RuleCore.Budget.Tree.parent_lt
+      - theorem: RuleCore.Budget.Tree.nonneg_of_valid
+      - theorem: RuleCore.Budget.Tree.le_of_within
+      - theorem: RuleCore.Budget.Tree.within_antisymm
+      - theorem: RuleCore.Budget.Tree.spend_valid
+      - theorem: RuleCore.Budget.Tree.delegate_valid
+      - theorem: RuleCore.Budget.Tree.refill_valid
+      - theorem: RuleCore.Budget.Tree.apply_valid
+      - theorem: RuleCore.Budget.Tree.step_valid
+      - theorem: RuleCore.Budget.Tree.run_valid
+
+  - id: budget.within-allowance
+    claim: >-
+      Every node's spent amount stays within its allowance: every operation
+      and every run preserves it.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Budget.Tree.spend_withinAllowance
+      - theorem: RuleCore.Budget.Tree.delegate_withinAllowance
+      - theorem: RuleCore.Budget.Tree.refill_withinAllowance
+      - theorem: RuleCore.Budget.Tree.apply_withinAllowance
+      - theorem: RuleCore.Budget.Tree.step_withinAllowance
+      - theorem: RuleCore.Budget.Tree.run_withinAllowance
+      - theorem: RuleCore.Budget.Tree.withinAllowance_iff
+
+  - id: budget.safety
+    claim: >-
+      For every run of spends, delegations and refills, each node's spent
+      amount is its spent amount before the run (nothing, for a node the run
+      appended) plus the total successfully spent at or under it; from a
+      well-formed tree with nothing spent, the total successfully spent at or
+      under any node is that node's spent amount and never exceeds its
+      allowance. Nothing relates allowances to each other, so the bound holds
+      however much children's allowances oversubscribe their parent's. A run
+      never removes a node or changes an existing node's parent.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Budget.Tree.spentUnder_le_allowance
+      - theorem: RuleCore.Budget.Tree.spentUnder_eq_spent
+      - theorem: RuleCore.Budget.Tree.spent_run
+      - theorem: RuleCore.Budget.Tree.step_spent
+      - theorem: RuleCore.Budget.Tree.run_extends
+      - theorem: RuleCore.Budget.Tree.step_extends
+      - theorem: RuleCore.Budget.Tree.within_of_walk
+      - theorem: RuleCore.Budget.Tree.within_root
+      - theorem: RuleCore.Budget.Tree.within_step
+      - theorem: RuleCore.Budget.Tree.within_trans
+
   # The translation of crates/rule-eval (formal/RuleCore/Extracted) and its
   # equivalence to the chain vocabulary (formal/RuleCore/Equiv).
 
@@ -886,6 +1015,50 @@ claims:
       - theorem: RuleCore.Equiv.denoteCapError_injective
       - theorem: RuleCore.Equiv.denoteSpend_injective
 
+  - id: equiv.budget
+    claim: >-
+      On every input, the translated spend, delegate and refill return ok of
+      the budget model's operation on the denotations, every refusal
+      included, so they terminate and never panic, with no stated bound;
+      tree_valid is the model's well-formedness, fits the model's test that a
+      node can take an amount, the checking walk is the model's walk, the
+      charging loop adds the amount to exactly the walked nodes, writing each
+      back through get_mut, and delegate's push runs on fewer than
+      maxNodes nodes, below Usize.max.
+    status: proven
+    assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel, trusted.denotations]
+    evidence:
+      - theorem: RuleCore.Equiv.spend_eq
+      - theorem: RuleCore.Equiv.delegate_eq
+      - theorem: RuleCore.Equiv.refill_eq
+      - theorem: RuleCore.Equiv.tree_valid_eq
+      - theorem: RuleCore.Equiv.tree_valid_loop_eq
+      - theorem: RuleCore.Equiv.node_valid_eq
+      - theorem: RuleCore.Equiv.fits_eq
+      - theorem: RuleCore.Equiv.check_chain_loop_eq
+      - theorem: RuleCore.Equiv.charged_loop_eq
+      - theorem: RuleCore.Equiv.nodes_copy_eq
+      - theorem: RuleCore.Equiv.nodes_copy_loop_eq
+      - theorem: RuleCore.Equiv.node_copy_eq
+      - theorem: RuleCore.Equiv.refill_loop_eq
+      - theorem: RuleCore.Equiv.max_nodes_eq
+      - theorem: RuleCore.Equiv.max_nodes_le_usize
+      - theorem: RuleCore.Equiv.charge_set
+      - theorem: RuleCore.Equiv.charge_congr
+      - theorem: RuleCore.Equiv.charge_nil
+      - theorem: RuleCore.Equiv.vec_val_set_opt
+
+  - id: equiv.budget-denotations-injective
+    claim: >-
+      The denotations of a node, a tree, a budget error and the result of a
+      budget operation are injective.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Equiv.denoteNode_injective
+      - theorem: RuleCore.Equiv.denoteTree_injective
+      - theorem: RuleCore.Equiv.denoteBudgetError_injective
+      - theorem: RuleCore.Equiv.denoteBudget_injective
+
   # The model's theorems carried over to the translation, stated on the
   # translated functions alone (formal/RuleCore/Theorems/Extracted.lean).
 
@@ -1081,6 +1254,37 @@ claims:
       - theorem: RuleCore.Extracted.renumbered_map
       - theorem: RuleCore.Extracted.DerivesAlong.derives
 
+  - id: extracted.budget
+    claim: >-
+      A run of the translated spend, delegate and refill, keeping the tree
+      after a refusal, returns ok of a tree and a log of successful spends
+      denoting the model's run; it keeps the tree well formed and every
+      node's spent amount within its allowance, and from a well-formed tree
+      with nothing spent, the total successfully spent at or under any node
+      is that node's spent amount and never exceeds its allowance. A
+      successful translated spend charges exactly the spender and its
+      ancestors; an Overdrawn refusal names the first node on the chain that
+      cannot take the amount; on a well-formed tree a spend of a non-negative
+      amount at an existing node succeeds exactly when every node on its
+      chain can take it; a successful delegate appends exactly the new child
+      and a successful refill raises exactly one allowance.
+    status: proven
+    assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel, trusted.denotations]
+    evidence:
+      - theorem: RuleCore.Extracted.runBudget_eq
+      - theorem: RuleCore.Extracted.runBudget_valid
+      - theorem: RuleCore.Extracted.runBudget_withinAllowance
+      - theorem: RuleCore.Extracted.runBudget_spentUnder_eq_spent
+      - theorem: RuleCore.Extracted.runBudget_spentUnder_le_allowance
+      - theorem: RuleCore.Extracted.budget_spend_charges
+      - theorem: RuleCore.Extracted.budget_spend_unchanged
+      - theorem: RuleCore.Extracted.budget_spend_overdrawn
+      - theorem: RuleCore.Extracted.budget_spend_accepts_iff
+      - theorem: RuleCore.Extracted.budget_delegate_appends
+      - theorem: RuleCore.Extracted.budget_refill_raises
+      - theorem: RuleCore.Extracted.apply_eq
+      - theorem: RuleCore.Extracted.spend_ok_denote
+
   # Stated rules: what the theorems take as given about their callers.
 
   - id: rule.cond-room
@@ -1166,8 +1370,8 @@ claims:
   - id: trusted.denotations
     claim: >-
       The denotation functions from the translated types to the chain
-      vocabulary and to the cap model say what the Rust types mean; they are
-      part of the specification.
+      vocabulary, to the cap model and to the budget model say what the Rust
+      types mean; they are part of the specification.
     status: assumed
     evidence:
       - trusted: The denotation functions
@@ -1313,13 +1517,42 @@ claims:
       - test: rule-eval/authorize::the_other_steps_keep_each_rule_cap
       - test: rule-eval/authorize::cap_steps_leave_every_verdict_as_it_was
 
+  - id: tested.budget
+    claim: >-
+      spend, delegate and refill agree with a plain Rust reading of the
+      operations on 152,355 inputs (1,451 trees of up to three nodes, well
+      formed or not, with five indices and seven amounts each, the i128
+      extremes included); over 300 random runs of 40 operations, each node's
+      spent amount stays the total successfully spent at or under it and
+      within its allowance; unit tests cover charging the chain, the refusal
+      naming the nearest overdrawn node, oversubscribed siblings, an
+      exhausted middle ancestor, overflowing sums, malformed trees, each
+      refusal and its precedence, zero spends, delegation and refills.
+    status: tested
+    evidence:
+      - test: rule-eval/budget::every_operation_agrees_with_a_plain_reading_on_small_trees
+      - test: rule-eval/budget::spent_under_a_node_stays_within_its_allowance_over_random_runs
+      - test: rule-eval/budget::a_spend_charges_the_spender_and_every_ancestor
+      - test: rule-eval/budget::oversubscribed_siblings_share_their_parent
+      - test: rule-eval/budget::the_refusal_names_the_nearest_overdrawn_node
+      - test: rule-eval/budget::a_middle_ancestor_bounds_everything_under_it
+      - test: rule-eval/budget::an_overflowing_sum_counts_as_overdrawn
+      - test: rule-eval/budget::every_operation_refuses_a_malformed_tree
+      - test: rule-eval/budget::a_spend_refuses_in_order
+      - test: rule-eval/budget::a_zero_spend_charges_nothing
+      - test: rule-eval/budget::a_delegation_appends_a_child_with_any_allowance
+      - test: rule-eval/budget::a_delegated_node_is_bounded_by_its_ancestors
+      - test: rule-eval/budget::a_refill_raises_one_allowance
+      - test: rule-eval/budget::a_refusal_leaves_the_tree_as_it_was
+
   # Conformance vectors (conformance/).
 
   - id: conformance.from-model
     claim: >-
       The committed vectors in conformance/vectors, cap traces in
-      conformance/vectors/caps and authorization traces in
-      conformance/vectors/authorize are exactly what the Lean model computes:
+      conformance/vectors/caps, authorization traces in
+      conformance/vectors/authorize and budget traces in
+      conformance/vectors/budget are exactly what the Lean model computes:
       regenerating them into an empty directory gives no difference.
     status: tested
     evidence:
@@ -1370,6 +1603,21 @@ claims:
       - test: rule-eval-conformance/authorize::authorization_traces_cover_every_outcome
       - test: rule-eval-conformance/authorize::a_wrong_authorization_expectation_is_reported
       - file: conformance/vectors/authorize
+
+  - id: conformance.budget-agrees
+    claim: >-
+      rule-eval's spend, delegate and refill reproduce every outcome and tree
+      of every budget trace; the traces cover every refusal but tree_full
+      (which needs u32::MAX nodes), overdrawn refusals at the spender and at
+      an ancestor, accepted operations of each kind, malformed and empty
+      starting trees and trees with several roots; a trace with a changed
+      expectation is reported.
+    status: tested
+    evidence:
+      - test: rule-eval-conformance/budget::rule_eval_agrees_with_every_budget_trace
+      - test: rule-eval-conformance/budget::budget_traces_cover_every_outcome
+      - test: rule-eval-conformance/budget::a_wrong_budget_expectation_is_reported
+      - file: conformance/vectors/budget
 
   - id: conformance.encoding
     claim: >-
@@ -1573,3 +1821,16 @@ claims:
     evidence:
       - file: ARCHITECTURE.md
         contains: "past mainnet's `contractDataEntrySizeBytes` of 65,536 bytes"
+
+  - id: unproven.budget-shell
+    claim: >-
+      A shell charges each authorization's spend to the node of the grant
+      that authorized it, stores the tree an operation returns only on Ok,
+      and accepts a refill only on the owner's authority. These are the
+      grant signer's duties (M6); rule-eval's budget operations take the
+      node, the amount and the tree as given, and nothing here checks how a
+      shell chooses them.
+    status: unproven
+    evidence:
+      - file: ARCHITECTURE.md
+        contains: "Linking an authorization to a node is the shell's job"

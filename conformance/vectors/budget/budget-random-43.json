@@ -1,0 +1,25 @@
+{
+  "format": 1,
+  "name": "budget-random-43",
+  "description": "Randomized trace 43 of seed 20261102.",
+  "start": [],
+  "valid": true,
+  "ops": [
+    {
+      "op": "refill",
+      "node": 0,
+      "amount": "170141183460469231731687303715884105727",
+      "expected": {"error": {"no_such_node": 0}}
+    },
+    {
+      "op": "spend",
+      "node": 0,
+      "amount": "170141183460469231731687303715884105727",
+      "expected": {"error": {"no_such_node": 0}}
+    },
+    {"op": "spend", "node": 0, "amount": "5", "expected": {"error": {"no_such_node": 0}}},
+    {"op": "spend", "node": 0, "amount": "1", "expected": {"error": {"no_such_node": 0}}},
+    {"op": "spend", "node": 0, "amount": "100", "expected": {"error": {"no_such_node": 0}}},
+    {"op": "refill", "node": 0, "amount": "100", "expected": {"error": {"no_such_node": 0}}}
+  ]
+}

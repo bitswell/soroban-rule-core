@@ -1,0 +1,37 @@
+{
+  "format": 1,
+  "name": "budget-no-such-node",
+  "description": "A spend or refill at an index past the tree is refused and changes nothing.",
+  "start": [
+    {"parent": null, "allowance": "10", "spent": "0"},
+    {"parent": 0, "allowance": "5", "spent": "0"}
+  ],
+  "valid": true,
+  "ops": [
+    {"op": "spend", "node": 2, "amount": "1", "expected": {"error": {"no_such_node": 2}}},
+    {
+      "op": "spend",
+      "node": 4294967295,
+      "amount": "1",
+      "expected": {"error": {"no_such_node": 4294967295}}
+    },
+    {"op": "refill", "node": 2, "amount": "1", "expected": {"error": {"no_such_node": 2}}},
+    {
+      "op": "refill",
+      "node": 4294967295,
+      "amount": "1",
+      "expected": {"error": {"no_such_node": 4294967295}}
+    },
+    {
+      "op": "spend",
+      "node": 1,
+      "amount": "5",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "10", "spent": "5"},
+          {"parent": 0, "allowance": "5", "spent": "5"}
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "format": 1,
+  "name": "budget-random-26",
+  "description": "Randomized trace 26 of seed 20261102.",
+  "start": [
+    {"parent": null, "allowance": "170141183460469231731687303715884105727", "spent": "0"},
+    {"parent": 0, "allowance": "0", "spent": "0"},
+    {"parent": 1, "allowance": "2", "spent": "0"},
+    {"parent": 2, "allowance": "170141183460469231731687303715884105727", "spent": "0"},
+    {"parent": 2, "allowance": "170141183460469231731687303715884105726", "spent": "0"},
+    {"parent": 2, "allowance": "5", "spent": "0"}
+  ],
+  "valid": true,
+  "ops": [
+    {
+      "op": "refill",
+      "node": 2,
+      "amount": "0",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "170141183460469231731687303715884105727", "spent": "0"},
+          {"parent": 0, "allowance": "0", "spent": "0"},
+          {"parent": 1, "allowance": "2", "spent": "0"},
+          {"parent": 2, "allowance": "170141183460469231731687303715884105727", "spent": "0"},
+          {"parent": 2, "allowance": "170141183460469231731687303715884105726", "spent": "0"},
+          {"parent": 2, "allowance": "5", "spent": "0"}
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "format": 1,
+  "name": "budget-random-16",
+  "description": "Randomized trace 16 of seed 20261102.",
+  "start": [
+    {"parent": null, "allowance": "0", "spent": "0"},
+    {"parent": 0, "allowance": "10", "spent": "0"},
+    {"parent": null, "allowance": "100", "spent": "0"},
+    {"parent": 1, "allowance": "2", "spent": "0"}
+  ],
+  "valid": true,
+  "ops": [
+    {"op": "refill", "node": 1, "amount": "-1", "expected": {"error": "negative_amount"}},
+    {"op": "spend", "node": 3, "amount": "5", "expected": {"error": {"overdrawn": 3}}},
+    {"op": "spend", "node": 0, "amount": "1", "expected": {"error": {"overdrawn": 0}}},
+    {
+      "op": "spend",
+      "node": 2,
+      "amount": "10",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "0", "spent": "0"},
+          {"parent": 0, "allowance": "10", "spent": "0"},
+          {"parent": null, "allowance": "100", "spent": "10"},
+          {"parent": 1, "allowance": "2", "spent": "0"}
+        ]
+      }
+    },
+    {
+      "op": "refill",
+      "node": 3,
+      "amount": "25",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "0", "spent": "0"},
+          {"parent": 0, "allowance": "10", "spent": "0"},
+          {"parent": null, "allowance": "100", "spent": "10"},
+          {"parent": 1, "allowance": "27", "spent": "0"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 3, "amount": "5", "expected": {"error": {"overdrawn": 0}}},
+    {"op": "spend", "node": 4, "amount": "5", "expected": {"error": {"no_such_node": 4}}},
+    {
+      "op": "delegate",
+      "parent": 0,
+      "allowance": "170141183460469231731687303715884105726",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "0", "spent": "0"},
+          {"parent": 0, "allowance": "10", "spent": "0"},
+          {"parent": null, "allowance": "100", "spent": "10"},
+          {"parent": 1, "allowance": "27", "spent": "0"},
+          {"parent": 0, "allowance": "170141183460469231731687303715884105726", "spent": "0"}
+        ]
+      }
+    }
+  ]
+}

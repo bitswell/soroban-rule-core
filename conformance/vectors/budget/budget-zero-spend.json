@@ -1,0 +1,46 @@
+{
+  "format": 1,
+  "name": "budget-zero-spend",
+  "description": "A zero spend passes on a chain with nothing left and charges nothing.",
+  "start": [
+    {"parent": null, "allowance": "3", "spent": "0"},
+    {"parent": 0, "allowance": "3", "spent": "0"}
+  ],
+  "valid": true,
+  "ops": [
+    {
+      "op": "spend",
+      "node": 1,
+      "amount": "3",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "3", "spent": "3"},
+          {"parent": 0, "allowance": "3", "spent": "3"}
+        ]
+      }
+    },
+    {
+      "op": "spend",
+      "node": 1,
+      "amount": "0",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "3", "spent": "3"},
+          {"parent": 0, "allowance": "3", "spent": "3"}
+        ]
+      }
+    },
+    {
+      "op": "spend",
+      "node": 0,
+      "amount": "0",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "3", "spent": "3"},
+          {"parent": 0, "allowance": "3", "spent": "3"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 1, "amount": "1", "expected": {"error": {"overdrawn": 1}}}
+  ]
+}

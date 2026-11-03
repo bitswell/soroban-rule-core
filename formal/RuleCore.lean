@@ -2,6 +2,7 @@ import RuleCore.Model.RuleSet
 import RuleCore.Model.Attenuation
 import RuleCore.Model.Cap
 import RuleCore.Model.Authorize
+import RuleCore.Model.Budget
 import RuleCore.Vocab.Bytes
 import RuleCore.Vocab.Chain
 import RuleCore.Extracted.RuleEval
@@ -12,6 +13,8 @@ import RuleCore.Equiv.Attenuation
 import RuleCore.Equiv.DenoteCap
 import RuleCore.Equiv.Cap
 import RuleCore.Equiv.Authorize
+import RuleCore.Equiv.DenoteBudget
+import RuleCore.Equiv.Budget
 import RuleCore.Theorems.RuleSet
 import RuleCore.Theorems.Attenuation
 import RuleCore.Theorems.Bytes
@@ -22,3 +25,5 @@ import RuleCore.Theorems.Cap
 import RuleCore.Theorems.ExtractedCap
 import RuleCore.Theorems.Authorize
 import RuleCore.Theorems.ExtractedAuthorize
+import RuleCore.Theorems.Budget
+import RuleCore.Theorems.ExtractedBudget

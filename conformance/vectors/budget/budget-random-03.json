@@ -1,0 +1,69 @@
+{
+  "format": 1,
+  "name": "budget-random-03",
+  "description": "Randomized trace 3 of seed 20261102.",
+  "start": [
+    {"parent": null, "allowance": "0", "spent": "0"},
+    {"parent": 0, "allowance": "100", "spent": "0"},
+    {"parent": 1, "allowance": "10", "spent": "0"}
+  ],
+  "valid": true,
+  "ops": [
+    {
+      "op": "delegate",
+      "parent": 2,
+      "allowance": "2",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "0", "spent": "0"},
+          {"parent": 0, "allowance": "100", "spent": "0"},
+          {"parent": 1, "allowance": "10", "spent": "0"},
+          {"parent": 2, "allowance": "2", "spent": "0"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 3, "amount": "2", "expected": {"error": {"overdrawn": 0}}},
+    {
+      "op": "refill",
+      "node": 0,
+      "amount": "5",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "5", "spent": "0"},
+          {"parent": 0, "allowance": "100", "spent": "0"},
+          {"parent": 1, "allowance": "10", "spent": "0"},
+          {"parent": 2, "allowance": "2", "spent": "0"}
+        ]
+      }
+    },
+    {
+      "op": "refill",
+      "node": 3,
+      "amount": "1",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "5", "spent": "0"},
+          {"parent": 0, "allowance": "100", "spent": "0"},
+          {"parent": 1, "allowance": "10", "spent": "0"},
+          {"parent": 2, "allowance": "3", "spent": "0"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 3, "amount": "10", "expected": {"error": {"overdrawn": 3}}},
+    {"op": "spend", "node": 2, "amount": "100", "expected": {"error": {"overdrawn": 2}}},
+    {
+      "op": "delegate",
+      "parent": 3,
+      "allowance": "2",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "5", "spent": "0"},
+          {"parent": 0, "allowance": "100", "spent": "0"},
+          {"parent": 1, "allowance": "10", "spent": "0"},
+          {"parent": 2, "allowance": "3", "spent": "0"},
+          {"parent": 3, "allowance": "2", "spent": "0"}
+        ]
+      }
+    }
+  ]
+}

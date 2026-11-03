@@ -1,0 +1,60 @@
+{
+  "format": 1,
+  "name": "budget-refill",
+  "description": "A refill raises one node's allowance, so a spend refused at that node passes; a negative refill, one at a missing node and a zero refill behave as the model says.",
+  "start": [
+    {"parent": null, "allowance": "10", "spent": "0"},
+    {"parent": 0, "allowance": "4", "spent": "0"}
+  ],
+  "valid": true,
+  "ops": [
+    {
+      "op": "spend",
+      "node": 1,
+      "amount": "4",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "10", "spent": "4"},
+          {"parent": 0, "allowance": "4", "spent": "4"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 1, "amount": "1", "expected": {"error": {"overdrawn": 1}}},
+    {"op": "refill", "node": 1, "amount": "-1", "expected": {"error": "negative_amount"}},
+    {"op": "refill", "node": 2, "amount": "1", "expected": {"error": {"no_such_node": 2}}},
+    {
+      "op": "refill",
+      "node": 1,
+      "amount": "0",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "10", "spent": "4"},
+          {"parent": 0, "allowance": "4", "spent": "4"}
+        ]
+      }
+    },
+    {
+      "op": "refill",
+      "node": 1,
+      "amount": "2",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "10", "spent": "4"},
+          {"parent": 0, "allowance": "6", "spent": "4"}
+        ]
+      }
+    },
+    {
+      "op": "spend",
+      "node": 1,
+      "amount": "2",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "10", "spent": "6"},
+          {"parent": 0, "allowance": "6", "spent": "6"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 1, "amount": "1", "expected": {"error": {"overdrawn": 1}}}
+  ]
+}

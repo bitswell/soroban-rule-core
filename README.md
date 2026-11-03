@@ -28,8 +28,17 @@ an authorization as OpenZeppelin's smart account does: the caller names one
 rule per context, every chosen rule must allow its context, and each context
 whose rule has a cap is charged to that rule's record, in order, so two
 contexts on one rule accumulate. It returns the records after every charge, or
-a refusal that changes nothing. [`ARCHITECTURE.md`](ARCHITECTURE.md) covers the
-design, and how it serves the three layers of authority in a smart account.
+a refusal that changes nothing.
+
+Budgets sit on the delegation tree, a list of nodes, each with its parent's
+index, an allowance and what has been spent at or under it. `spend` charges a
+node and every ancestor up to its root, or refuses, changing nothing and
+naming the first node on the chain that would be overdrawn, where a refill
+request goes. `delegate` appends a child with any allowance, so children's
+allowances may sum to more than their parent's, and `refill`, the owner's
+action, raises one node's allowance. [`ARCHITECTURE.md`](ARCHITECTURE.md)
+covers the design, and how it serves the three layers of authority in a smart
+account.
 
 Every claim the repository makes is in [`claims.yaml`](claims.yaml), with its
 status (`proven`, `tested`, `measured`, `assumed` or `unproven`) and its
@@ -84,6 +93,16 @@ authorizations from records holding one record per rule.
 - Narrowing as trace inclusion: for each of the eight steps and every chain of them, every run of authorizations the derived rule set accepts from its empty records, the root accepts from its own, with each choice renumbered by the map `dropRule` induces (`RuleSet.attenuate_traceNarrower`, `RuleSet.attenuateAll_traceNarrower`, `Attenuation.source_dropRule`, `Attenuation.source_eq_of_ne_dropRule`, and the `Chain` versions). They rest on `RuleSet.Refines.traceNarrower` and `Cap.check_of_narrower_suffix`; trace inclusion composes (`RuleSet.TraceNarrower.trans`).
 - The steps keep every cap valid (`RuleSet.attenuate_capsValid`, `RuleSet.attenuateAll_capsValid`).
 
+**Budgets on the delegation tree.** `RuleCore.Budget` models the tree and its
+three operations; runs are lists of spends, delegations and refills, from any
+tree.
+
+- Budget safety: for every run from a well-formed tree with nothing spent, the total successfully spent at or under any node is that node's spent amount and never exceeds its allowance (`Budget.Tree.spentUnder_le_allowance`, `Budget.Tree.spentUnder_eq_spent`, from `Budget.Tree.spent_run`). Nothing relates allowances to each other, so the bound holds however much children's allowances oversubscribe their parent's.
+- A successful spend adds the amount to the spender and every ancestor, and changes nothing else (`Budget.Tree.spend_ok_charges`, `Budget.Tree.spend_ok_unchanged`, `Budget.Tree.spend_ok_length`, `Budget.Tree.spend_ok_parentOf`, `Budget.Tree.spend_ok_allowance`); a refused operation changes nothing (`Budget.Tree.step_of_error`, `Budget.Tree.run_cons_of_error`).
+- The node an `overdrawn` refusal names is on the spender's chain and cannot take the amount, and every node before it on the chain can (`Budget.Tree.spend_overdrawn`). On a well-formed tree, a spend of a non-negative amount at an existing node succeeds exactly when every node on its chain can take it (`Budget.Tree.spend_accepts_iff`, `Budget.Tree.spend_error_overdrawn`).
+- A delegation appends exactly the new child, with nothing spent, whatever its allowance; a refill raises exactly one allowance (`Budget.Tree.delegate_ok_iff`, `Budget.Tree.refill_ok_iff`).
+- Every operation and every run keeps the tree well formed and every spent amount within its allowance (`Budget.Tree.run_valid`, `Budget.Tree.run_withinAllowance`, and the single-operation versions).
+
 **The translation equals the model.** `RuleCore.Equiv` relates
 `formal/RuleCore/Extracted/RuleEval.lean`, which Charon and Aeneas generate
 from `crates/rule-eval`, to the chain vocabulary through denotation functions.
@@ -92,7 +111,8 @@ from `crates/rule-eval`, to the chain vocabulary through denotation functions.
 - `drop_rule_eq`, `remove_functions_eq`, `remove_signers_eq`, `raise_threshold_eq` and `add_cond_eq`: on every input, each attenuation step returns the model's result, `noSuchRule` and `thresholdLowered` included. `add_cond_eq` takes the stated rule `CondRoom`, and `add_cond_full` shows that rule is exact.
 - `check_spend_eq`: on every input, the translated `check_spend` returns `ok` of the cap model's check on the denotations, so it terminates and never panics. It needs no stated bound.
 - `authorize_eq`: on every input, the translated `authorize` returns `ok` of the model's authorization on the denotations, every refusal included, so it terminates and never panics. `check_choices_loop_eq` and `charge_all_loop_eq` prove its two passes. `add_cap_eq`, `lower_cap_limit_eq` and `lengthen_cap_period_eq` do the same for the cap steps.
-- Every denotation is injective (`denoteVal_injective`, `denoteContext_injective`, `denoteSigner_injective`, `denoteCap_injective`, `denoteRule_injective`, `denoteRules_injective`, `denoteOutcome_injective`, `denoteRecord_injective`, `denoteSpend_injective`, `denoteRefusal_injective`, `denoteAuthorized_injective`, ...).
+- `spend_eq`, `delegate_eq` and `refill_eq`: on every input, the translated budget operations return `ok` of the budget model's operation on the denotations, every refusal included, so they terminate and never panic. None needs a stated bound. `check_chain_loop_eq` and `charged_loop_eq` prove the checking walk and the charging walk.
+- Every denotation is injective (`denoteVal_injective`, `denoteContext_injective`, `denoteSigner_injective`, `denoteCap_injective`, `denoteRule_injective`, `denoteRules_injective`, `denoteOutcome_injective`, `denoteRecord_injective`, `denoteSpend_injective`, `denoteRefusal_injective`, `denoteAuthorized_injective`, `denoteTree_injective`, `denoteBudget_injective`, ...).
 
 **The model's theorems hold of the translation.** `RuleCore.Extracted`
 states these on the translated functions alone:
@@ -106,6 +126,7 @@ states these on the translated functions alone:
 - an `authorize` that returns `Ok` means the translated `allows_all` accepts the batch (`authorize_allows_all`); a run of the translated `authorize` returns records denoting the model's run (`runAuthorizations_eq`), keeps them after a refusal (`runAuthorizations_of_err`), and from empty records bounds every window of each capped rule's spends by its limit, stores exactly the in-window spends and holds at most 1000 entries per record (`runAuthorizations_window_le_limit`, `runAuthorizations_window`, `runAuthorizations_length_le`);
 - each translated step, and every chain of them, is trace inclusion along its renumbering (`StepAlong.traceNarrower`, `DerivesAlong.traceNarrower`, from `traceNarrower_of_denote`);
 - a run of the translated `check_spend` returns a record denoting the model's run (`runSpends_eq`), so from the empty record it holds at most 1000 entries and is the recorded spends in its window (`runSpends_length_le`, `runSpends_window`); the translated check refuses a negative amount, changes nothing on a zero amount and refuses a spend before the newest recorded ledger (`check_spend_negative`, `check_spend_zero`, `check_spend_before_newest`);
+- a run of the translated `spend`, `delegate` and `refill` returns a tree and a log of spends denoting the model's run (`runBudget_eq`), so it keeps the tree well formed and every spent amount within its allowance (`runBudget_valid`, `runBudget_withinAllowance`), and from a well-formed tree with nothing spent the total spent at or under each node is its spent amount and within its allowance (`runBudget_spentUnder_eq_spent`, `runBudget_spentUnder_le_allowance`); a translated spend charges exactly the chain, its `Overdrawn` refusal names the first node that cannot take the amount, and on a well-formed tree it succeeds exactly when every node on the chain can (`budget_spend_charges`, `budget_spend_unchanged`, `budget_spend_overdrawn`, `budget_spend_accepts_iff`);
 - signers compare exactly (`signer_eq_iff`, `signer_eq_delegated_external`); authenticating more signers never refuses (`allows_of_subset`, `allows_all_of_subset`); repeats and order in either list change nothing (`allows_congr`, `allows_all_congr`, `rule_allows_congr_signers`); threshold 0 ignores the signers, a threshold of all distinct signers needs every one, and a threshold above them allows nothing (`rule_allows_threshold_zero`, `signers_met_all_iff`, `rule_allows_false_of_lt`).
 
 **Stated rules.** These are not theorems. [`TRUSTED.md`](TRUSTED.md) states
@@ -137,11 +158,18 @@ between `authorize` and OpenZeppelin's `do_check_auth` there
 ([`ARCHITECTURE.md`](ARCHITECTURE.md#mirroring-openzeppelin)), and the reading
 that a record of 816 or more entries does not fit in one mainnet ledger entry.
 
+The budget operations take the node, the amount and the tree as given. Which
+node an authorization's spend is charged to, storing the tree only on `Ok`, and
+accepting a refill only on the owner's authority are the shell's duties
+([`ARCHITECTURE.md`](ARCHITECTURE.md#milestone-3-the-budget-tree)), for the
+grant signer in M6; nothing here checks them.
+
 ## What is tested
 
 - **Conformance vectors.** `conformance/vectors/*.json` holds 153 vectors, each a rule set, a batch, the authenticated signers, the per-context and whole-batch verdicts, and attenuation steps with their results. The Lean model computes every expected result. Of these, 53 are named cases and 100 are drawn from a seeded generator. The signer cases cover thresholds 0, 1, k, all signers and above, repeated signers in either list, delegated and external signers with equal bytes, missing signers, batches under one authenticated list, and both signer steps. The cap cases cover each cap step and each of its refusals, chains mixing them with the other steps, and verdicts that ignore caps. CI regenerates them from the model and fails on any difference (`conformance.yml`). The runner in `conformance/runner` checks `rule-eval` against every vector: `rule_eval_agrees_with_every_vector`, `vectors_cover_every_kind` and `a_wrong_expectation_is_reported`. [`conformance/README.md`](conformance/README.md) documents the format, so other implementations can run the same vectors.
 - **Cap traces.** `conformance/vectors/caps/*.json` holds 72 traces, each a cap, a starting record and calls with the outcome and record the Lean model computes for each. Of these, 22 are named and 50 drawn from the same seeded generator; together they cover every refusal, ledger 0, `u32::MAX`, the history bound and caps that are not valid to install. CI regenerates them with the vectors. The runner checks `check_spend` against every trace: `rule_eval_agrees_with_every_cap_trace`, `cap_traces_cover_every_outcome` and `a_wrong_cap_expectation_is_reported`.
 - **Authorization traces.** `conformance/vectors/authorize/*.json` holds 70 traces, each a rule set, its starting records and authorizations with the outcome and records the Lean model computes for each. Of these, 20 are named and 50 drawn from the same seeded generator; they cover every refusal, two contexts charging one rule, a refusal discarding a batch's charges, windows rolling, ledger 0, the history bound, rules keeping their own records, and the rule sets each cap step and `drop_rule` derive from one rule set, run on the same authorizations. The runner checks `authorize` against every trace: `rule_eval_agrees_with_every_authorization_trace`, `authorization_traces_cover_every_outcome` and `a_wrong_authorization_expectation_is_reported`.
+- **Budget traces.** `conformance/vectors/budget/*.json` holds 69 traces, each a starting tree and spends, delegations and refills with the outcome and tree the Lean model computes for each. Of these, 19 are named and 50 drawn from the same seeded generator; they cover oversubscribed siblings, a spend exhausting a middle ancestor, the refusal naming the nearest overdrawn node, overflowing sums, malformed and empty trees, delegation then spend, refills and several roots, and every refusal but `tree_full`, which needs `u32::MAX` nodes. The runner checks the budget operations against every trace: `rule_eval_agrees_with_every_budget_trace`, `budget_traces_cover_every_outcome` and `a_wrong_budget_expectation_is_reported`.
 - **Exhaustive small universes.** `crates/rule-eval/tests` checks `allows` against an ordinary-Rust reading of the semantics over every rule set of up to two rules and 335 contexts (`allows_agrees_with_the_reference_reading`). It also checks:
   - `allows_all` against `allows` (`allows_all_is_the_conjunction_of_allows`);
   - that no rule set allows a creation (`no_rule_allows_a_creation`);
@@ -150,8 +178,9 @@ that a record of 816 or more entries does not fit in one mainnet ledger entry.
   - `signers_met` against the reference reading over every signer list of up to three signers, thresholds 0 to 4 and 63 authenticated lists (`signers_met_agrees_with_the_reference_reading`), that authenticating more signers never refuses and that order and repeats change nothing (`authenticating_more_signers_never_refuses`, `the_same_authenticated_signers_in_another_order_or_repeated_give_the_same_verdict`);
   - that every step on rules with signers only narrows under every authenticated list, alone and in two-step chains (`signer_steps_only_narrow_under_every_authenticated_list`);
   - `check_spend` against a plain reading of the check on every run of up to three calls from 25 under 16 small caps, and that every such run keeps every window within the limit (`check_spend_agrees_with_the_reference_reading`, `every_short_run_stays_within_every_window`);
-  - `authorize` against a plain reading on 28,024 inputs (every rule set of up to two rules from five capped and uncapped rules, 113 batches with their choices, two signer lists, two ledgers, two starting records), with every accepted batch allowed by `allows_all` (`authorize_agrees_with_the_reference_reading`); 8,653 runs of up to three authorizations over two capped rules, each step against the reading, every window within its limit and every stored record the in-window spends (`authorize::every_short_run_stays_within_every_window`); and trace inclusion for each cap step, `drop_rule` with its renumbering and a chain, over the same runs (`every_step_is_trace_inclusion`).
-- **Unit tests** cover every value constructor and both conditions, missing, wrong-typed and `u32::MAX` indices, exact byte and signer comparison, each threshold case, repeated signers, and each step at out-of-range indices and, for `raise_threshold`, below the current threshold. For caps they cover each refusal and its precedence, eviction at and beside the cutoff, the cutoff at ledger 0 and at `u32::MAX`, the history bound and each checked sum. For `authorize` they cover each refusal and its precedence, choices checked before charges, missing and wrong-typed amounts, charges accumulating, refusals discarding a batch, the window rolling and the empty batch; for the cap steps, what each builds and each refusal.
+  - `authorize` against a plain reading on 28,024 inputs (every rule set of up to two rules from five capped and uncapped rules, 113 batches with their choices, two signer lists, two ledgers, two starting records), with every accepted batch allowed by `allows_all` (`authorize_agrees_with_the_reference_reading`); 8,653 runs of up to three authorizations over two capped rules, each step against the reading, every window within its limit and every stored record the in-window spends (`authorize::every_short_run_stays_within_every_window`); and trace inclusion for each cap step, `drop_rule` with its renumbering and a chain, over the same runs (`every_step_is_trace_inclusion`);
+  - `spend`, `delegate` and `refill` against a plain reading on 152,355 inputs (1,451 trees of up to three nodes, well formed or not, five indices and seven amounts), and over 300 random runs of 40 operations, each node's spent amount stays the total spent at or under it and within its allowance (`every_operation_agrees_with_a_plain_reading_on_small_trees`, `spent_under_a_node_stays_within_its_allowance_over_random_runs`).
+- **Unit tests** cover every value constructor and both conditions, missing, wrong-typed and `u32::MAX` indices, exact byte and signer comparison, each threshold case, repeated signers, and each step at out-of-range indices and, for `raise_threshold`, below the current threshold. For caps they cover each refusal and its precedence, eviction at and beside the cutoff, the cutoff at ledger 0 and at `u32::MAX`, the history bound and each checked sum. For `authorize` they cover each refusal and its precedence, choices checked before charges, missing and wrong-typed amounts, charges accumulating, refusals discarding a batch, the window rolling and the empty batch; for the cap steps, what each builds and each refusal. For budgets they cover charging the chain, the nearest overdrawn node, oversubscribed siblings, an exhausted middle ancestor, overflowing sums, malformed trees, each refusal and its precedence, zero spends, delegation and refills.
 - **CI gates.** Every pull request and every push to `main` runs:
   - `cargo test`, `cargo clippy -D warnings`, and builds for native and `wasm32v1-none` in the release and contract profiles, on the pinned nightly and on stable (`rust.yml`);
   - `lake build` of every module (`lean.yml`), which also rejects `sorry`, `admit`, `partial`, `unsafe`, `native_decide`, `implemented_by`, `extern` and `axiom` in every Lean source, the translation included;
@@ -194,7 +223,7 @@ cd formal && lake exe cache get && lake build && cd ..
 tools/extract.sh
 tools/extract.sh --check
 
-# Conformance vectors, cap traces and authorization traces: regenerate from the Lean model
+# Conformance vectors and cap, authorization and budget traces: regenerate from the Lean model
 cd conformance/generator && lake build && lake exe gen-vectors ../vectors && cd ../..
 
 # Claim ledger (needs uv): the checker's self-tests, then the ledger
@@ -210,8 +239,8 @@ script's header).
 
 | Path | Contents |
 | --- | --- |
-| `crates/rule-eval/` | The rule-set evaluator, its attenuation steps, the spending-cap check and `authorize`: `no_std`, no dependencies, `forbid(unsafe_code)`. |
-| `conformance/` | The vectors (`vectors/`), cap traces (`vectors/caps/`) and authorization traces (`vectors/authorize/`), the Lean generator that computes them (`generator/`) and the Rust runner (`runner/`). |
+| `crates/rule-eval/` | The rule-set evaluator, its attenuation steps, the spending-cap check, `authorize` and the budget tree: `no_std`, no dependencies, `forbid(unsafe_code)`. |
+| `conformance/` | The vectors (`vectors/`), cap traces (`vectors/caps/`), authorization traces (`vectors/authorize/`) and budget traces (`vectors/budget/`), the Lean generator that computes them (`generator/`) and the Rust runner (`runner/`). |
 | `formal/` | The Lean package: `Model/`, `Vocab/`, `Extracted/` (generated), `Equiv/`, `Theorems/` and `Axioms.lean`. |
 | `tools/extract.sh` | Runs Charon and Aeneas on `crates/rule-eval`. |
 | `tools/check-claims`, `tools/tests/` | The claim-ledger checker and its self-tests. |

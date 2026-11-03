@@ -1,0 +1,74 @@
+{
+  "format": 1,
+  "name": "budget-middle-exhausted",
+  "description": "A spend that uses up a middle ancestor's allowance leaves every node under it unable to spend, while the root and the middle node's sibling still can.",
+  "start": [
+    {"parent": null, "allowance": "100", "spent": "0"},
+    {"parent": 0, "allowance": "10", "spent": "0"},
+    {"parent": 1, "allowance": "50", "spent": "0"},
+    {"parent": 1, "allowance": "50", "spent": "0"},
+    {"parent": 0, "allowance": "30", "spent": "0"}
+  ],
+  "valid": true,
+  "ops": [
+    {
+      "op": "spend",
+      "node": 2,
+      "amount": "7",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "100", "spent": "7"},
+          {"parent": 0, "allowance": "10", "spent": "7"},
+          {"parent": 1, "allowance": "50", "spent": "7"},
+          {"parent": 1, "allowance": "50", "spent": "0"},
+          {"parent": 0, "allowance": "30", "spent": "0"}
+        ]
+      }
+    },
+    {
+      "op": "spend",
+      "node": 3,
+      "amount": "3",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "100", "spent": "10"},
+          {"parent": 0, "allowance": "10", "spent": "10"},
+          {"parent": 1, "allowance": "50", "spent": "7"},
+          {"parent": 1, "allowance": "50", "spent": "3"},
+          {"parent": 0, "allowance": "30", "spent": "0"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 3, "amount": "1", "expected": {"error": {"overdrawn": 1}}},
+    {"op": "spend", "node": 2, "amount": "1", "expected": {"error": {"overdrawn": 1}}},
+    {
+      "op": "spend",
+      "node": 4,
+      "amount": "30",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "100", "spent": "40"},
+          {"parent": 0, "allowance": "10", "spent": "10"},
+          {"parent": 1, "allowance": "50", "spent": "7"},
+          {"parent": 1, "allowance": "50", "spent": "3"},
+          {"parent": 0, "allowance": "30", "spent": "30"}
+        ]
+      }
+    },
+    {
+      "op": "spend",
+      "node": 0,
+      "amount": "60",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "100", "spent": "100"},
+          {"parent": 0, "allowance": "10", "spent": "10"},
+          {"parent": 1, "allowance": "50", "spent": "7"},
+          {"parent": 1, "allowance": "50", "spent": "3"},
+          {"parent": 0, "allowance": "30", "spent": "30"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 0, "amount": "1", "expected": {"error": {"overdrawn": 0}}}
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "format": 1,
+  "name": "budget-random-01",
+  "description": "Randomized trace 1 of seed 20261102.",
+  "start": [{"parent": null, "allowance": "100", "spent": "0"}],
+  "valid": true,
+  "ops": [
+    {
+      "op": "delegate",
+      "parent": 0,
+      "allowance": "170141183460469231731687303715884105726",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "100", "spent": "0"},
+          {"parent": 0, "allowance": "170141183460469231731687303715884105726", "spent": "0"}
+        ]
+      }
+    },
+    {"op": "refill", "node": 2, "amount": "5", "expected": {"error": {"no_such_node": 2}}},
+    {
+      "op": "spend",
+      "node": 1,
+      "amount": "170141183460469231731687303715884105727",
+      "expected": {"error": {"overdrawn": 1}}
+    },
+    {
+      "op": "spend",
+      "node": 1,
+      "amount": "-170141183460469231731687303715884105728",
+      "expected": {"error": "negative_amount"}
+    },
+    {
+      "op": "refill",
+      "node": 0,
+      "amount": "-170141183460469231731687303715884105728",
+      "expected": {"error": "negative_amount"}
+    },
+    {"op": "spend", "node": 3, "amount": "25", "expected": {"error": {"no_such_node": 3}}},
+    {
+      "op": "delegate",
+      "parent": 1,
+      "allowance": "10",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "100", "spent": "0"},
+          {"parent": 0, "allowance": "170141183460469231731687303715884105726", "spent": "0"},
+          {"parent": 1, "allowance": "10", "spent": "0"}
+        ]
+      }
+    }
+  ]
+}

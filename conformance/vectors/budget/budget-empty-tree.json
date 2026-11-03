@@ -1,0 +1,12 @@
+{
+  "format": 1,
+  "name": "budget-empty-tree",
+  "description": "On a tree with no nodes, every operation is refused with no_such_node.",
+  "start": [],
+  "valid": true,
+  "ops": [
+    {"op": "spend", "node": 0, "amount": "0", "expected": {"error": {"no_such_node": 0}}},
+    {"op": "delegate", "parent": 0, "allowance": "1", "expected": {"error": {"no_such_node": 0}}},
+    {"op": "refill", "node": 0, "amount": "1", "expected": {"error": {"no_such_node": 0}}}
+  ]
+}

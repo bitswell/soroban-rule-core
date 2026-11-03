@@ -79,6 +79,126 @@ info: 'RuleCore.Authorization.map_fst_chosen' depends on axioms: [propext]
 ---
 info: 'RuleCore.Authorization.renumber_renumber' depends on axioms: [propext]
 ---
+info: 'RuleCore.Budget.Tree.apply_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.apply_withinAllowance' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.delegate_ok_iff' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.delegate_valid' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.delegate_withinAllowance' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.fits_iff' depends on axioms: [propext]
+---
+info: 'RuleCore.Budget.Tree.getElem?_charge' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.getElem_of_getElem?' depends on axioms: [propext]
+---
+info: 'RuleCore.Budget.Tree.le_of_within' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.length_charge' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.logged_of_error' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.lt_length_of_getElem?' depends on axioms: [propext]
+---
+info: 'RuleCore.Budget.Tree.mem_walk' depends on axioms: [propext]
+---
+info: 'RuleCore.Budget.Tree.node_valid_iff' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.nonneg_of_valid' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.parentOf_charge' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.parent_lt' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.refill_ok_iff' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.refill_valid' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.refill_withinAllowance' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.run_cons_of_error' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.run_extends' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.run_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.run_withinAllowance' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.spend_accepts_iff' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.spend_error_overdrawn' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.spend_ok_allowance' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.spend_ok_charges' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.spend_ok_iff' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.spend_ok_length' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.spend_ok_parentOf' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.spend_ok_unchanged' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.spend_overdrawn' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.spend_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.spend_withinAllowance' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.spentUnder_append' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.spentUnder_eq_spent' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.spentUnder_le_allowance' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.spentUnder_nil' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.spentUnder_single' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.spent_run' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.step_extends' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.step_of_error' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.step_spent' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.step_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.step_withinAllowance' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.validFrom_iff' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.valid_iff' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.valid_set' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.walk_error' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.walk_fits' depends on axioms: [propext]
+---
+info: 'RuleCore.Budget.Tree.walk_overdrawn' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.walk_succ' depends on axioms: [propext]
+---
+info: 'RuleCore.Budget.Tree.walk_total' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.withinAllowance_iff' depends on axioms: [propext]
+---
+info: 'RuleCore.Budget.Tree.within_antisymm' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Budget.Tree.within_of_walk' depends on axioms: [propext]
+---
+info: 'RuleCore.Budget.Tree.within_root' depends on axioms: [propext]
+---
+info: 'RuleCore.Budget.Tree.within_step' depends on axioms: [propext]
+---
+info: 'RuleCore.Budget.Tree.within_trans' depends on axioms: [propext]
+---
 info: 'RuleCore.Bytes.append_ne_self' depends on axioms: [propext, Quot.sound]
 ---
 info: 'RuleCore.Bytes.eq_iff' depends on axioms: [propext, Quot.sound]
@@ -463,6 +583,16 @@ info: 'RuleCore.Equiv.chain_rule_allows_call' depends on axioms: [propext, Class
 ---
 info: 'RuleCore.Equiv.charge_all_loop_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
+info: 'RuleCore.Equiv.charge_congr' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.charge_nil' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.charge_set' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.charged_loop_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.check_chain_loop_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Equiv.check_choices_loop_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.check_spend_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -501,7 +631,13 @@ info: 'RuleCore.Equiv.countFrom_first_from' depends on axioms: [propext, Quot.so
 ---
 info: 'RuleCore.Equiv.countFrom_map' depends on axioms: [propext]
 ---
+info: 'RuleCore.Equiv.delegate_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Equiv.denoteAuthorized_injective' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.denoteBudgetError_injective' depends on axioms: [propext]
+---
+info: 'RuleCore.Equiv.denoteBudget_injective' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.denoteBytes_inj' depends on axioms: [propext]
 ---
@@ -520,6 +656,8 @@ info: 'RuleCore.Equiv.denoteContext_injective' depends on axioms: [propext, Clas
 info: 'RuleCore.Equiv.denoteEntry_injective' depends on axioms: [propext, Quot.sound]
 ---
 info: 'RuleCore.Equiv.denoteError_injective' does not depend on any axioms
+---
+info: 'RuleCore.Equiv.denoteNode_injective' depends on axioms: [propext, Quot.sound]
 ---
 info: 'RuleCore.Equiv.denoteOutcome_injective' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
@@ -546,6 +684,10 @@ info: 'RuleCore.Equiv.denoteSigner_injective' depends on axioms: [propext, Class
 info: 'RuleCore.Equiv.denoteSigners_injective' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.denoteSpend_injective' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.denoteTree_drop' depends on axioms: [propext]
+---
+info: 'RuleCore.Equiv.denoteTree_injective' depends on axioms: [propext, Quot.sound]
 ---
 info: 'RuleCore.Equiv.denoteU32_injective' depends on axioms: [propext]
 ---
@@ -589,7 +731,13 @@ info: 'RuleCore.Equiv.evict_loop_eq' depends on axioms: [propext, Classical.choi
 ---
 info: 'RuleCore.Equiv.except_error_bind' does not depend on any axioms
 ---
+info: 'RuleCore.Equiv.except_map_cons_unit' does not depend on any axioms
+---
 info: 'RuleCore.Equiv.except_ok_bind' does not depend on any axioms
+---
+info: 'RuleCore.Equiv.fits_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.getElem?_denoteTree' depends on axioms: [propext]
 ---
 info: 'RuleCore.Equiv.i128_bv_inj' depends on axioms: [propext]
 ---
@@ -606,6 +754,8 @@ info: 'RuleCore.Equiv.incr_eq' depends on axioms: [propext, Classical.choice, Qu
 info: 'RuleCore.Equiv.incr_eq_of_le' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.index_usize_eq' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Equiv.length_denoteTree' depends on axioms: [propext]
 ---
 info: 'RuleCore.Equiv.lengthen_cap_period_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
@@ -632,6 +782,18 @@ info: 'RuleCore.Equiv.lower_cap_limit_ok' depends on axioms: [propext, Classical
 info: 'RuleCore.Equiv.max_history_lt_usize' depends on axioms: [propext, Quot.sound]
 ---
 info: 'RuleCore.Equiv.max_history_val' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.max_nodes_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.max_nodes_le_usize' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Equiv.node_copy_eq' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Equiv.node_valid_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.nodes_copy_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.nodes_copy_loop_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.params_valid_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
@@ -668,6 +830,10 @@ info: 'RuleCore.Equiv.record_copy_eq' depends on axioms: [propext, Classical.cho
 info: 'RuleCore.Equiv.records_copy_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.records_copy_loop_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.refill_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.refill_loop_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.remove_functions_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
@@ -733,6 +899,12 @@ info: 'RuleCore.Equiv.slice_len_lt' depends on axioms: [propext, Classical.choic
 ---
 info: 'RuleCore.Equiv.spend_amount_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
+info: 'RuleCore.Equiv.spend_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.tree_valid_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.tree_valid_loop_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Equiv.u32_val_injective' does not depend on any axioms
 ---
 info: 'RuleCore.Equiv.usize_val_eq_iff' does not depend on any axioms
@@ -748,6 +920,8 @@ info: 'RuleCore.Equiv.vec_eq_of_val' depends on axioms: [propext, Classical.choi
 info: 'RuleCore.Equiv.vec_mk_deref' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.vec_new_val' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.vec_val_set_opt' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.zip_all_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
@@ -791,9 +965,23 @@ info: 'RuleCore.Extracted.allows_create' depends on axioms: [propext, Classical.
 ---
 info: 'RuleCore.Extracted.allows_of_subset' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
+info: 'RuleCore.Extracted.apply_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Extracted.authorizeAll_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Extracted.authorize_allows_all' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.budget_delegate_appends' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.budget_refill_raises' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.budget_spend_accepts_iff' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.budget_spend_charges' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.budget_spend_overdrawn' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.budget_spend_unchanged' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Extracted.bytes_eq_iff' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
@@ -861,6 +1049,16 @@ info: 'RuleCore.Extracted.runAuthorizations_window' depends on axioms: [propext,
 ---
 info: 'RuleCore.Extracted.runAuthorizations_window_le_limit' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
+info: 'RuleCore.Extracted.runBudget_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.runBudget_spentUnder_eq_spent' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.runBudget_spentUnder_le_allowance' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.runBudget_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.runBudget_withinAllowance' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Extracted.runSpends_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Extracted.runSpends_length_le' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -872,6 +1070,8 @@ info: 'RuleCore.Extracted.signer_eq_delegated_external' depends on axioms: [prop
 info: 'RuleCore.Extracted.signer_eq_iff' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Extracted.signers_met_all_iff' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.spend_ok_denote' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Extracted.traceNarrower_of_denote' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---

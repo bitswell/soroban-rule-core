@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "name": "budget-random-24",
+  "description": "Randomized trace 24 of seed 20261102.",
+  "start": [
+    {"parent": null, "allowance": "10", "spent": "0"},
+    {"parent": null, "allowance": "-1", "spent": "0"}
+  ],
+  "valid": false,
+  "ops": [
+    {
+      "op": "delegate",
+      "parent": 1,
+      "allowance": "170141183460469231731687303715884105726",
+      "expected": {"error": "malformed"}
+    },
+    {"op": "spend", "node": 3, "amount": "2", "expected": {"error": "malformed"}}
+  ]
+}

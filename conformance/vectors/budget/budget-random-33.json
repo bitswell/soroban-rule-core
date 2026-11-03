@@ -1,0 +1,12 @@
+{
+  "format": 1,
+  "name": "budget-random-33",
+  "description": "Randomized trace 33 of seed 20261102.",
+  "start": [],
+  "valid": true,
+  "ops": [
+    {"op": "spend", "node": 0, "amount": "50", "expected": {"error": {"no_such_node": 0}}},
+    {"op": "spend", "node": 0, "amount": "5", "expected": {"error": {"no_such_node": 0}}},
+    {"op": "refill", "node": 1, "amount": "0", "expected": {"error": {"no_such_node": 1}}}
+  ]
+}

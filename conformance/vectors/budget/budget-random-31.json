@@ -1,0 +1,31 @@
+{
+  "format": 1,
+  "name": "budget-random-31",
+  "description": "Randomized trace 31 of seed 20261102.",
+  "start": [
+    {"parent": null, "allowance": "0", "spent": "1"},
+    {"parent": 0, "allowance": "100", "spent": "0"}
+  ],
+  "valid": true,
+  "ops": [
+    {
+      "op": "spend",
+      "node": 0,
+      "amount": "-170141183460469231731687303715884105728",
+      "expected": {"error": "negative_amount"}
+    },
+    {"op": "spend", "node": 1, "amount": "2", "expected": {"error": {"overdrawn": 0}}},
+    {
+      "op": "delegate",
+      "parent": 0,
+      "allowance": "5",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "0", "spent": "1"},
+          {"parent": 0, "allowance": "100", "spent": "0"},
+          {"parent": 0, "allowance": "5", "spent": "0"}
+        ]
+      }
+    }
+  ]
+}

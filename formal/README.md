@@ -6,11 +6,11 @@ and the theorems relating them. The Lake package is `rule-core`
 
 | Directory | Contents |
 | --- | --- |
-| `RuleCore/Model/` | The generic model: rules with their signers, threshold and optional cap, rule sets, `narrower`, and the eight attenuation steps, over any context and signer type. `Cap.lean` models spending caps: the spend record, the check, runs and windows. `Authorize.lean` models `authorize`, its runs, and narrowing as trace inclusion. |
+| `RuleCore/Model/` | The generic model: rules with their signers, threshold and optional cap, rule sets, `narrower`, and the eight attenuation steps, over any context and signer type. `Cap.lean` models spending caps: the spend record, the check, runs and windows. `Authorize.lean` models `authorize`, its runs, and narrowing as trace inclusion. `Budget.lean` models the budget tree: spends, delegations, refills and their runs. |
 | `RuleCore/Vocab/` | The chain vocabulary (contexts, values, conditions, signers, caps, rules, authorizations) and its denotation into the generic model. |
 | `RuleCore/Extracted/` | `RuleEval.lean`, the translation of `crates/rule-eval` that Charon and Aeneas generate. Never edited by hand. |
-| `RuleCore/Equiv/` | Denotations from the translated types to the chain vocabulary and the cap model (`DenoteCap.lean`), and theorems that the translated functions compute the model's results (`Cap.lean` for the cap check, `Authorize.lean` for `authorize`). |
-| `RuleCore/Theorems/` | The theorems below, including the model's theorems carried over to the translation (`Extracted.lean`, `ExtractedCap.lean`, `ExtractedAuthorize.lean`), the cap theorems (`Cap.lean`), the authorization theorems (`Authorize.lean`), and kernel-checked examples of concrete verdicts. |
+| `RuleCore/Equiv/` | Denotations from the translated types to the chain vocabulary, the cap model (`DenoteCap.lean`) and the budget model (`DenoteBudget.lean`), and theorems that the translated functions compute the model's results (`Cap.lean` for the cap check, `Authorize.lean` for `authorize`, `Budget.lean` for the budget operations). |
+| `RuleCore/Theorems/` | The theorems below, including the model's theorems carried over to the translation (`Extracted.lean`, `ExtractedCap.lean`, `ExtractedAuthorize.lean`, `ExtractedBudget.lean`), the cap theorems (`Cap.lean`), the authorization theorems (`Authorize.lean`), the budget theorems (`Budget.lean`), and kernel-checked examples of concrete verdicts. |
 | `RuleCore/Axioms.lean` | The axioms each theorem depends on, pinned under `#guard_msgs`. |
 
 ## Building
@@ -321,6 +321,42 @@ of `Chain.RuleSet.authorize` on the denotations. Its two loops have their own
 inductions (`check_choices_loop_eq`, `charge_all_loop_eq`); the charge writes
 through `get_mut` (`slice_get_mut_eq`).
 
+## Budgets
+
+`RuleCore/Model/Budget.lean` models the `budget` module. Indices are natural
+numbers and amounts integers; sums are `Cap.addI128`, `i128::checked_add`.
+
+* `Node` is `{ parent, allowance, spent }`, with `parent : Option Nat`, and a
+  `Tree` is a list of nodes. `Node.valid i n` holds when `n`'s parent index is
+  below `i` and its allowance and spent amount are not negative, and
+  `Tree.valid` when every node is valid at its position.
+* `Node.fits n amount` holds when `addI128 n.spent amount` is some total at
+  most `n.allowance`.
+* `Tree.walk t amount fuel i` walks from `i` toward its root, refusing
+  `overdrawn i` at the first node that cannot take the amount and returning the
+  walked nodes otherwise; `Tree.charge t path amount` adds the amount to the
+  nodes of `path`.
+* `Tree.spend t i amount` refuses `malformed`, `noSuchNode i` and
+  `negativeAmount` in that order, then walks with the tree's length as fuel and
+  charges the path. `Tree.delegate t p allowance` refuses `malformed`,
+  `noSuchNode p`, `negativeAmount` and `treeFull` (at `maxNodes`, `u32::MAX`
+  nodes), and otherwise appends `⟨some p, allowance, 0⟩`. `Tree.refill t i
+  amount` refuses `malformed`, `noSuchNode i`, `negativeAmount` and `overflow`,
+  and otherwise raises node `i`'s allowance.
+* An `Op` is a spend, a delegation or a refill. `Tree.run` applies a list of
+  them, keeping the tree after a refusal and logging each successful spend.
+  `Tree.Within t i a` holds when `a` is `i` or one of its ancestors, and
+  `spentUnder t log a` totals the logged spends made at or under `a`.
+
+`RuleCore/Equiv/DenoteBudget.lean` maps `Node` and `BudgetError` field for
+field and constructor for constructor, a `u32` to its value and an `i128` to its
+value. Every denotation is injective. `spend_eq`, `delegate_eq` and
+`refill_eq` prove that each translated operation returns `ok` of the model's on
+the denotations, on every input and with no stated bound. The walks carry a
+current index and a step count, and each has its own induction on the steps
+left (`check_chain_loop_eq`, `charged_loop_eq`); the charging walk writes
+through `get_mut`.
+
 ## Theorems
 
 Generic model (`RuleCore`):
@@ -516,6 +552,37 @@ with its renumbering and `DerivesAlong root rs f` a chain of them.
 | `runAuthorizations_window`, `runAuthorizations_window_le_limit`, `runAuthorizations_length_le` | From empty records, a capped rule's stored record is the in-window spends with their sum as total, every window of its spends sums to at most its limit, and it holds at most `MAX_HISTORY_ENTRIES` entries. |
 | `traceNarrower_of_denote`, `StepAlong.denote_traceNarrower`, `StepAlong.traceNarrower`, `DerivesAlong.traceNarrower`, `DerivesAlong.derives` | Each translated step, and every chain of them, is trace inclusion along its renumbering; a chain is also a `Derives`. |
 | `emptyRecords_denote`, `emptyRecords_denote_rules`, `emptyRecords_length`, `renumbered_denote`, `renumbered_map` | The empty records and renumbered runs, read on the denotations. |
+
+Budgets (`RuleCore.Budget`, `Theorems/Budget.lean`), in namespace `Tree`:
+
+| Theorem | Statement |
+| --- | --- |
+| `spend_ok_iff` | A spend succeeds exactly on a well-formed tree, at an existing node, with a non-negative amount and a walk that reaches the root, and returns the charged tree. |
+| `spend_ok_charges`, `spend_ok_unchanged`, `spend_ok_length`, `spend_ok_parentOf`, `spend_ok_allowance` | A successful spend adds the amount to the spender and every ancestor and changes nothing else. |
+| `spend_overdrawn`, `walk_overdrawn` | The node an `overdrawn` refusal names is on the spender's chain and cannot take the amount, and every node before it on the chain can. |
+| `spend_accepts_iff`, `spend_error_overdrawn`, `walk_total`, `walk_error` | On a well-formed tree, a spend of a non-negative amount at an existing node succeeds exactly when every node on its chain can take it, and is otherwise refused as `overdrawn`. |
+| `delegate_ok_iff`, `refill_ok_iff` | What a successful delegation appends and a successful refill raises. |
+| `step_of_error`, `run_cons_of_error`, `logged_of_error` | A refused operation leaves the tree as it was and logs nothing. |
+| `spend_valid`, `delegate_valid`, `refill_valid`, `run_valid` | Every operation and run keeps the tree well formed. |
+| `spend_withinAllowance`, `delegate_withinAllowance`, `refill_withinAllowance`, `run_withinAllowance` | Every operation and run keeps every spent amount within its allowance. |
+| `run_extends` | A run never removes a node or changes an existing node's parent. |
+| `spent_run`, `spentUnder_eq_spent` | After any run, each node's spent amount is its starting one plus the total successfully spent at or under it; from a tree with nothing spent, it is that total. |
+| `spentUnder_le_allowance` | From a well-formed tree with nothing spent, after any run the total successfully spent at or under each node is at most its allowance. |
+| `mem_walk`, `walk_fits`, `within_of_walk`, `within_root`, `within_step`, `le_of_within`, `within_antisymm`, `within_trans`, `parent_lt` | The walk returns exactly the spender and its ancestors, each able to take the amount, and the ancestor relation on a well-formed tree. |
+
+Budgets on the translation (`RuleCore.Extracted`,
+`Theorems/ExtractedBudget.lean`). `runBudget` runs the translated `spend`,
+`delegate` and `refill`, keeping the tree after a refusal and logging each
+successful spend.
+
+| Theorem | Statement |
+| --- | --- |
+| `runBudget_eq` | A run returns `ok` of a tree and a log denoting the model's run. |
+| `runBudget_valid`, `runBudget_withinAllowance` | A run keeps the tree well formed and every spent amount within its allowance. |
+| `runBudget_spentUnder_eq_spent`, `runBudget_spentUnder_le_allowance` | From a well-formed tree with nothing spent, the total successfully spent at or under each node is its spent amount and at most its allowance. |
+| `budget_spend_charges`, `budget_spend_unchanged` | A successful translated spend charges exactly the spender and its ancestors. |
+| `budget_spend_overdrawn`, `budget_spend_accepts_iff` | An `Overdrawn` refusal names the first node on the chain that cannot take the amount; on a well-formed tree a spend of a non-negative amount at an existing node succeeds exactly when every node on its chain can take it. |
+| `budget_delegate_appends`, `budget_refill_raises` | What a successful translated delegation appends and refill raises. |
 
 The empty batch is allowed by every rule set (`RuleCore.RuleSet.allowsAll_nil`;
 chain `allowsAll` is the generic one on the denotation, and the translated

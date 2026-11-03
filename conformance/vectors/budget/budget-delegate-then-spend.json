@@ -1,0 +1,106 @@
+{
+  "format": 1,
+  "name": "budget-delegate-then-spend",
+  "description": "A delegation appends a child with any allowance, above its parent's included; a spend at the new node is still bounded by every ancestor.",
+  "start": [
+    {"parent": null, "allowance": "10", "spent": "0"},
+    {"parent": 0, "allowance": "8", "spent": "0"}
+  ],
+  "valid": true,
+  "ops": [
+    {
+      "op": "delegate",
+      "parent": 1,
+      "allowance": "20",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "10", "spent": "0"},
+          {"parent": 0, "allowance": "8", "spent": "0"},
+          {"parent": 1, "allowance": "20", "spent": "0"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 2, "amount": "9", "expected": {"error": {"overdrawn": 1}}},
+    {
+      "op": "spend",
+      "node": 2,
+      "amount": "8",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "10", "spent": "8"},
+          {"parent": 0, "allowance": "8", "spent": "8"},
+          {"parent": 1, "allowance": "20", "spent": "8"}
+        ]
+      }
+    },
+    {
+      "op": "delegate",
+      "parent": 2,
+      "allowance": "5",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "10", "spent": "8"},
+          {"parent": 0, "allowance": "8", "spent": "8"},
+          {"parent": 1, "allowance": "20", "spent": "8"},
+          {"parent": 2, "allowance": "5", "spent": "0"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 3, "amount": "1", "expected": {"error": {"overdrawn": 1}}},
+    {
+      "op": "refill",
+      "node": 1,
+      "amount": "3",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "10", "spent": "8"},
+          {"parent": 0, "allowance": "11", "spent": "8"},
+          {"parent": 1, "allowance": "20", "spent": "8"},
+          {"parent": 2, "allowance": "5", "spent": "0"}
+        ]
+      }
+    },
+    {
+      "op": "spend",
+      "node": 3,
+      "amount": "1",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "10", "spent": "9"},
+          {"parent": 0, "allowance": "11", "spent": "9"},
+          {"parent": 1, "allowance": "20", "spent": "9"},
+          {"parent": 2, "allowance": "5", "spent": "1"}
+        ]
+      }
+    },
+    {
+      "op": "delegate",
+      "parent": 0,
+      "allowance": "0",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "10", "spent": "9"},
+          {"parent": 0, "allowance": "11", "spent": "9"},
+          {"parent": 1, "allowance": "20", "spent": "9"},
+          {"parent": 2, "allowance": "5", "spent": "1"},
+          {"parent": 0, "allowance": "0", "spent": "0"}
+        ]
+      }
+    },
+    {
+      "op": "spend",
+      "node": 4,
+      "amount": "0",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "10", "spent": "9"},
+          {"parent": 0, "allowance": "11", "spent": "9"},
+          {"parent": 1, "allowance": "20", "spent": "9"},
+          {"parent": 2, "allowance": "5", "spent": "1"},
+          {"parent": 0, "allowance": "0", "spent": "0"}
+        ]
+      }
+    },
+    {"op": "spend", "node": 4, "amount": "1", "expected": {"error": {"overdrawn": 4}}}
+  ]
+}

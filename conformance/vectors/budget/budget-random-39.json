@@ -1,0 +1,73 @@
+{
+  "format": 1,
+  "name": "budget-random-39",
+  "description": "Randomized trace 39 of seed 20261102.",
+  "start": [{"parent": null, "allowance": "0", "spent": "0"}],
+  "valid": true,
+  "ops": [
+    {
+      "op": "refill",
+      "node": 0,
+      "amount": "50",
+      "expected": {"ok": [{"parent": null, "allowance": "50", "spent": "0"}]}
+    },
+    {
+      "op": "delegate",
+      "parent": 0,
+      "allowance": "10",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "50", "spent": "0"},
+          {"parent": 0, "allowance": "10", "spent": "0"}
+        ]
+      }
+    },
+    {
+      "op": "spend",
+      "node": 1,
+      "amount": "2",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "50", "spent": "2"},
+          {"parent": 0, "allowance": "10", "spent": "2"}
+        ]
+      }
+    },
+    {
+      "op": "delegate",
+      "parent": 1,
+      "allowance": "50",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "50", "spent": "2"},
+          {"parent": 0, "allowance": "10", "spent": "2"},
+          {"parent": 1, "allowance": "50", "spent": "0"}
+        ]
+      }
+    },
+    {
+      "op": "refill",
+      "node": 0,
+      "amount": "5",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "55", "spent": "2"},
+          {"parent": 0, "allowance": "10", "spent": "2"},
+          {"parent": 1, "allowance": "50", "spent": "0"}
+        ]
+      }
+    },
+    {
+      "op": "spend",
+      "node": 2,
+      "amount": "5",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "55", "spent": "7"},
+          {"parent": 0, "allowance": "10", "spent": "7"},
+          {"parent": 1, "allowance": "50", "spent": "5"}
+        ]
+      }
+    }
+  ]
+}

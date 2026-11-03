@@ -26,7 +26,9 @@ overflows. The spending-cap check sums with `i128::checked_add` and
 `i128::checked_sub`, which return `None` instead of trapping, and takes its
 cutoff with `u32::saturating_sub`. Its two subtractions on `usize`, `len - 1`
 and `len - kept_from`, run under `len > 0` and `kept_from <= len`, and
-`check_spend_eq` proves that neither fails.
+`check_spend_eq` proves that neither fails. The budget operations' walks count
+their steps with `step += 1` under `step < tree.len()`, and they sum amounts
+with `i128::checked_add`; `spend_eq` proves that the counter never overflows.
 
 ## Charon
 
@@ -80,30 +82,32 @@ each is trusted to match the Rust item.
 | `Vec::push` | `alloc.vec.Vec.push` | Appends. Fails with `maximumSizeExceeded` when the vector already holds `Usize.max` elements. Allocation failure, which aborts in Rust, is outside the model. |
 | `Vec::len` | `alloc.vec.Vec.len` | The list's length. |
 | `Deref` of `Vec<T>` to `&[T]` | `alloc.vec.Vec.deref` | The same list. |
-| `DerefMut` of `Vec<T>` to `&mut [T]` | `alloc.vec.Vec.deref_mut` | The same list, and a function that rebuilds the vector from the slice written back. Called in `authorize` to charge a record in place. |
+| `DerefMut` of `Vec<T>` to `&mut [T]` | `alloc.vec.Vec.deref_mut` | The same list, and a function that rebuilds the vector from the slice written back. Called in `authorize` to charge a record in place, and in the budget's charging walk to charge a node of the copied tree. |
 | `<[T]>::len` | `Slice.len` | The list's length. |
 | `s[i]` on a slice (`Index<usize>`) | `Slice.index_usize` | Element `i`, or `fail` when `i` is out of range. |
-| `<[T]>::get(i)` | `core.slice.Slice.get` with `core.slice.index.SliceIndexUsizeSlice` | `some` element `i`, or `none` when `i` is out of range. Called on a rule's arguments (a condition's, and a cap's amount), on the rules in `raise_threshold`, the cap steps and `authorize`, and on an authorization's choices. |
-| `<[T]>::get_mut(i)` | `core.slice.Slice.get_mut` with `core.slice.index.SliceIndexUsizeSlice` | `some` element `i` and a function that writes a new element back at `i` (`Slice.set_opt`), or `none` and the slice unchanged when `i` is out of range. Called in `authorize` on the copied records. |
-| `u32 as usize` | `UScalar.cast` | The same value. Lossless because `usize` has at least 32 bits. Widens indices (an authorization's choices and a cap's `amount_arg` included) and, in `signers_met`, the threshold. |
-| `i += 1` and `count += 1` on `usize` | `+` on `Usize` | Checked addition: `fail` on overflow. |
+| `<[T]>::get(i)` | `core.slice.Slice.get` with `core.slice.index.SliceIndexUsizeSlice` | `some` element `i`, or `none` when `i` is out of range. Called on a rule's arguments (a condition's, and a cap's amount), on the rules in `raise_threshold`, the cap steps and `authorize`, on an authorization's choices, and on the tree's nodes in the budget's walks and in `refill`. |
+| `<[T]>::get_mut(i)` | `core.slice.Slice.get_mut` with `core.slice.index.SliceIndexUsizeSlice` | `some` element `i` and a function that writes a new element back at `i` (`Slice.set_opt`), or `none` and the slice unchanged when `i` is out of range. Called in `authorize` on the copied records, and in the budget's charging walk on the copied tree. |
+| `u32 as usize` | `UScalar.cast` | The same value. Lossless because `usize` has at least 32 bits. Widens indices (an authorization's choices, a cap's `amount_arg` and the budget's node and parent indices included), in `signers_met` the threshold, and `u32::MAX` into `MAX_NODES`. |
+| `u32::MAX` | `core.num.U32.MAX` | `2^32 - 1`. |
+| `i += 1`, `count += 1` and `step += 1` on `usize` | `+` on `Usize` | Checked addition: `fail` on overflow. |
 | `len - 1` and `len - kept_from` on `usize` | `-` on `Usize` | Checked subtraction: `fail` when the result would be negative. |
 | `<`, `<=`, `>=`, `==`, `!=` on `usize` | the order and equality of `Usize` | On the values. |
 | `!=` on `u8` | equality of `U8` | On the values. |
 | `==` on `u64` | equality of `U64` | On the values. |
-| `==`, `<`, `<=` and `>` on `i128` | equality and order of `I128` | On the values, as signed integers. `lower_cap_limit` compares limits with `>` and `<= 0`, and `cap_valid` the limit with `> 0`. |
+| `==`, `<`, `<=`, `>` and `>=` on `i128` | equality and order of `I128` | On the values, as signed integers. `lower_cap_limit` compares limits with `>` and `<= 0`, `cap_valid` the limit with `> 0`, and `tree_valid` each allowance and spent amount with `>= 0`. |
 | `i128::checked_add`, `i128::checked_sub` | `I128.checked_add`, `I128.checked_sub` | `some` of the sum or difference when it lies between `i128::MIN` and `i128::MAX`, `none` otherwise. |
 | `Option<T>` (`Some`, `None`) | Lean's `Option` | The two-constructor inductive. |
 | `u32::saturating_sub` | `core.num.U32.saturating_sub` | The difference when it is not negative, `0` otherwise. |
 | `usize::BITS` | `core.num.Usize.BITS` | `System.Platform.numBits`, as a `U32`. |
-| `<`, `>` and `>=` on `u32` | the order of `U32` | On the values. `lengthen_cap_period` compares periods with `<`, and `cap_valid` the period with `> 0`. |
+| `<`, `>` and `>=` on `u32` | the order of `U32` | On the values. `lengthen_cap_period` compares periods with `<`, `cap_valid` the period with `> 0`, and the budget's walks a parent index with the current one with `>=`. |
 | `const _: () = assert!(usize::BITS >= 32)` | `massert` | `ok ()` when the condition holds, `fail` otherwise. |
 
 `==` on `bool` translates to Lean's own `Bool` equality, which needs no
 library model. Writing through a mutable borrow (`*record = next` in
 `authorize`, `c.limit = limit` and `c.period = period` in the cap steps)
 translates to functional updates and backward functions in the generated Lean,
-not to library items.
+not to library items. So does `m.spent = spent` in the budget's charging walk
+and `n.allowance = allowance` in `refill`.
 
 ## Lean's kernel
 
@@ -145,6 +149,13 @@ module the same way:
 - each `Refusal` constructor maps to the constructor of the same name, and `Refusal::Cap(e)` to `Refusal.cap` of the denoted `CapError`;
 - a result of `authorize` is the `Except` of the denoted records or refusal;
 - `authorize`'s contexts, choices, authenticated signers and ledger are the chain vocabulary's authorization of their denotations.
+
+`formal/RuleCore/Equiv/DenoteBudget.lean` maps the types of the `budget`
+module to the budget model of `formal/RuleCore/Model/Budget.lean` the same way:
+
+- a `u32` node or parent index is its value as a natural number, and an `i128` allowance, spent amount or amount its value as an integer;
+- `Node` maps each field to the field of the same name, the optional parent to the optional value, and a tree to the list of its nodes' denotations;
+- each `BudgetError` constructor maps to the constructor of the same name, with its index's value, and a result of `spend`, `delegate` or `refill` is the `Except` of the denoted tree or error.
 
 Each one is proven injective, so two Rust values that differ never have the
 same meaning.
@@ -197,11 +208,13 @@ window that eviction leaves at each ledger is bounded without the rule
 ## The conformance encoding
 
 The vectors in `conformance/vectors`, the cap traces in
-`conformance/vectors/caps` and the authorization traces in
-`conformance/vectors/authorize` are computed by the Lean model and written as
+`conformance/vectors/caps`, the authorization traces in
+`conformance/vectors/authorize` and the budget traces in
+`conformance/vectors/budget` are computed by the Lean model and written as
 JSON by the generator's own encoder (`conformance/generator/Conformance/Json.lean`,
-`Conformance/Caps.lean` and `Conformance/Authorize.lean`). The Rust runner
-decodes them into `rule-eval`'s types (`conformance/runner/src/lib.rs`,
-`src/caps.rs` and `src/authorize.rs`). Neither the
+`Conformance/Caps.lean`, `Conformance/Authorize.lean` and
+`Conformance/Budget.lean`). The Rust runner decodes them into `rule-eval`'s
+types (`conformance/runner/src/lib.rs`, `src/caps.rs`, `src/authorize.rs` and
+`src/budget.rs`). Neither the
 encoding nor the decoding is verified. A mismatch in either one shows up as a
 failing vector, unless both get the same field wrong in the same way.

@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "name": "budget-malformed-parent-later",
+  "description": "A node whose parent comes after it makes the tree malformed: every operation refuses.",
+  "start": [
+    {"parent": 1, "allowance": "10", "spent": "0"},
+    {"parent": null, "allowance": "10", "spent": "0"}
+  ],
+  "valid": false,
+  "ops": [
+    {"op": "spend", "node": 1, "amount": "1", "expected": {"error": "malformed"}},
+    {"op": "delegate", "parent": 1, "allowance": "1", "expected": {"error": "malformed"}},
+    {"op": "refill", "node": 1, "amount": "1", "expected": {"error": "malformed"}}
+  ]
+}

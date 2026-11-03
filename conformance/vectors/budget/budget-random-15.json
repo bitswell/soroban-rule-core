@@ -1,0 +1,23 @@
+{
+  "format": 1,
+  "name": "budget-random-15",
+  "description": "Randomized trace 15 of seed 20261102.",
+  "start": [
+    {"parent": null, "allowance": "100", "spent": "0"},
+    {"parent": 0, "allowance": "2", "spent": "0"}
+  ],
+  "valid": true,
+  "ops": [
+    {
+      "op": "refill",
+      "node": 1,
+      "amount": "5",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "100", "spent": "0"},
+          {"parent": 0, "allowance": "7", "spent": "0"}
+        ]
+      }
+    }
+  ]
+}

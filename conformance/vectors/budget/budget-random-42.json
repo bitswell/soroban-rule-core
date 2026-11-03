@@ -1,0 +1,59 @@
+{
+  "format": 1,
+  "name": "budget-random-42",
+  "description": "Randomized trace 42 of seed 20261102.",
+  "start": [
+    {"parent": null, "allowance": "5", "spent": "0"},
+    {"parent": 0, "allowance": "5", "spent": "0"},
+    {"parent": 0, "allowance": "100", "spent": "0"},
+    {"parent": 1, "allowance": "10", "spent": "0"}
+  ],
+  "valid": true,
+  "ops": [
+    {
+      "op": "delegate",
+      "parent": 1,
+      "allowance": "5",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "5", "spent": "0"},
+          {"parent": 0, "allowance": "5", "spent": "0"},
+          {"parent": 0, "allowance": "100", "spent": "0"},
+          {"parent": 1, "allowance": "10", "spent": "0"},
+          {"parent": 1, "allowance": "5", "spent": "0"}
+        ]
+      }
+    },
+    {
+      "op": "delegate",
+      "parent": 3,
+      "allowance": "2",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "5", "spent": "0"},
+          {"parent": 0, "allowance": "5", "spent": "0"},
+          {"parent": 0, "allowance": "100", "spent": "0"},
+          {"parent": 1, "allowance": "10", "spent": "0"},
+          {"parent": 1, "allowance": "5", "spent": "0"},
+          {"parent": 3, "allowance": "2", "spent": "0"}
+        ]
+      }
+    },
+    {
+      "op": "delegate",
+      "parent": 3,
+      "allowance": "100",
+      "expected": {
+        "ok": [
+          {"parent": null, "allowance": "5", "spent": "0"},
+          {"parent": 0, "allowance": "5", "spent": "0"},
+          {"parent": 0, "allowance": "100", "spent": "0"},
+          {"parent": 1, "allowance": "10", "spent": "0"},
+          {"parent": 1, "allowance": "5", "spent": "0"},
+          {"parent": 3, "allowance": "2", "spent": "0"},
+          {"parent": 3, "allowance": "100", "spent": "0"}
+        ]
+      }
+    }
+  ]
+}

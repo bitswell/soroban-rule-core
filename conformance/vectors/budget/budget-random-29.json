@@ -1,0 +1,12 @@
+{
+  "format": 1,
+  "name": "budget-random-29",
+  "description": "Randomized trace 29 of seed 20261102.",
+  "start": [
+    {"parent": null, "allowance": "10", "spent": "0"},
+    {"parent": 0, "allowance": "1", "spent": "0"},
+    {"parent": 1, "allowance": "100", "spent": "0"}
+  ],
+  "valid": true,
+  "ops": [{"op": "spend", "node": 2, "amount": "3", "expected": {"error": {"overdrawn": 1}}}]
+}
