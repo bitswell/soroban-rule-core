@@ -1,0 +1,117 @@
+{
+  "format": 1,
+  "name": "host-reentrant-call",
+  "description": "A call of a contract already on the call stack fails; caught, the transaction goes on.",
+  "contracts": [
+    {"contract": "0000000000000000000000000000000000000000000000000000000000000002"},
+    {"contract": "0000000000000000000000000000000000000000000000000000000000000001"}
+  ],
+  "accounts": [],
+  "txs": [
+    {
+      "ledger": 100,
+      "entries": [],
+      "call": {
+        "contract": {"contract": "0000000000000000000000000000000000000000000000000000000000000002"},
+        "fn_name": "61",
+        "args": [],
+        "body": [
+          {
+            "call": {
+              "callee": {
+                "contract": {
+                  "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+                },
+                "fn_name": "62",
+                "args": [],
+                "body": [
+                  {
+                    "call": {
+                      "callee": {
+                        "contract": {
+                          "contract": "0000000000000000000000000000000000000000000000000000000000000002"
+                        },
+                        "fn_name": "63",
+                        "args": [],
+                        "body": []
+                      },
+                      "catches": false
+                    }
+                  }
+                ]
+              },
+              "catches": false
+            }
+          }
+        ]
+      },
+      "expected": {
+        "ok": false,
+        "events": [],
+        "store": [
+          {
+            "contract": {
+              "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+            },
+            "durability": "persistent",
+            "key": {"symbol": "62"},
+            "value": null
+          }
+        ]
+      }
+    },
+    {
+      "ledger": 100,
+      "entries": [],
+      "call": {
+        "contract": {"contract": "0000000000000000000000000000000000000000000000000000000000000002"},
+        "fn_name": "6132",
+        "args": [],
+        "body": [
+          {
+            "call": {
+              "callee": {
+                "contract": {
+                  "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+                },
+                "fn_name": "6232",
+                "args": [],
+                "body": [
+                  {
+                    "call": {
+                      "callee": {
+                        "contract": {
+                          "contract": "0000000000000000000000000000000000000000000000000000000000000002"
+                        },
+                        "fn_name": "63",
+                        "args": [],
+                        "body": []
+                      },
+                      "catches": true
+                    }
+                  },
+                  {"put": {"durability": "persistent", "key": {"symbol": "62"}, "val": {"u32": 1}}}
+                ]
+              },
+              "catches": false
+            }
+          }
+        ]
+      },
+      "expected": {
+        "ok": true,
+        "events": [],
+        "store": [
+          {
+            "contract": {
+              "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+            },
+            "durability": "persistent",
+            "key": {"symbol": "62"},
+            "value": {"u32": 1}
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,103 @@
+{
+  "format": 1,
+  "name": "host-random-020",
+  "description": "Randomized host trace 20 of seed 20261102.",
+  "contracts": [
+    {"contract": "0000000000000000000000000000000000000000000000000000000000000003"},
+    {"contract": "00000000000000000000000000000000000000000000000000000000000000a1"},
+    {"contract": "00000000000000000000000000000000000000000000000000000000000000a2"},
+    {"contract": "00000000000000000000000000000000000000000000000000000000000000d1"}
+  ],
+  "accounts": [
+    {
+      "address": {"contract": "00000000000000000000000000000000000000000000000000000000000000a1"},
+      "check_auth": []
+    },
+    {
+      "address": {"contract": "00000000000000000000000000000000000000000000000000000000000000a2"},
+      "check_auth": [
+        {
+          "check_rules": {
+            "rules": [
+              {
+                "contract": "000000010000000000000000000000000000000000000000000000000000000000000001",
+                "functions": {"any_except": []},
+                "conds": [],
+                "signers": [],
+                "threshold": 0,
+                "cap": null,
+                "valid_until": null,
+                "generation": null
+              },
+              {
+                "contract": "000000010000000000000000000000000000000000000000000000000000000000000002",
+                "functions": {"any_except": []},
+                "conds": [],
+                "signers": [],
+                "threshold": 0,
+                "cap": null,
+                "valid_until": null,
+                "generation": null
+              },
+              {
+                "contract": "000000010000000000000000000000000000000000000000000000000000000000000003",
+                "functions": {"any_except": []},
+                "conds": [],
+                "signers": [],
+                "threshold": 0,
+                "cap": null,
+                "valid_until": null,
+                "generation": null
+              },
+              {
+                "contract": "0000000100000000000000000000000000000000000000000000000000000000000000a1",
+                "functions": {"any_except": []},
+                "conds": [],
+                "signers": [],
+                "threshold": 0,
+                "cap": null,
+                "valid_until": null,
+                "generation": null
+              },
+              {
+                "contract": "0000000100000000000000000000000000000000000000000000000000000000000000a2",
+                "functions": {"any_except": []},
+                "conds": [],
+                "signers": [],
+                "threshold": 0,
+                "cap": null,
+                "valid_until": null,
+                "generation": null
+              }
+            ],
+            "authenticated": []
+          }
+        }
+      ]
+    },
+    {
+      "address": {"contract": "00000000000000000000000000000000000000000000000000000000000000d1"},
+      "check_auth": []
+    }
+  ],
+  "txs": [
+    {
+      "ledger": 100,
+      "entries": [],
+      "call": {
+        "contract": {"contract": "0000000000000000000000000000000000000000000000000000000000000003"},
+        "fn_name": "706179",
+        "args": [
+          {
+            "address": {
+              "account": "0909090909090909090909090909090909090909090909090909090909090909"
+            }
+          },
+          {"u32": 0}
+        ],
+        "body": []
+      },
+      "expected": {"ok": true, "events": [], "store": []}
+    }
+  ]
+}

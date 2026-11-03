@@ -1,0 +1,143 @@
+{
+  "format": 1,
+  "name": "host-random-040",
+  "description": "Randomized host trace 40 of seed 20261102.",
+  "contracts": [
+    {"contract": "00000000000000000000000000000000000000000000000000000000000000a1"},
+    {"contract": "00000000000000000000000000000000000000000000000000000000000000a2"},
+    {"contract": "00000000000000000000000000000000000000000000000000000000000000d1"}
+  ],
+  "accounts": [
+    {
+      "address": {"contract": "00000000000000000000000000000000000000000000000000000000000000a1"},
+      "check_auth": [
+        {
+          "check_rules": {
+            "rules": [
+              {
+                "contract": "000000010000000000000000000000000000000000000000000000000000000000000001",
+                "functions": {"only": ["706179"]},
+                "conds": [],
+                "signers": [],
+                "threshold": 0,
+                "cap": null,
+                "valid_until": null,
+                "generation": null
+              },
+              {
+                "contract": "000000010000000000000000000000000000000000000000000000000000000000000002",
+                "functions": {"any_except": []},
+                "conds": [],
+                "signers": [],
+                "threshold": 0,
+                "cap": null,
+                "valid_until": null,
+                "generation": null
+              }
+            ],
+            "authenticated": []
+          }
+        }
+      ]
+    },
+    {
+      "address": {"contract": "00000000000000000000000000000000000000000000000000000000000000a2"},
+      "check_auth": [
+        {
+          "check_rules": {
+            "rules": [
+              {
+                "contract": "000000010000000000000000000000000000000000000000000000000000000000000001",
+                "functions": {"any_except": []},
+                "conds": [],
+                "signers": [],
+                "threshold": 0,
+                "cap": null,
+                "valid_until": null,
+                "generation": null
+              },
+              {
+                "contract": "000000010000000000000000000000000000000000000000000000000000000000000002",
+                "functions": {"any_except": []},
+                "conds": [],
+                "signers": [],
+                "threshold": 0,
+                "cap": null,
+                "valid_until": null,
+                "generation": null
+              },
+              {
+                "contract": "000000010000000000000000000000000000000000000000000000000000000000000003",
+                "functions": {"any_except": []},
+                "conds": [],
+                "signers": [],
+                "threshold": 0,
+                "cap": null,
+                "valid_until": null,
+                "generation": null
+              },
+              {
+                "contract": "0000000100000000000000000000000000000000000000000000000000000000000000a1",
+                "functions": {"any_except": []},
+                "conds": [],
+                "signers": [],
+                "threshold": 0,
+                "cap": null,
+                "valid_until": null,
+                "generation": null
+              },
+              {
+                "contract": "0000000100000000000000000000000000000000000000000000000000000000000000a2",
+                "functions": {"any_except": []},
+                "conds": [],
+                "signers": [],
+                "threshold": 0,
+                "cap": null,
+                "valid_until": null,
+                "generation": null
+              }
+            ],
+            "authenticated": []
+          }
+        }
+      ]
+    },
+    {
+      "address": {"contract": "00000000000000000000000000000000000000000000000000000000000000d1"},
+      "check_auth": [{"fail": "trap"}]
+    }
+  ],
+  "txs": [
+    {
+      "ledger": 100,
+      "entries": [],
+      "call": {
+        "contract": {"contract": "00000000000000000000000000000000000000000000000000000000000000a1"},
+        "fn_name": "72756e",
+        "args": [
+          {
+            "address": {
+              "account": "0909090909090909090909090909090909090909090909090909090909090909"
+            }
+          },
+          {"u32": 0}
+        ],
+        "body": [{"put": {"durability": "instance", "key": {"symbol": "62"}, "val": {"u32": 1}}}]
+      },
+      "expected": {
+        "ok": true,
+        "events": [],
+        "store": [
+          {
+            "contract": {
+              "contract": "00000000000000000000000000000000000000000000000000000000000000a1"
+            },
+            "durability": "instance",
+            "key": {"symbol": "62"},
+            "value": {"u32": 1}
+          }
+        ]
+      }
+    }
+  ]
+}

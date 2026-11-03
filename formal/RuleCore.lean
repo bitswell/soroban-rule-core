@@ -8,6 +8,11 @@ import RuleCore.Vocab.Chain
 import RuleCore.Vocab.Document
 import RuleCore.Vocab.Lowering
 import RuleCore.Vocab.Account
+import RuleCore.Soroban.Val
+import RuleCore.Soroban.Storage
+import RuleCore.Soroban.Context
+import RuleCore.Soroban.Auth
+import RuleCore.Soroban.Host
 import RuleCore.Extracted.RuleEval
 import RuleCore.Equiv.Loop
 import RuleCore.Equiv.Denote
@@ -35,3 +40,4 @@ import RuleCore.Theorems.ExtractedBudget
 import RuleCore.Theorems.Lowering
 import RuleCore.Theorems.Scoped
 import RuleCore.Theorems.ExtractedLowering
+import RuleCore.Theorems.Soroban

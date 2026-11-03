@@ -6,3 +6,7 @@ import Conformance.Caps
 import Conformance.Authorize
 import Conformance.Budget
 import Conformance.Documents
+import Conformance.Soroban.Encode
+import Conformance.Soroban.Values
+import Conformance.Soroban.Storage
+import Conformance.Soroban.Host

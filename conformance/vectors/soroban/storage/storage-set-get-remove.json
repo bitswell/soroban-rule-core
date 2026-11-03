@@ -1,0 +1,57 @@
+{
+  "format": 1,
+  "name": "storage-set-get-remove",
+  "description": "A value is read back, overwritten, removed, and removing it again changes nothing.",
+  "contract": {"contract": "0000000000000000000000000000000000000000000000000000000000000010"},
+  "ops": [
+    {"op": "get", "durability": "persistent", "key": {"symbol": "61"}, "expected": {"value": null}},
+    {
+      "op": "has",
+      "durability": "persistent",
+      "key": {"symbol": "61"},
+      "expected": {"present": false}
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"symbol": "61"},
+      "val": {"u32": 1},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"symbol": "61"},
+      "expected": {"value": {"u32": 1}}
+    },
+    {
+      "op": "has",
+      "durability": "persistent",
+      "key": {"symbol": "61"},
+      "expected": {"present": true}
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"symbol": "61"},
+      "val": {"u32": 2},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"symbol": "61"},
+      "expected": {"value": {"u32": 2}}
+    },
+    {"op": "remove", "durability": "persistent", "key": {"symbol": "61"}, "expected": "done"},
+    {"op": "get", "durability": "persistent", "key": {"symbol": "61"}, "expected": {"value": null}},
+    {
+      "op": "has",
+      "durability": "persistent",
+      "key": {"symbol": "61"},
+      "expected": {"present": false}
+    },
+    {"op": "remove", "durability": "persistent", "key": {"symbol": "61"}, "expected": "done"},
+    {"op": "get", "durability": "persistent", "key": {"symbol": "61"}, "expected": {"value": null}}
+  ]
+}

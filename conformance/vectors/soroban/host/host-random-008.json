@@ -1,0 +1,266 @@
+{
+  "format": 1,
+  "name": "host-random-008",
+  "description": "Randomized host trace 8 of seed 20261102.",
+  "contracts": [
+    {"contract": "0000000000000000000000000000000000000000000000000000000000000002"},
+    {"contract": "00000000000000000000000000000000000000000000000000000000000000a1"},
+    {"contract": "00000000000000000000000000000000000000000000000000000000000000a2"},
+    {"contract": "00000000000000000000000000000000000000000000000000000000000000d1"}
+  ],
+  "accounts": [
+    {
+      "address": {"contract": "00000000000000000000000000000000000000000000000000000000000000a1"},
+      "check_auth": []
+    },
+    {
+      "address": {"contract": "00000000000000000000000000000000000000000000000000000000000000a2"},
+      "check_auth": [
+        {
+          "check_rules": {
+            "rules": [
+              {
+                "contract": "000000010000000000000000000000000000000000000000000000000000000000000001",
+                "functions": {"any_except": []},
+                "conds": [],
+                "signers": [],
+                "threshold": 0,
+                "cap": null,
+                "valid_until": null,
+                "generation": null
+              },
+              {
+                "contract": "000000010000000000000000000000000000000000000000000000000000000000000002",
+                "functions": {"any_except": []},
+                "conds": [],
+                "signers": [],
+                "threshold": 0,
+                "cap": null,
+                "valid_until": null,
+                "generation": null
+              },
+              {
+                "contract": "000000010000000000000000000000000000000000000000000000000000000000000003",
+                "functions": {"any_except": []},
+                "conds": [],
+                "signers": [],
+                "threshold": 0,
+                "cap": null,
+                "valid_until": null,
+                "generation": null
+              },
+              {
+                "contract": "0000000100000000000000000000000000000000000000000000000000000000000000a1",
+                "functions": {"any_except": []},
+                "conds": [],
+                "signers": [],
+                "threshold": 0,
+                "cap": null,
+                "valid_until": null,
+                "generation": null
+              },
+              {
+                "contract": "0000000100000000000000000000000000000000000000000000000000000000000000a2",
+                "functions": {"any_except": []},
+                "conds": [],
+                "signers": [],
+                "threshold": 0,
+                "cap": null,
+                "valid_until": null,
+                "generation": null
+              }
+            ],
+            "authenticated": []
+          }
+        }
+      ]
+    },
+    {
+      "address": {"contract": "00000000000000000000000000000000000000000000000000000000000000d1"},
+      "check_auth": []
+    }
+  ],
+  "txs": [
+    {
+      "ledger": 100,
+      "entries": [],
+      "call": {
+        "contract": {"contract": "0000000000000000000000000000000000000000000000000000000000000002"},
+        "fn_name": "61646d696e",
+        "args": [
+          {
+            "address": {
+              "account": "0909090909090909090909090909090909090909090909090909090909090909"
+            }
+          },
+          {"u32": 0}
+        ],
+        "body": [
+          {"remove": {"durability": "temporary", "key": {"u32": 1}}},
+          {"remove": {"durability": "temporary", "key": {"symbol": "61"}}},
+          {"put": {"durability": "persistent", "key": {"symbol": "61"}, "val": {"u32": 0}}},
+          {
+            "call": {
+              "callee": {
+                "contract": {
+                  "contract": "00000000000000000000000000000000000000000000000000000000000000a1"
+                },
+                "fn_name": "61646d696e",
+                "args": [
+                  {
+                    "address": {
+                      "account": "0909090909090909090909090909090909090909090909090909090909090909"
+                    }
+                  },
+                  {"u32": 1}
+                ],
+                "body": [
+                  {
+                    "call": {
+                      "callee": {
+                        "contract": {
+                          "contract": "0000000000000000000000000000000000000000000000000000000000000002"
+                        },
+                        "fn_name": "706179",
+                        "args": [{"u32": 2}],
+                        "body": [
+                          {"get": {"durability": "persistent", "key": {"u32": 1}}},
+                          {
+                            "require_auth": {
+                              "contract": "00000000000000000000000000000000000000000000000000000000000000a1"
+                            }
+                          }
+                        ]
+                      },
+                      "catches": true
+                    }
+                  },
+                  {
+                    "call": {
+                      "callee": {
+                        "contract": {
+                          "contract": "0000000000000000000000000000000000000000000000000000000000000002"
+                        },
+                        "fn_name": "706179",
+                        "args": [{"u32": 3}],
+                        "body": [
+                          {"get": {"durability": "temporary", "key": {"symbol": "61"}}},
+                          {"get": {"durability": "instance", "key": {"symbol": "62"}}},
+                          {"fail": "trap"},
+                          {"get": {"durability": "persistent", "key": {"u32": 1}}},
+                          {"get": {"durability": "persistent", "key": {"u32": 1}}}
+                        ]
+                      },
+                      "catches": false
+                    }
+                  },
+                  {"get": {"durability": "instance", "key": {"u32": 1}}},
+                  {
+                    "call": {
+                      "callee": {
+                        "contract": {
+                          "contract": "00000000000000000000000000000000000000000000000000000000000000a1"
+                        },
+                        "fn_name": "706179",
+                        "args": [
+                          {
+                            "address": {
+                              "account": "0909090909090909090909090909090909090909090909090909090909090909"
+                            }
+                          },
+                          {"u32": 4}
+                        ],
+                        "body": [
+                          {
+                            "require_auth": {
+                              "contract": "00000000000000000000000000000000000000000000000000000000000000a2"
+                            }
+                          },
+                          {
+                            "require_auth": {
+                              "contract": "00000000000000000000000000000000000000000000000000000000000000a2"
+                            }
+                          }
+                        ]
+                      },
+                      "catches": false
+                    }
+                  }
+                ]
+              },
+              "catches": true
+            }
+          },
+          {"remove": {"durability": "persistent", "key": {"symbol": "62"}}},
+          {
+            "require_auth": {
+              "contract": "00000000000000000000000000000000000000000000000000000000000000a1"
+            }
+          }
+        ]
+      },
+      "expected": {
+        "ok": false,
+        "events": [],
+        "store": [
+          {
+            "contract": {
+              "contract": "0000000000000000000000000000000000000000000000000000000000000002"
+            },
+            "durability": "temporary",
+            "key": {"u32": 1},
+            "value": null
+          },
+          {
+            "contract": {
+              "contract": "0000000000000000000000000000000000000000000000000000000000000002"
+            },
+            "durability": "temporary",
+            "key": {"symbol": "61"},
+            "value": null
+          },
+          {
+            "contract": {
+              "contract": "0000000000000000000000000000000000000000000000000000000000000002"
+            },
+            "durability": "persistent",
+            "key": {"symbol": "61"},
+            "value": null
+          },
+          {
+            "contract": {
+              "contract": "0000000000000000000000000000000000000000000000000000000000000002"
+            },
+            "durability": "persistent",
+            "key": {"symbol": "62"},
+            "value": null
+          },
+          {
+            "contract": {
+              "contract": "00000000000000000000000000000000000000000000000000000000000000a1"
+            },
+            "durability": "instance",
+            "key": {"u32": 1},
+            "value": null
+          },
+          {
+            "contract": {
+              "contract": "0000000000000000000000000000000000000000000000000000000000000002"
+            },
+            "durability": "persistent",
+            "key": {"u32": 1},
+            "value": null
+          },
+          {
+            "contract": {
+              "contract": "0000000000000000000000000000000000000000000000000000000000000002"
+            },
+            "durability": "instance",
+            "key": {"symbol": "62"},
+            "value": null
+          }
+        ]
+      }
+    }
+  ]
+}

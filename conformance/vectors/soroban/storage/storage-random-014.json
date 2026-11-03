@@ -1,0 +1,39 @@
+{
+  "format": 1,
+  "name": "storage-random-014",
+  "description": "Randomized storage trace 14 of seed 20261102.",
+  "contract": {"contract": "0000000000000000000000000000000000000000000000000000000000000020"},
+  "ops": [
+    {"op": "remove", "durability": "instance", "key": {"u32": 1}, "expected": "done"},
+    {
+      "op": "has",
+      "durability": "instance",
+      "key": {
+        "address": {"contract": "0000000000000000000000000000000000000000000000000000000000000001"}
+      },
+      "expected": {"present": false}
+    },
+    {"op": "get", "durability": "temporary", "key": {"symbol": "61"}, "expected": {"value": null}},
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"string": "61"},
+      "val": {"bool": true},
+      "expected": "done"
+    },
+    {
+      "op": "set",
+      "durability": "instance",
+      "key": {"symbol": "61"},
+      "val": {"vec": [{"u32": 2}]},
+      "expected": "done"
+    },
+    {
+      "op": "set",
+      "durability": "instance",
+      "key": {"symbol": "61"},
+      "val": {"bool": true},
+      "expected": "done"
+    }
+  ]
+}

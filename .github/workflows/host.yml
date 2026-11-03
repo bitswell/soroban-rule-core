@@ -1,0 +1,36 @@
+name: Host
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Replays the Soroban vectors (conformance/vectors/soroban), which the Lean
+# models compute, on soroban-env-host through soroban-sdk's testutils with
+# enforcing authorization, and fails on any difference in outcome, events or
+# storage. Each matrix entry is a crate in conformance/host that pins one host
+# version and shares the harness source; p27 is the pin the workspace and the
+# facade build against (soroban-sdk 27.0.6, soroban-env-host 27.0.1).
+jobs:
+  host:
+    name: Soroban models against the host
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        entry: [p27]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          key: host-${{ matrix.entry }}
+
+      - name: Replay the vectors on the host
+        run: cargo test --locked --manifest-path "conformance/host/${{ matrix.entry }}/Cargo.toml"

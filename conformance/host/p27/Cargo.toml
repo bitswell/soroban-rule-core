@@ -1,0 +1,32 @@
+# The harness at the pin: soroban-sdk 27.0.6, which fixes soroban-env-host
+# 27.0.1 (protocol 27). Each host version the vectors run on is a crate like
+# this one, with its own pins and lock, sharing ../src and ../tests.
+[package]
+name = "soroban-host-p27"
+description = "Replays the Soroban vectors on soroban-env-host 27.0.1 through soroban-sdk 27.0.6's testutils"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+path = "../src/lib.rs"
+doctest = false
+
+[[test]]
+name = "host"
+path = "../tests/host.rs"
+
+[features]
+default = ["facade"]
+# Storage, require_auth and the reading of __check_auth's contexts go through
+# soroban-facade's real implementation, which is built against this SDK.
+facade = ["soroban-facade/sdk"]
+
+[dependencies]
+rule-eval = { path = "../../../crates/rule-eval" }
+rule-eval-conformance = { path = "../../runner" }
+sha2 = "0.10"
+soroban-facade = { path = "../../../crates/soroban-facade" }
+soroban-sdk = { version = "=27.0.6", features = ["testutils"] }

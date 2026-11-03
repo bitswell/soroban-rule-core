@@ -1,0 +1,68 @@
+{
+  "format": 1,
+  "name": "storage-durabilities-apart",
+  "description": "The same key in persistent, temporary and instance storage is three slots.",
+  "contract": {"contract": "0000000000000000000000000000000000000000000000000000000000000010"},
+  "ops": [
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"symbol": "61"},
+      "val": {"u32": 1},
+      "expected": "done"
+    },
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"symbol": "61"},
+      "val": {"u32": 2},
+      "expected": "done"
+    },
+    {
+      "op": "set",
+      "durability": "instance",
+      "key": {"symbol": "61"},
+      "val": {"u32": 3},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"symbol": "61"},
+      "expected": {"value": {"u32": 1}}
+    },
+    {
+      "op": "get",
+      "durability": "temporary",
+      "key": {"symbol": "61"},
+      "expected": {"value": {"u32": 2}}
+    },
+    {
+      "op": "get",
+      "durability": "instance",
+      "key": {"symbol": "61"},
+      "expected": {"value": {"u32": 3}}
+    },
+    {"op": "remove", "durability": "temporary", "key": {"symbol": "61"}, "expected": "done"},
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"symbol": "61"},
+      "expected": {"value": {"u32": 1}}
+    },
+    {"op": "get", "durability": "temporary", "key": {"symbol": "61"}, "expected": {"value": null}},
+    {
+      "op": "get",
+      "durability": "instance",
+      "key": {"symbol": "61"},
+      "expected": {"value": {"u32": 3}}
+    },
+    {
+      "op": "has",
+      "durability": "temporary",
+      "key": {"symbol": "61"},
+      "expected": {"present": false}
+    },
+    {"op": "has", "durability": "instance", "key": {"symbol": "61"}, "expected": {"present": true}}
+  ]
+}

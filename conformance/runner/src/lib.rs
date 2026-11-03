@@ -6,7 +6,9 @@
 //! decodes a vector into `rule-eval`'s types, evaluates it with `rule-eval`,
 //! and reports the first result that differs. [`caps`] checks the cap traces,
 //! [`authorize`] the authorization traces, [`budget`] the budget traces and
-//! [`documents`] the document traces.
+//! [`documents`] the document traces. [`soroban`] decodes the Soroban vectors
+//! and checks `soroban-facade` against the value and context vectors and the
+//! storage traces.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -22,6 +24,7 @@ pub mod authorize;
 pub mod budget;
 pub mod caps;
 pub mod documents;
+pub mod soroban;
 
 /// The vector format version this runner reads.
 pub const FORMAT: u32 = 4;
@@ -83,7 +86,7 @@ pub enum JsonError {
     ValidUntilRaised,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct JsonRule {
     pub contract: String,
@@ -99,14 +102,14 @@ pub struct JsonRule {
     pub generation: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub enum JsonFunctions {
     Only(Vec<String>),
     AnyExcept(Vec<String>),
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct JsonCap {
     pub limit: String,
@@ -114,14 +117,14 @@ pub struct JsonCap {
     pub amount_arg: u32,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub enum JsonSigner {
     Delegated { address: String },
     External { verifier: String, key: String },
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub enum JsonContext {
     Call {
@@ -134,7 +137,7 @@ pub enum JsonContext {
     },
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub enum JsonCond {
     ArgEq {
@@ -156,7 +159,7 @@ pub enum JsonCond {
     },
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub enum JsonVal {
     I128(String),

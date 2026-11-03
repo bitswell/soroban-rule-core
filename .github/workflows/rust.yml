@@ -44,6 +44,16 @@ jobs:
       - name: Build wasm32v1-none (contract profile)
         run: cargo build -p rule-eval --profile contract --target wasm32v1-none --locked
 
+      # The facade's plain part and its real implementation over soroban-sdk,
+      # as a contract shell builds them.
+      - name: Build the facade, native (release)
+        run: cargo build -p soroban-facade --features sdk --release --locked
+
+      - name: Build the facade, wasm32v1-none (contract profile)
+        run: |
+          cargo build -p soroban-facade --profile contract --target wasm32v1-none --locked
+          cargo build -p soroban-facade --features sdk --profile contract --target wasm32v1-none --locked
+
   stable:
     name: Test and build (stable)
     runs-on: ubuntu-latest
@@ -72,3 +82,11 @@ jobs:
 
       - name: Build wasm32v1-none (contract profile)
         run: cargo "+$STABLE" build -p rule-eval --profile contract --target wasm32v1-none --locked
+
+      - name: Build the facade, native (release)
+        run: cargo "+$STABLE" build -p soroban-facade --features sdk --release --locked
+
+      - name: Build the facade, wasm32v1-none (contract profile)
+        run: |
+          cargo "+$STABLE" build -p soroban-facade --profile contract --target wasm32v1-none --locked
+          cargo "+$STABLE" build -p soroban-facade --features sdk --profile contract --target wasm32v1-none --locked
