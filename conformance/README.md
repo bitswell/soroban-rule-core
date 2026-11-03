@@ -1,8 +1,8 @@
 # conformance
 
 Test vectors for rule-set evaluation and attenuation, traces of the
-spending-cap check, traces of `authorize` and traces of the budget tree,
-computed by the Lean model in `formal/`, and a runner that checks `rule-eval` against them. Any other implementation of the same rules
+spending-cap check, traces of `authorize`, traces of the budget tree and
+traces of documents, computed by the Lean model in `formal/`, and a runner that checks `rule-eval` against them. Any other implementation of the same rules
 (Perch's smart account, the grant signer) can run the same vectors as a
 differential test.
 
@@ -12,6 +12,7 @@ differential test.
 | `vectors/caps/*.json` | One cap trace per file: a cap, a starting record, and calls, each with the outcome the Lean model computes for it. |
 | `vectors/authorize/*.json` | One authorization trace per file: a rule set, its starting records, and authorizations, each with the outcome the Lean model computes for it. |
 | `vectors/budget/*.json` | One budget trace per file: a starting tree, and spends, delegations and refills, each with the outcome the Lean model computes for it. |
+| `vectors/documents/*.json` | One document trace per file: a document, its account, the rules the Lean model lowers it to, and authorizations, each with the document's own verdict. |
 | `generator/` | The Lake package that writes the vectors and traces: the case specifications and the JSON encoding. |
 | `runner/` | The Rust crate `rule-eval-conformance`, which loads every vector and trace and checks `rule-eval` against it. |
 
@@ -28,7 +29,10 @@ computed with `RuleCore.Cap.Params.check` and written to `caps/<name>.json`, and
 the authorization traces (`Conformance/Authorize.lean`) with
 `RuleCore.Chain.RuleSet.authorize` and written to `authorize/<name>.json`, and
 the budget traces (`Conformance/Budget.lean`) with `RuleCore.Budget.Op.apply`
-and written to `budget/<name>.json`. No expected result is written by hand.
+and written to `budget/<name>.json`, and the document traces
+(`Conformance/Documents.lean`) with `RuleCore.Document.Doc.lower`,
+`Doc.lowerScoped`, `Doc.excluded` and `Doc.authorize` and written to
+`documents/<name>.json`. No expected result is written by hand.
 
 ```sh
 cd conformance/generator
@@ -36,16 +40,19 @@ lake exe gen-vectors ../vectors
 ```
 
 `gen-vectors <dir>` removes the `.json` files in `<dir>`, `<dir>/caps`,
-`<dir>/authorize` and `<dir>/budget` and writes every named case plus 100
-randomized cases of seed 20261102, every named cap trace plus 50 randomized
-traces of the same seed, every named authorization trace plus 50 randomized
-traces of the same seed, and every named budget trace plus 50 randomized traces
-of the same seed. `--seed <n>`, `--count <n>`, `--cap-count <n>`,
-`--auth-count <n>` and `--budget-count <n>` choose another randomized set, for
-a larger run outside the committed vectors:
+`<dir>/authorize`, `<dir>/budget` and `<dir>/documents` and writes every named
+case plus 100 randomized cases of seed 20261102, every named cap trace plus 50
+randomized traces of the same seed, every named authorization trace plus 50
+randomized traces of the same seed, every named budget trace plus 50
+randomized traces of the same seed, and every named document trace plus 40
+randomized traces of the same seed. It refuses to write a document trace whose
+document is not valid or that chooses the recovery rule. `--seed <n>`,
+`--count <n>`, `--cap-count <n>`, `--auth-count <n>`, `--budget-count <n>` and
+`--doc-count <n>` choose another randomized set, for a larger run outside the
+committed vectors:
 
 ```sh
-lake exe gen-vectors /tmp/vectors --seed 7 --count 5000 --cap-count 5000 --auth-count 5000 --budget-count 5000
+lake exe gen-vectors /tmp/vectors --seed 7 --count 5000 --cap-count 5000 --auth-count 5000 --budget-count 5000 --doc-count 5000
 CONFORMANCE_VECTORS=/tmp/vectors cargo test -p rule-eval-conformance
 ```
 
@@ -73,7 +80,14 @@ generation that sometimes moves on by one. The randomized budget traces draw tre
 nodes with parents below their own index, allowances from a small universe
 that includes the `i128` extremes, an occasional node with a spent amount and
 one tree in eight made malformed, and operations whose indices are mostly in
-range.
+range. The randomized document traces draw documents of up to three rules over
+a small universe of contracts, functions, signers and string values, with
+`all` and `threshold` principals of distinct declared signers, predicates,
+not-after ledgers and caps; an admin document starts with a constraint-free
+self-admin rule, and a third of the traces are scoped documents under an admin
+document configuring recovery with a zero-knowledge factor; each authorization
+is a call built from a rule of the document, usually choosing that rule and
+signed by some of its signers, with a further signer now and then.
 
 ## Running them against rule-eval
 
@@ -97,6 +111,12 @@ budget tests (`tests/budget.rs`) check that `spend`, `delegate` and `refill`
 reproduce every outcome and tree of every trace, that the traces still cover
 every refusal but `tree_full`, overdrawn refusals at the spender and at an
 ancestor, malformed and empty trees and several roots, and that a changed
+expectation is reported. Its document tests (`tests/documents.rs`) check that
+`lower`, or `lower_scoped` under `excluded` of the admin document, builds every
+trace's rules or refuses as it does, that `authorize` reaches every verdict and
+record, that the traces still cover admin and scoped documents, recovery,
+both scopes, both kinds of principals, rules without functions, caps,
+not-after ledgers, every predicate and both scoped refusals, and that a changed
 expectation is reported.
 `rule-eval` itself keeps no dependencies; the runner depends on it, `serde` and
 `serde_json`.
@@ -620,3 +640,94 @@ strings, and `no_such_node` and `overdrawn` as an object holding the index.
 | `budget-negative-amount`, `budget-no-such-node`, `budget-empty-tree`, `budget-zero-spend`, `budget-several-roots`, `budget-empty-run` | The other refusals and edges. |
 
 `budget-random-00.json` to `budget-random-49.json` are the randomized traces.
+
+## Document trace format
+
+A document trace lowers one document and runs authorizations through the rules
+it lowers to. The verdicts are the document's own (`Doc.authorize`), written
+from Perch's specification, not the lowering's: an implementation that lowers
+the document and checks the authorizations with its own evaluator, Perch's
+`compile_doc`, `apply_doc` and `check_auth` among them, should reach the same
+ones. Every file is one JSON object; object fields appear in the order below.
+
+```json
+{
+  "format": 1,
+  "name": "document-capped-approve",
+  "description": "...",
+  "document": Document,
+  "account": "6163636f756e74",
+  "scoped": null,
+  "lowered": {"ok": [Rule, ...]},
+  "authorizations": [
+    {"batch": [Context, ...], "choices": [1], "authenticated": [Signer, ...], "now": 500,
+     "generation": "0", "expected": Verdict},
+    ...
+  ]
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `format` | The version of this format, `1`. |
+| `name`, `description` | As in the other traces. |
+| `document` | The document. |
+| `account` | The account's address, as its `ScAddress` XDR in hex. |
+| `scoped` | `null` for an admin document. For a scoped document, `{"admin": Document, "generation": "3"}`: the admin document it is issued under and the generation it is issued in, a decimal `u64`. |
+| `lowered` | `{"ok": [Rule, ...]}`, the rules the document lowers to in the rule vector format, or `{"error": "recovery_configured"}` or `{"error": "excluded_scope"}`, the scoped lowering's refusal; a refused document has no authorizations. |
+| `authorizations` | As in the authorization traces, each starting from the records the authorizations before it left, the first from one empty record per lowered rule. Choice `j` names lowered rule `j`: the document's rule `j`, or, past them, the recovery rule. No authorization chooses the recovery rule. |
+
+### Documents
+
+```json
+{
+  "signers": [{"id": "6369", "signer": Signer}, ...],
+  "rules": [
+    {"scope": {"contract": "746f6b656e"}, "principals": {"all": ["6369"]},
+     "functions": ["7472616e73666572"], "args": [{"index": 0, "pred": "is_self"}],
+     "not_after_ledger": 600, "cap": {"limit": "10", "period_ledgers": 1000}},
+    ...
+  ],
+  "recovery": {"controller": "...", "zk": {"adapter": "...", "pool": "..."}}
+}
+```
+
+Ids, function names, string values, prefixes and addresses are hex. A
+`scope` is `{"contract": hex}` or `"self_admin"`; `principals` is
+`{"all": [id, ...]}` or `{"threshold": {"ids": [id, ...], "m": 1}}`; a `pred` is
+`"is_self"`, `{"address_eq": hex}`, `{"string_in": [hex, ...]}`,
+`{"string_prefix": hex}` or `{"u32_eq": 7}`. `functions`, `args`,
+`not_after_ledger`, `cap`, `recovery` and `zk` are `null` when absent. A
+`limit` is a decimal `i128`. A shell decodes a Perch document to this form:
+strkeys to `ScAddress` XDR, hex keys to bytes, decimal limits to `i128`.
+
+A `u32` argument a `u32_eq` predicate reads is `{"other": hex}` of its
+`ScVal` XDR: the discriminant `00000003` and the value, four big-endian bytes.
+
+### Verdicts
+
+```json
+{"ok": [Record, ...]}
+"refused"
+```
+
+`ok` holds the records after the authorization, one per lowered rule. A
+refusal names no reason: the document's meaning, like Perch's account, only
+accepts or refuses, and the records stay as they were.
+
+### The named traces
+
+| Trace | What it exercises |
+| --- | --- |
+| `document-capped-approve`, `document-capped-no-functions` | A capped rule listing `approve`, and one listing no functions, authorize only `transfer` with an `i128` at argument 2; the cap reaches its limit. |
+| `document-extra-signer` | A signer of no chosen rule refused; a missing signer refused. |
+| `document-not-after-ledger` | `not-after-ledger 600` authorizes at 599 and not at 600 or 601. |
+| `document-string-in-long`, `document-string-prefix` | A `string-in` value over 256 bytes never matches; `string-prefix` reads strings and not symbols. |
+| `document-constraint-free` | A rule with no function list authorizes every function of its contract; the admin rule authorizes any call to the account. |
+| `document-predicates`, `document-thresholds` | `is-self`, `address-eq` and `u32-eq`; `all` and `threshold` principals. |
+| `document-with-recovery` | A document configuring recovery: the recovery rule lowered last, one record per installed rule. |
+| `document-scoped-issued` | A scoped document in its generation and after it moves on. |
+| `document-scoped-self-admin`, `document-scoped-account`, `document-scoped-controller`, `document-scoped-adapter`, `document-scoped-pool`, `document-scoped-recovery` | Each refusal of the scoped lowering. |
+
+`document-random-00.json` to `document-random-39.json` are the randomized
+traces.

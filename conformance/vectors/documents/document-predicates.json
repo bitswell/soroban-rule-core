@@ -1,0 +1,161 @@
+{
+  "format": 1,
+  "name": "document-predicates",
+  "description": "is-self, address-eq and u32-eq read an address equal to the account, an address equal to the one named, and the u32 named, given as the XDR of its ScVal.",
+  "document": {
+    "signers": [
+      {
+        "id": "6369",
+        "signer": {"external": {"verifier": "7665726966696572", "key": "63692d6b6579"}}
+      },
+      {"id": "6f7073", "signer": {"delegated": {"address": "6f7073"}}}
+    ],
+    "rules": [
+      {
+        "scope": "self_admin",
+        "principals": {"all": ["6f7073"]},
+        "functions": null,
+        "args": null,
+        "not_after_ledger": null,
+        "cap": null
+      },
+      {
+        "scope": {"contract": "746f6b656e"},
+        "principals": {"all": ["6369"]},
+        "functions": ["73656e64"],
+        "args": [
+          {"index": 0, "pred": "is_self"},
+          {"index": 1, "pred": {"address_eq": "64657374"}},
+          {"index": 2, "pred": {"u32_eq": 7}}
+        ],
+        "not_after_ledger": null,
+        "cap": null
+      }
+    ],
+    "recovery": null
+  },
+  "account": "6163636f756e74",
+  "scoped": null,
+  "lowered": {
+    "ok": [
+      {
+        "contract": "6163636f756e74",
+        "functions": {"any_except": []},
+        "conds": [],
+        "signers": [{"delegated": {"address": "6f7073"}}],
+        "threshold": 1,
+        "cap": null,
+        "valid_until": null,
+        "generation": null
+      },
+      {
+        "contract": "746f6b656e",
+        "functions": {"only": ["73656e64"]},
+        "conds": [
+          {"arg_eq": {"index": 0, "value": {"address": "6163636f756e74"}}},
+          {"arg_eq": {"index": 1, "value": {"address": "64657374"}}},
+          {"arg_eq": {"index": 2, "value": {"other": "0000000300000007"}}}
+        ],
+        "signers": [{"external": {"verifier": "7665726966696572", "key": "63692d6b6579"}}],
+        "threshold": 1,
+        "cap": null,
+        "valid_until": null,
+        "generation": null
+      }
+    ]
+  },
+  "authorizations": [
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "73656e64",
+            "args": [
+              {"address": "6163636f756e74"},
+              {"address": "64657374"},
+              {"other": "0000000300000007"}
+            ]
+          }
+        }
+      ],
+      "choices": [1],
+      "authenticated": [{"external": {"verifier": "7665726966696572", "key": "63692d6b6579"}}],
+      "now": 500,
+      "generation": "0",
+      "expected": {"ok": [{"history": [], "total": "0"}, {"history": [], "total": "0"}]}
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "73656e64",
+            "args": [{"address": "78"}, {"address": "64657374"}, {"other": "0000000300000007"}]
+          }
+        }
+      ],
+      "choices": [1],
+      "authenticated": [{"external": {"verifier": "7665726966696572", "key": "63692d6b6579"}}],
+      "now": 500,
+      "generation": "0",
+      "expected": "refused"
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "73656e64",
+            "args": [
+              {"address": "6163636f756e74"},
+              {"address": "78"},
+              {"other": "0000000300000007"}
+            ]
+          }
+        }
+      ],
+      "choices": [1],
+      "authenticated": [{"external": {"verifier": "7665726966696572", "key": "63692d6b6579"}}],
+      "now": 500,
+      "generation": "0",
+      "expected": "refused"
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "73656e64",
+            "args": [
+              {"address": "6163636f756e74"},
+              {"address": "64657374"},
+              {"other": "0000000300000008"}
+            ]
+          }
+        }
+      ],
+      "choices": [1],
+      "authenticated": [{"external": {"verifier": "7665726966696572", "key": "63692d6b6579"}}],
+      "now": 500,
+      "generation": "0",
+      "expected": "refused"
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "73656e64",
+            "args": [{"address": "6163636f756e74"}, {"address": "64657374"}, {"u64": "7"}]
+          }
+        }
+      ],
+      "choices": [1],
+      "authenticated": [{"external": {"verifier": "7665726966696572", "key": "63692d6b6579"}}],
+      "now": 500,
+      "generation": "0",
+      "expected": "refused"
+    }
+  ]
+}

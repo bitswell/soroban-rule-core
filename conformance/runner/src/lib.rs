@@ -5,7 +5,8 @@
 //! step lists, and the results the Lean model computes for them. [`check`]
 //! decodes a vector into `rule-eval`'s types, evaluates it with `rule-eval`,
 //! and reports the first result that differs. [`caps`] checks the cap traces,
-//! [`authorize`] the authorization traces and [`budget`] the budget traces.
+//! [`authorize`] the authorization traces, [`budget`] the budget traces and
+//! [`documents`] the document traces.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -20,6 +21,7 @@ use serde::Deserialize;
 pub mod authorize;
 pub mod budget;
 pub mod caps;
+pub mod documents;
 
 /// The vector format version this runner reads.
 pub const FORMAT: u32 = 4;

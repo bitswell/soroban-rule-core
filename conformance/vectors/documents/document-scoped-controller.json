@@ -1,0 +1,62 @@
+{
+  "format": 1,
+  "name": "document-scoped-controller",
+  "description": "A scoped document with a rule on the recovery controller is refused.",
+  "document": {
+    "signers": [
+      {
+        "id": "6369",
+        "signer": {"external": {"verifier": "7665726966696572", "key": "63692d6b6579"}}
+      },
+      {"id": "6f7073", "signer": {"delegated": {"address": "6f7073"}}}
+    ],
+    "rules": [
+      {
+        "scope": {"contract": "746f6b656e"},
+        "principals": {"all": ["6369"]},
+        "functions": null,
+        "args": null,
+        "not_after_ledger": null,
+        "cap": null
+      },
+      {
+        "scope": {"contract": "636f6e74726f6c6c6572"},
+        "principals": {"all": ["6369"]},
+        "functions": null,
+        "args": null,
+        "not_after_ledger": null,
+        "cap": null
+      }
+    ],
+    "recovery": null
+  },
+  "account": "6163636f756e74",
+  "scoped": {
+    "admin": {
+      "signers": [
+        {
+          "id": "6369",
+          "signer": {"external": {"verifier": "7665726966696572", "key": "63692d6b6579"}}
+        },
+        {"id": "6f7073", "signer": {"delegated": {"address": "6f7073"}}}
+      ],
+      "rules": [
+        {
+          "scope": "self_admin",
+          "principals": {"all": ["6f7073"]},
+          "functions": null,
+          "args": null,
+          "not_after_ledger": null,
+          "cap": null
+        }
+      ],
+      "recovery": {
+        "controller": "636f6e74726f6c6c6572",
+        "zk": {"adapter": "61646170746572", "pool": "706f6f6c"}
+      }
+    },
+    "generation": "0"
+  },
+  "lowered": {"error": "excluded_scope"},
+  "authorizations": []
+}

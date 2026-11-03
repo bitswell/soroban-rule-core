@@ -922,6 +922,146 @@ claims:
       - theorem: RuleCore.Budget.Tree.within_step
       - theorem: RuleCore.Budget.Tree.within_trans
 
+  # Documents and their lowering (formal/RuleCore/Vocab/Document.lean,
+  # Vocab/Lowering.lean, Vocab/Account.lean; theorems in RuleCore.Document).
+
+  - id: document.compile-soundness
+    claim: >-
+      For every valid document, account and generation, each rule a document
+      rule lowers to allows exactly the contexts the document rule allows
+      under every authenticated signer list, written from Perch's
+      specification (contract or self-admin scope, function list or every
+      function, transfer only with an i128 at argument 2 for a capped rule,
+      each argument predicate as Perch's program leaves read it, all or
+      at least m of the named signers); the rules a document's rules lower to
+      allow exactly what the document allows; and the admin document's
+      lowering allows what the document allows or what the recovery rule
+      allows, exactly what the document allows when no recovery is
+      configured.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Document.Doc.lowerRule_allows
+      - theorem: RuleCore.Document.Doc.lowerRules_allows
+      - theorem: RuleCore.Document.Doc.lower_allows
+      - theorem: RuleCore.Document.Doc.lower_allows_of_recovery_none
+      - theorem: RuleCore.Document.Rule.mem_lowerFunctions
+      - theorem: RuleCore.Document.Rule.covers_iff
+      - theorem: RuleCore.Document.amountCond_holds
+      - theorem: RuleCore.Document.i128Max_toInt
+      - theorem: RuleCore.Document.Pred.lower_holds
+      - theorem: RuleCore.Document.Rule.lowerConds_all
+      - theorem: RuleCore.Document.Rule.signed_lowerRule
+      - theorem: RuleCore.Document.RuleSet.allows_eq_any
+      - theorem: RuleCore.Document.eraseDups_of_nodup
+
+  - id: document.compile-soundness-authorize
+    claim: >-
+      Through authorize, for every valid document and every authorization:
+      the admin document's lowering accepts exactly when the document's own
+      check accepts (one rule per context, each live at the ledger, in the
+      issue's generation when it has one, and allowing its context; every
+      authenticated signer named by a chosen rule; each capped rule's spend
+      charged with the cap model), with the recovery controller's check read
+      as every call to apply_doc, and returns the same records; with no
+      recovery configured, exactly the document's acceptance whatever the
+      controller's check.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Document.Doc.lower_authorize
+      - theorem: RuleCore.Document.Doc.lower_authorize_of_recovery_none
+      - theorem: RuleCore.Document.Doc.authorize_lowerAll
+      - theorem: RuleCore.Document.Doc.authorize_of_recovery_none
+      - theorem: RuleCore.Document.Doc.authorize_eq_some_iff
+      - theorem: RuleCore.Document.Doc.checkChoice_lower
+      - theorem: RuleCore.Document.Doc.signerChosen_lower
+      - theorem: RuleCore.Document.Doc.charge_lower
+      - theorem: RuleCore.Document.Doc.foldlM_charge_lower
+      - theorem: RuleCore.Document.Doc.lowerAll_eq_map
+      - theorem: RuleCore.Document.Doc.mem_rules_of_installed
+      - theorem: RuleCore.Document.Doc.lastLedger_toNat
+      - theorem: RuleCore.Document.toOption_eq_some
+      - theorem: RuleCore.Document.toOption_eq_of_iff
+
+  - id: document.recovery-over-approximation
+    claim: >-
+      The recovery rule is the one lowered construct that over-approximates:
+      it allows every call to the account's apply_doc, under any signers,
+      and nothing else; the document's acceptance only grows with the
+      controller's check, so every authorization the document accepts under
+      a controller check that accepts only calls to apply_doc, the admin
+      document's lowering accepts, with the same records.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Document.recoveryRule_allows
+      - theorem: RuleCore.Document.Doc.authorize_mono
+      - theorem: RuleCore.Document.Doc.lower_authorize_of_check
+
+  - id: scoped.compile-soundness
+    claim: >-
+      A scoped document's lowering, when it is not refused, is the document's
+      rules lowered with the generation, and for a valid scoped document it
+      allows exactly what the document allows and, through authorize,
+      accepts exactly what the document issued under that generation accepts,
+      with the same records.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Document.Doc.lowerScoped_eq_ok
+      - theorem: RuleCore.Document.Doc.lowerRules_eq_append
+      - theorem: RuleCore.Document.Doc.lowerScoped_allows
+      - theorem: RuleCore.Document.Doc.lowerScoped_authorize
+
+  - id: scoped.exclusion
+    claim: >-
+      Every rule a scoped document lowers to applies to a contract that is
+      neither the account nor in the excluded set; no rule set it lowers to,
+      and no rule set any chain of attenuation steps derives from one, allows
+      a call to the account or to a contract of the excluded set, under any
+      signers; the excluded set the admin document gives holds the account,
+      its recovery controller and its zero-knowledge adapter and pool.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Document.Doc.lowerScoped_contract
+      - theorem: RuleCore.Document.Doc.lowerScoped_allows_excluded
+      - theorem: RuleCore.Document.Doc.lowerScoped_attenuateAll_excluded
+      - theorem: RuleCore.Document.Doc.mem_excluded
+
+  - id: scoped.generation
+    claim: >-
+      Every rule a scoped document lowers to carries the generation it was
+      issued under, and no admin rule carries one, so admin rules authorize
+      the same in every generation. In the account model a run keeps the
+      address and advances the generation by exactly the recoveries it
+      completes; after a run that completes a recovery, a grant attenuated
+      from a scoped document issued before it accepts only the empty batch
+      in the account's generation.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Document.Doc.lowerScoped_generation
+      - theorem: RuleCore.Document.Doc.lower_generation
+      - theorem: RuleCore.Document.RuleSet.authorize_generation_none
+      - theorem: RuleCore.Document.Account.step_address
+      - theorem: RuleCore.Document.Account.run_address
+      - theorem: RuleCore.Document.Account.run_generation
+      - theorem: RuleCore.Document.Account.issued_stale
+      - theorem: RuleCore.Document.Account.adminRules_authorize_generation
+
+  - id: chain.containment
+    claim: >-
+      The containment chain: anything authorize accepts under a grant
+      attenuated from the rules a valid scoped document was issued as is
+      allowed by that scoped document, touches neither the account nor its
+      recovery controller, ZK adapter or pool, and is made in the generation
+      the document was issued under; every run the grant accepts from empty
+      records, the scoped rules accept, with each choice renumbered, and the
+      scoped rules accept exactly what the document does; once the account
+      completes a recovery, the grant accepts only the empty batch while the
+      admin rules authorize as before.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Document.Account.chain
+      - theorem: RuleCore.Document.Account.chain_trace
+      - theorem: RuleCore.Document.Account.chain_after_recovery
+
   # The translation of crates/rule-eval (formal/RuleCore/Extracted) and its
   # equivalence to the chain vocabulary (formal/RuleCore/Equiv).
 
@@ -1216,6 +1356,91 @@ claims:
       - theorem: RuleCore.Equiv.denoteBudgetError_injective
       - theorem: RuleCore.Equiv.denoteBudget_injective
 
+  - id: equiv.lowering
+    claim: >-
+      On every document and account, the translated lower returns ok of rules
+      denoting the model's lowering, under the stated rule LowerRoom; the
+      translated lower_scoped returns ok of the result denoting the model's
+      scoped lowering, its refusals included; the translated excluded returns
+      ok of byte strings denoting the model's excluded set; so the lowering
+      terminates and never panics. Each step is proven: the names transfer
+      and apply_doc, the u32 XDR, signer resolution, the threshold, the
+      contract, the functions, the string filter, each predicate, the
+      conditions, the cap, the last ledger, one rule, the rules, the recovery
+      rule and the excluded scopes. LowerRoom is exact for the rules: on a
+      document configuring recovery with Usize.max rules, the translated
+      lower fails.
+    status: proven
+    assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel, trusted.denotations, rule.lower-room]
+    evidence:
+      - theorem: RuleCore.Equiv.lower_eq
+      - theorem: RuleCore.Equiv.lower_scoped_eq
+      - theorem: RuleCore.Equiv.excluded_eq
+      - theorem: RuleCore.Equiv.lower_full
+      - theorem: RuleCore.Equiv.transfer_eq
+      - theorem: RuleCore.Equiv.apply_doc_eq
+      - theorem: RuleCore.Equiv.u32_xdr_eq
+      - theorem: RuleCore.Equiv.byte_cast
+      - theorem: RuleCore.Equiv.u32_div_eq
+      - theorem: RuleCore.Equiv.u32_rem_eq
+      - theorem: RuleCore.Equiv.array_slice_val
+      - theorem: RuleCore.Equiv.resolve_eq
+      - theorem: RuleCore.Equiv.resolve_denote
+      - theorem: RuleCore.Equiv.named_loop_eq
+      - theorem: RuleCore.Equiv.named_eq
+      - theorem: RuleCore.Equiv.principal_ids_eq
+      - theorem: RuleCore.Equiv.denoteU32_eq_ofNat
+      - theorem: RuleCore.Equiv.threshold_of_eq
+      - theorem: RuleCore.Equiv.contract_of_eq
+      - theorem: RuleCore.Equiv.covers_transfer_eq
+      - theorem: RuleCore.Equiv.lower_functions_eq
+      - theorem: RuleCore.Equiv.max_string_len_val
+      - theorem: RuleCore.Equiv.strings_within_loop_eq
+      - theorem: RuleCore.Equiv.filterMap_strings
+      - theorem: RuleCore.Equiv.strings_within_eq
+      - theorem: RuleCore.Equiv.lower_pred_eq
+      - theorem: RuleCore.Equiv.lower_args_loop_eq
+      - theorem: RuleCore.Equiv.lower_args_eq
+      - theorem: RuleCore.Equiv.i128_max_bv
+      - theorem: RuleCore.Equiv.amount_arg_val
+      - theorem: RuleCore.Equiv.with_amount_eq
+      - theorem: RuleCore.Equiv.lower_conds_eq
+      - theorem: RuleCore.Equiv.lower_cap_eq
+      - theorem: RuleCore.Equiv.last_ledger_eq
+      - theorem: RuleCore.Equiv.lower_rule_eq
+      - theorem: RuleCore.Equiv.lower_rules_loop_eq
+      - theorem: RuleCore.Equiv.lower_rules_eq
+      - theorem: RuleCore.Equiv.recovery_rule_eq
+      - theorem: RuleCore.Equiv.scope_excluded_eq
+      - theorem: RuleCore.Equiv.any_excluded_eq
+      - theorem: RuleCore.Equiv.loop_find
+      - theorem: RuleCore.Equiv.pushedFrom_filterMap
+      - theorem: RuleCore.Equiv.bytes_list_copy_eq
+      - theorem: RuleCore.Equiv.vec_deref_mk
+      - theorem: RuleCore.Equiv.vec_mk_val
+
+  - id: equiv.document-denotations-injective
+    claim: >-
+      The denotations of the document types (scopes, principals, predicates,
+      argument constraints, caps, rules, signer declarations, recovery
+      configurations, documents, scope errors and lower_scoped's result) are
+      injective.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Equiv.vec_map_inj
+      - theorem: RuleCore.Equiv.denoteScope_injective
+      - theorem: RuleCore.Equiv.denotePrincipals_injective
+      - theorem: RuleCore.Equiv.denotePred_injective
+      - theorem: RuleCore.Equiv.denoteArg_injective
+      - theorem: RuleCore.Equiv.denoteDocCap_injective
+      - theorem: RuleCore.Equiv.denoteDocRule_injective
+      - theorem: RuleCore.Equiv.denoteDecl_injective
+      - theorem: RuleCore.Equiv.denoteZk_injective
+      - theorem: RuleCore.Equiv.denoteRecovery_injective
+      - theorem: RuleCore.Equiv.denoteDoc_injective
+      - theorem: RuleCore.Equiv.denoteScopeError_injective
+      - theorem: RuleCore.Equiv.denoteScoped_injective
+
   # The model's theorems carried over to the translation, stated on the
   # translated functions alone (formal/RuleCore/Theorems/Extracted.lean).
 
@@ -1478,6 +1703,49 @@ claims:
       - theorem: RuleCore.Extracted.apply_eq
       - theorem: RuleCore.Extracted.spend_ok_denote
 
+  - id: extracted.lowering
+    claim: >-
+      On the translated functions: for a valid document, the translated
+      allows on the rules the translated lower returns gives the document's
+      verdict, or the recovery rule's, and exactly the document's with no
+      recovery configured; the translated authorize on those rules accepts
+      exactly what the document accepts, with the same records; the same for
+      a scoped document the translated lower_scoped accepts; no rule set the
+      translated lower_scoped returns, nor any rule set translated steps
+      derive from it, allows a call to the account or to a contract of the
+      excluded set; every scoped rule carries its generation and no admin
+      rule carries one.
+    status: proven
+    assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel, trusted.denotations, rule.lower-room]
+    evidence:
+      - theorem: RuleCore.Extracted.lower_allows
+      - theorem: RuleCore.Extracted.lower_allows_of_recovery_none
+      - theorem: RuleCore.Extracted.lower_authorize
+      - theorem: RuleCore.Extracted.lower_scoped_allows
+      - theorem: RuleCore.Extracted.lower_scoped_authorize
+      - theorem: RuleCore.Extracted.lower_scoped_model
+      - theorem: RuleCore.Extracted.lower_scoped_allows_excluded
+      - theorem: RuleCore.Extracted.derives_allows_excluded
+      - theorem: RuleCore.Extracted.lower_scoped_generation
+      - theorem: RuleCore.Extracted.lower_generation
+
+  - id: extracted.chain
+    claim: >-
+      The containment chain on the translated functions: anything the
+      translated authorize accepts under a grant translated steps derive from
+      the rules the translated lower_scoped returns for a valid scoped
+      document, under the excluded set the translated excluded takes from the
+      admin document, is allowed by the scoped document, touches neither the
+      account nor a contract of the excluded set, and is made in the
+      generation the document was issued under; and every run the grant
+      accepts from empty records, those rules accept, with each choice
+      renumbered.
+    status: proven
+    assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel, trusted.denotations]
+    evidence:
+      - theorem: RuleCore.Extracted.chain
+      - theorem: RuleCore.Extracted.chain_trace
+
   # Stated rules: what the theorems take as given about their callers.
 
   - id: rule.cond-room
@@ -1497,6 +1765,16 @@ claims:
     status: assumed
     evidence:
       - trusted: FunctionsRoom
+
+  - id: rule.lower-room
+    claim: >-
+      LowerRoom: a document configuring recovery has fewer than Usize.max
+      rules, and each capped rule fewer than Usize.max argument predicates.
+      A Rust Vec of documents' rules or of argument constraints never reaches
+      that length.
+    status: assumed
+    evidence:
+      - trusted: LowerRoom
 
   - id: rule.empty-batch
     claim: >-
@@ -1573,11 +1851,23 @@ claims:
   - id: trusted.denotations
     claim: >-
       The denotation functions from the translated types to the chain
-      vocabulary, to the cap model and to the budget model say what the Rust
-      types mean; they are part of the specification.
+      vocabulary, to the cap model, to the budget model and to the document
+      vocabulary say what the Rust types mean; they are part of the
+      specification.
     status: assumed
     evidence:
       - trusted: The denotation functions
+
+  - id: trusted.document-meaning
+    claim: >-
+      The document's meaning (Doc.allows and Doc.authorize, with u32Xdr and
+      the recovery controller's check as a parameter) says what the rules
+      Perch's smart account installs for a document do on OpenZeppelin's
+      smart account; it is part of the specification, written from Perch's
+      and OpenZeppelin's source at the revisions recorded in ARCHITECTURE.md.
+    status: assumed
+    evidence:
+      - trusted: The document's meaning
 
   # Tests of crates/rule-eval.
 
@@ -1766,14 +2056,64 @@ claims:
       - test: rule-eval/budget::a_refill_raises_one_allowance
       - test: rule-eval/budget::a_refusal_leaves_the_tree_as_it_was
 
+  - id: tested.lowering
+    claim: >-
+      lower builds the wildcard for a rule without functions, the listed
+      functions, the account for a self-admin scope, the declared signers
+      with a threshold of all or m, the last ledger before not-after-ledger,
+      one condition per predicate in order, the u32 XDR, string-in without
+      values over 256 bytes, transfer only with the amount condition and the
+      cap for a capped rule, and the recovery rule last; through allows and
+      authorize, the lowered rules give the verdicts Perch's probes measured
+      on OpenZeppelin's smart account (a capped rule listing approve, a capped
+      rule without functions, an extra signer, not-after-ledger at its
+      boundary, an over-long string-in value, a constraint-free rule,
+      string-prefix on strings and symbols); lower_scoped stamps the
+      generation, refuses recovery, self-admin scopes, the account and every
+      contract of the excluded set, and excluded is the account and the
+      recovery configuration's contracts.
+    status: tested
+    evidence:
+      - test: rule-eval/lowering::a_rule_without_a_function_list_lowers_to_the_wildcard
+      - test: rule-eval/lowering::a_function_list_lowers_to_the_same_list
+      - test: rule-eval/lowering::a_self_admin_rule_lowers_to_the_account
+      - test: rule-eval/lowering::principals_lower_to_their_signers_and_threshold
+      - test: rule-eval/lowering::the_first_declaration_of_an_id_is_the_one_used
+      - test: rule-eval/lowering::not_after_ledger_lowers_to_the_ledger_before
+      - test: rule-eval/lowering::argument_predicates_lower_in_order
+      - test: rule-eval/lowering::u32_xdr_is_the_discriminant_then_the_value_big_endian
+      - test: rule-eval/lowering::string_in_drops_values_longer_than_256_bytes
+      - test: rule-eval/lowering::a_capped_rule_lowers_to_transfer_its_amount_and_its_cap
+      - test: rule-eval/lowering::recovery_adds_the_recovery_rule_last
+      - test: rule-eval/lowering::a_capped_rule_listing_approve_authorizes_only_transfer
+      - test: rule-eval/lowering::a_capped_rule_without_functions_authorizes_only_transfer
+      - test: rule-eval/lowering::a_capped_transfer_needs_an_i128_amount
+      - test: rule-eval/lowering::a_capped_rule_charges_up_to_its_limit
+      - test: rule-eval/lowering::an_extra_authenticated_signer_is_refused
+      - test: rule-eval/lowering::not_after_ledger_600_authorizes_at_599_and_not_at_600
+      - test: rule-eval/lowering::an_over_long_string_in_value_never_matches
+      - test: rule-eval/lowering::a_constraint_free_rule_allows_every_function
+      - test: rule-eval/lowering::string_prefix_reads_strings_not_symbols
+      - test: rule-eval/lowering::u32_eq_matches_the_u32_argument_and_nothing_else
+      - test: rule-eval/lowering::the_recovery_rule_allows_any_apply_doc_on_the_account
+      - test: rule-eval/lowering::the_excluded_set_is_the_account_and_the_recovery_contracts
+      - test: rule-eval/lowering::a_scoped_document_is_stamped_with_the_generation
+      - test: rule-eval/lowering::a_scoped_document_naming_an_excluded_contract_is_refused
+      - test: rule-eval/lowering::a_scoped_document_never_reaches_the_account_whatever_set_it_is_given
+      - test: rule-eval/lowering::a_scoped_document_with_recovery_is_refused
+      - test: rule-eval/lowering::scoped_rules_allow_nothing_on_the_excluded_set
+      - test: rule-eval/lowering::admin_rules_carry_no_generation_and_authorize_in_every_generation
+      - test: rule-eval/lowering::self_admin_wildcard_matches_any_function
+
   # Conformance vectors (conformance/).
 
   - id: conformance.from-model
     claim: >-
       The committed vectors in conformance/vectors, cap traces in
       conformance/vectors/caps, authorization traces in
-      conformance/vectors/authorize and budget traces in
-      conformance/vectors/budget are exactly what the Lean model computes:
+      conformance/vectors/authorize, budget traces in
+      conformance/vectors/budget and document traces in
+      conformance/vectors/documents are exactly what the Lean model computes:
       regenerating them into an empty directory gives no difference.
     status: tested
     evidence:
@@ -1841,6 +2181,25 @@ claims:
       - test: rule-eval-conformance/budget::budget_traces_cover_every_outcome
       - test: rule-eval-conformance/budget::a_wrong_budget_expectation_is_reported
       - file: conformance/vectors/budget
+
+  - id: conformance.documents-agree
+    claim: >-
+      rule-eval's lower, lower_scoped and excluded build the rules every
+      document trace holds, or refuse as it does, and authorize reaches the
+      document's verdict on every authorization, with the same records; the
+      traces are valid documents Perch's validation accepts, generated with
+      their verdicts from the document's meaning, and cover admin and scoped
+      documents, recovery configured, both scopes and both kinds of
+      principals, rules without functions, caps, not-after ledgers, every
+      predicate, both scoped refusals, and accepted and refused
+      authorizations; a trace with a changed expectation is reported.
+    status: tested
+    evidence:
+      - test: rule-eval-conformance/documents::rule_eval_agrees_with_every_document_trace
+      - test: rule-eval-conformance/documents::document_traces_cover_every_construct_and_outcome
+      - test: rule-eval-conformance/documents::a_wrong_document_expectation_is_reported
+      - ci: {workflow: .github/workflows/rust.yml, job: pinned, step: cargo test, runs: cargo test --workspace}
+      - ci: {workflow: .github/workflows/rust.yml, job: stable, step: cargo test, runs: test --workspace}
 
   - id: conformance.encoding
     claim: >-
@@ -2052,14 +2411,69 @@ claims:
 
   - id: unproven.generation-counter
     claim: >-
-      Which events advance the account's generation (only a completed
-      recovery), and that the lowering stamps every scoped rule with the
-      generation it was issued under, are the shell's and the lowering's,
-      for M4's next part; authorize takes the current generation as given.
+      Perch's account keeps a generation that advances only when a recovery
+      completes, passes it to authorize, and issues scoped documents with
+      lower_scoped under the excluded set of its current admin document. The
+      account model of that counter (RuleCore.Document.Account) and every
+      theorem about it are proven; Perch at dff2a73 has no scoped documents,
+      no apply_scope and no such counter, so building them is M6's.
     status: unproven
     evidence:
       - file: ARCHITECTURE.md
-        contains: "Which events advance the counter is the shell's and the lowering's"
+        contains: "What Perch adds in M6"
+
+  - id: unproven.perch-meaning
+    claim: >-
+      The document's meaning, Doc.allows and Doc.authorize, is what the rules
+      Perch's smart account installs for a document (Perch dff2a73) do on
+      OpenZeppelin's smart account (theahaco/stellar-contracts-OZ 33726766),
+      apart from the recovery controller's own check, which it takes as a
+      parameter. This is read from that source and from the probes recorded
+      with the mapping of M4, which ran on soroban-env-host 27.0.1 outside
+      this repository; nothing here runs Perch.
+    status: unproven
+    evidence:
+      - file: ARCHITECTURE.md
+        contains: "are written from Perch's specification as Perch and OpenZeppelin"
+
+  - id: unproven.perch-validation
+    claim: >-
+      Every document Perch's validation (perch_ir::validate) and document
+      compiler accept satisfies Doc.Valid: the signers an all rule names are
+      distinct, it names fewer than 2^32 of them, and no not-after ledger is
+      0. This is read from Perch's source and neither proven nor tested
+      against it.
+    status: unproven
+    evidence:
+      - file: formal/RuleCore/Vocab/Document.lean
+        contains: "and document compiler accept"
+
+  - id: unproven.lowering-shell
+    claim: >-
+      A shell that uses the lowering decodes strkeys to ScAddress XDR, hex
+      keys to bytes and decimal limits to i128 before lowering, gives a u32
+      argument to rule-eval as Val::Other of u32_xdr of it, installs exactly
+      the rules lower returns, maps each OpenZeppelin rule id to the index of
+      its rule, and never lets an authorization choose the recovery rule
+      without the recovery controller's check. These are the shell's (M6);
+      nothing here checks a shell.
+    status: unproven
+    evidence:
+      - file: ARCHITECTURE.md
+        contains: "The shell's part of the lowering"
+
+  - id: unproven.scoped-admin-change
+    claim: >-
+      Exclusion holds against the admin document a scoped document was issued
+      under. An admin document applied later may name a contract a live
+      scoped rule reaches as its new recovery controller, ZK adapter or pool,
+      and the generation, which advances only when a recovery completes, does
+      not end that scoped rule; the shell must refuse such an admin document
+      or end the scoped documents it would expose. Nothing here models it.
+    status: unproven
+    evidence:
+      - file: ARCHITECTURE.md
+        contains: "What does not compose"
 
   - id: unproven.history-bound-on-mainnet
     claim: >-

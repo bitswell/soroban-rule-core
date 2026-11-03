@@ -1,0 +1,85 @@
+{
+  "format": 1,
+  "name": "document-not-after-ledger",
+  "description": "A rule with not-after-ledger 600 authorizes at ledger 599 and not at 600 or later.",
+  "document": {
+    "signers": [
+      {
+        "id": "6369",
+        "signer": {"external": {"verifier": "7665726966696572", "key": "63692d6b6579"}}
+      },
+      {"id": "6f7073", "signer": {"delegated": {"address": "6f7073"}}}
+    ],
+    "rules": [
+      {
+        "scope": "self_admin",
+        "principals": {"all": ["6f7073"]},
+        "functions": null,
+        "args": null,
+        "not_after_ledger": null,
+        "cap": null
+      },
+      {
+        "scope": {"contract": "746f6b656e"},
+        "principals": {"all": ["6369"]},
+        "functions": ["7075626c697368"],
+        "args": null,
+        "not_after_ledger": 600,
+        "cap": null
+      }
+    ],
+    "recovery": null
+  },
+  "account": "6163636f756e74",
+  "scoped": null,
+  "lowered": {
+    "ok": [
+      {
+        "contract": "6163636f756e74",
+        "functions": {"any_except": []},
+        "conds": [],
+        "signers": [{"delegated": {"address": "6f7073"}}],
+        "threshold": 1,
+        "cap": null,
+        "valid_until": null,
+        "generation": null
+      },
+      {
+        "contract": "746f6b656e",
+        "functions": {"only": ["7075626c697368"]},
+        "conds": [],
+        "signers": [{"external": {"verifier": "7665726966696572", "key": "63692d6b6579"}}],
+        "threshold": 1,
+        "cap": null,
+        "valid_until": 599,
+        "generation": null
+      }
+    ]
+  },
+  "authorizations": [
+    {
+      "batch": [{"call": {"contract": "746f6b656e", "function": "7075626c697368", "args": []}}],
+      "choices": [1],
+      "authenticated": [{"external": {"verifier": "7665726966696572", "key": "63692d6b6579"}}],
+      "now": 599,
+      "generation": "0",
+      "expected": {"ok": [{"history": [], "total": "0"}, {"history": [], "total": "0"}]}
+    },
+    {
+      "batch": [{"call": {"contract": "746f6b656e", "function": "7075626c697368", "args": []}}],
+      "choices": [1],
+      "authenticated": [{"external": {"verifier": "7665726966696572", "key": "63692d6b6579"}}],
+      "now": 600,
+      "generation": "0",
+      "expected": "refused"
+    },
+    {
+      "batch": [{"call": {"contract": "746f6b656e", "function": "7075626c697368", "args": []}}],
+      "choices": [1],
+      "authenticated": [{"external": {"verifier": "7665726966696572", "key": "63692d6b6579"}}],
+      "now": 601,
+      "generation": "0",
+      "expected": "refused"
+    }
+  ]
+}

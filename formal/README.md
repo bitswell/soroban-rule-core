@@ -7,10 +7,10 @@ and the theorems relating them. The Lake package is `rule-core`
 | Directory | Contents |
 | --- | --- |
 | `RuleCore/Model/` | The generic model: rules with their signers, threshold and optional cap, rule sets, `narrower`, and the nine attenuation steps, over any context and signer type. `Cap.lean` models spending caps: the spend record, the check, runs and windows. `Authorize.lean` models `authorize`, its runs, and narrowing as trace inclusion. `Budget.lean` models the budget tree: spends, delegations, refills and their runs. |
-| `RuleCore/Vocab/` | The chain vocabulary (contexts, values, conditions, signers, caps, rules, authorizations) and its denotation into the generic model. |
-| `RuleCore/Extracted/` | `RuleEval.lean`, the translation of `crates/rule-eval` that Charon and Aeneas generate. Never edited by hand. |
-| `RuleCore/Equiv/` | Denotations from the translated types to the chain vocabulary, the cap model (`DenoteCap.lean`) and the budget model (`DenoteBudget.lean`), and theorems that the translated functions compute the model's results (`Cap.lean` for the cap check, `Authorize.lean` for `authorize`, `Budget.lean` for the budget operations). |
-| `RuleCore/Theorems/` | The theorems below, including the model's theorems carried over to the translation (`Extracted.lean`, `ExtractedCap.lean`, `ExtractedAuthorize.lean`, `ExtractedBudget.lean`), the cap theorems (`Cap.lean`), the authorization theorems (`Authorize.lean`), the budget theorems (`Budget.lean`), and kernel-checked examples of concrete verdicts. |
+| `RuleCore/Vocab/` | The chain vocabulary (contexts, values, conditions, signers, caps, rules, authorizations) and its denotation into the generic model; Perch's documents, their meaning and validity (`Document.lean`), the lowering and scoped documents (`Lowering.lean`), and the account's generation (`Account.lean`). |
+| `RuleCore/Extracted/` | `RuleEval.lean`, the translation of `crates/rule-eval`, the lowering included, that Charon and Aeneas generate. Never edited by hand. |
+| `RuleCore/Equiv/` | Denotations from the translated types to the chain vocabulary, the cap model (`DenoteCap.lean`), the budget model (`DenoteBudget.lean`) and the document vocabulary (`DenoteDocument.lean`), and theorems that the translated functions compute the model's results (`Cap.lean` for the cap check, `Authorize.lean` for `authorize`, `Budget.lean` for the budget operations, `Lowering.lean` for the lowering). |
+| `RuleCore/Theorems/` | The theorems below, including the model's theorems carried over to the translation (`Extracted.lean`, `ExtractedCap.lean`, `ExtractedAuthorize.lean`, `ExtractedBudget.lean`, `ExtractedLowering.lean`), the cap theorems (`Cap.lean`), the authorization theorems (`Authorize.lean`), the budget theorems (`Budget.lean`), compile soundness (`Lowering.lean`), scoped documents, the generation and the chain (`Scoped.lean`), and kernel-checked examples of concrete verdicts. |
 | `RuleCore/Axioms.lean` | The axioms each theorem depends on, pinned under `#guard_msgs`. |
 
 ## Building
@@ -398,6 +398,46 @@ current index and a step count, and each has its own induction on the steps
 left (`check_chain_loop_eq`, `charged_loop_eq`); the charging walk writes
 through `get_mut`.
 
+## Documents
+
+`RuleCore/Vocab/Document.lean` models the part of a Perch policy document that
+Perch's lowering reads, in namespace `RuleCore.Document`:
+
+* a `Doc` is declared signers (`SignerDecl`, an id and a chain signer), rules
+  and an optional `Recovery` (a controller and an optional `ZkFactor` of an
+  adapter and a pool);
+* a `Rule` has a `Scope` (`contract a` or `selfAdmin`), `Principals` (`all ids`
+  or `threshold ids m`), optional functions, optional argument constraints
+  (`ArgConstraint`, an index and a `Pred`: `isSelf`, `addressEq`, `stringIn`,
+  `stringPrefix`, `u32Eq`), an optional not-after ledger and an optional `Cap`
+  of a limit and a period.
+
+Its meaning is written without reference to the lowering. `Doc.named d p` is
+the signers declared under `p`'s ids, the first declaration of each, and
+`Doc.signed` the requirement: every named signer for `all`, at least `m` of
+them, each once, for `threshold`. `Rule.covers` is the contract, the functions
+and, for a capped rule, `transfer`; `Rule.argsHold` every predicate
+(`Pred.holds`) and, for a capped rule, an `i128` at argument 2;
+`Doc.ruleAllows` all three and `Doc.allows` some rule. `Doc.installed` is the
+document's rules then the recovery rule when it configures recovery, and
+`Doc.authorize d acct ctl issued records a` checks an authorization over them
+(`Doc.validates`, `Doc.signerChosen`, `Doc.charge`), with `ctl` the recovery
+controller's check and `issued` the generation of a scoped document; it returns
+the records or `none`. `Doc.Valid` is what the theorems take of a document.
+
+`RuleCore/Vocab/Lowering.lean` is the lowering: `Doc.lowerRule`, `Doc.lowerRules`,
+`recoveryRule`, `Doc.lower`, `Doc.excluded` and `Doc.lowerScoped`, with
+`applyDocCheck` the controller's check as the recovery rule reads it.
+`RuleCore/Vocab/Account.lean` models the account's generation: `Account`,
+`Event` (`applyDoc`, `completeRecovery`), `Account.step`, `Account.run`,
+`Account.completions`, `Account.issue` and `Account.adminRules`.
+
+`RuleCore/Equiv/DenoteDocument.lean` maps the translated document types
+constructor for constructor and field for field; every denotation is
+injective. `lower_eq`, `lower_scoped_eq` and `excluded_eq` prove that the
+translated lowering returns `ok` of the model's, under the stated rule
+`LowerRoom`.
+
 ## Theorems
 
 Generic model (`RuleCore`):
@@ -639,6 +679,33 @@ successful spend.
 | `budget_spend_charges`, `budget_spend_unchanged` | A successful translated spend charges exactly the spender and its ancestors. |
 | `budget_spend_overdrawn`, `budget_spend_accepts_iff` | An `Overdrawn` refusal names the first node on the chain that cannot take the amount; on a well-formed tree a spend of a non-negative amount at an existing node succeeds exactly when every node on its chain can take it. |
 | `budget_delegate_appends`, `budget_refill_raises` | What a successful translated delegation appends and refill raises. |
+
+Documents (`RuleCore.Document`, `Theorems/Lowering.lean` and `Theorems/Scoped.lean`):
+
+| Theorem | Statement |
+| --- | --- |
+| `Doc.lowerRule_allows`, `Doc.lowerRules_allows` | For a valid rule or document, each lowered rule allows exactly what its document rule allows, and the lowered rules what the document allows, whatever generation they carry. |
+| `Doc.lower_allows`, `Doc.lower_allows_of_recovery_none` | The admin document's lowering allows what the document allows or what the recovery rule allows; exactly what the document allows with no recovery configured. |
+| `recoveryRule_allows` | The recovery rule allows every call to the account's `apply_doc`, under any signers, and nothing else. |
+| `Doc.lower_authorize`, `Doc.authorize_lowerAll`, `Doc.lower_authorize_of_recovery_none` | On every authorization the lowering accepts exactly when the document accepts, with the recovery controller's check read as `applyDocCheck`, and returns the same records. |
+| `Doc.authorize_mono`, `Doc.lower_authorize_of_check`, `Doc.authorize_of_recovery_none` | The document's acceptance grows with the controller's check, so whatever it accepts under a check allowing only `apply_doc`, the lowering accepts; without recovery the check is not read. |
+| `Doc.checkChoice_lower`, `Doc.signerChosen_lower`, `Doc.charge_lower`, `Doc.foldlM_charge_lower`, `Doc.authorize_eq_some_iff` | Pass by pass, the lowered rules' `authorize` and the document's check agree. |
+| `Rule.mem_lowerFunctions`, `Rule.covers_iff`, `Pred.lower_holds`, `amountCond_holds`, `Rule.lowerConds_all`, `Rule.signed_lowerRule` | The lowered functions, conditions and signer requirement are the document rule's. |
+| `Doc.lowerScoped_eq_ok`, `Doc.lowerScoped_allows`, `Doc.lowerScoped_authorize` | An accepted scoped lowering is the document's rules lowered with the generation, and allows and accepts exactly what the scoped document does in that generation. |
+| `Doc.lowerScoped_contract`, `Doc.lowerScoped_allows_excluded`, `Doc.lowerScoped_attenuateAll_excluded`, `Doc.mem_excluded` | No scoped rule, nor any rule set attenuated from scoped rules, allows a call to the account or to a contract of the excluded set, which holds the account, the controller, the adapter and the pool. |
+| `Doc.lowerScoped_generation`, `Doc.lower_generation`, `RuleSet.authorize_generation_none` | Scoped rules carry their generation, admin rules none, and rules without one authorize the same in every generation. |
+| `Account.run_address`, `Account.run_generation`, `Account.issued_stale`, `Account.adminRules_authorize_generation` | A run advances the generation by exactly the recoveries it completes; after one, a grant attenuated from an earlier scoped document accepts only the empty batch, and the admin rules authorize as before. |
+| `Account.chain`, `Account.chain_trace`, `Account.chain_after_recovery` | The containment chain: what a grant accepts is allowed by its scoped document, touches no excluded contract and is in the issue's generation; the grant's runs are the scoped rules' runs; a completed recovery ends the grant. |
+
+The lowering on the translation (`RuleCore.Extracted`, `Theorems/ExtractedLowering.lean`):
+
+| Theorem | Statement |
+| --- | --- |
+| `lower_allows`, `lower_allows_of_recovery_none`, `lower_authorize` | The translated `allows` and `authorize` on the rules the translated `lower` returns give the document's verdicts, with the same records. |
+| `lower_scoped_allows`, `lower_scoped_authorize`, `lower_scoped_model` | The same for a scoped document the translated `lower_scoped` accepts. |
+| `lower_scoped_allows_excluded`, `derives_allows_excluded` | No rule set the translated `lower_scoped` returns, or translated steps derive from it, allows a call to the account or an excluded contract. |
+| `lower_scoped_generation`, `lower_generation` | Scoped rules carry their generation; admin rules carry none. |
+| `chain`, `chain_trace` | The containment chain on the translated `excluded`, `lower_scoped`, attenuation steps and `authorize`. |
 
 The empty batch is allowed by every rule set (`RuleCore.RuleSet.allowsAll_nil`;
 chain `allowsAll` is the generic one on the denotation, and the translated

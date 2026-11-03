@@ -1,0 +1,111 @@
+{
+  "format": 1,
+  "name": "document-string-in-long",
+  "description": "string-in with a 300-byte value and ok: ok is authorized; the 300-byte string, which Perch's interpreter never matches, is refused.",
+  "document": {
+    "signers": [
+      {
+        "id": "6369",
+        "signer": {"external": {"verifier": "7665726966696572", "key": "63692d6b6579"}}
+      },
+      {"id": "6f7073", "signer": {"delegated": {"address": "6f7073"}}}
+    ],
+    "rules": [
+      {
+        "scope": "self_admin",
+        "principals": {"all": ["6f7073"]},
+        "functions": null,
+        "args": null,
+        "not_after_ledger": null,
+        "cap": null
+      },
+      {
+        "scope": {"contract": "746f6b656e"},
+        "principals": {"all": ["6369"]},
+        "functions": ["66"],
+        "args": [
+          {
+            "index": 0,
+            "pred": {
+              "string_in": [
+                "616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161",
+                "6f6b"
+              ]
+            }
+          }
+        ],
+        "not_after_ledger": null,
+        "cap": null
+      }
+    ],
+    "recovery": null
+  },
+  "account": "6163636f756e74",
+  "scoped": null,
+  "lowered": {
+    "ok": [
+      {
+        "contract": "6163636f756e74",
+        "functions": {"any_except": []},
+        "conds": [],
+        "signers": [{"delegated": {"address": "6f7073"}}],
+        "threshold": 1,
+        "cap": null,
+        "valid_until": null,
+        "generation": null
+      },
+      {
+        "contract": "746f6b656e",
+        "functions": {"only": ["66"]},
+        "conds": [{"arg_in": {"index": 0, "values": [{"string": "6f6b"}]}}],
+        "signers": [{"external": {"verifier": "7665726966696572", "key": "63692d6b6579"}}],
+        "threshold": 1,
+        "cap": null,
+        "valid_until": null,
+        "generation": null
+      }
+    ]
+  },
+  "authorizations": [
+    {
+      "batch": [
+        {"call": {"contract": "746f6b656e", "function": "66", "args": [{"string": "6f6b"}]}}
+      ],
+      "choices": [1],
+      "authenticated": [{"external": {"verifier": "7665726966696572", "key": "63692d6b6579"}}],
+      "now": 500,
+      "generation": "0",
+      "expected": {"ok": [{"history": [], "total": "0"}, {"history": [], "total": "0"}]}
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "66",
+            "args": [
+              {
+                "string": "616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161"
+              }
+            ]
+          }
+        }
+      ],
+      "choices": [1],
+      "authenticated": [{"external": {"verifier": "7665726966696572", "key": "63692d6b6579"}}],
+      "now": 500,
+      "generation": "0",
+      "expected": "refused"
+    },
+    {
+      "batch": [
+        {"call": {"contract": "746f6b656e", "function": "66", "args": [{"symbol": "6f6b"}]}}
+      ],
+      "choices": [1],
+      "authenticated": [{"external": {"verifier": "7665726966696572", "key": "63692d6b6579"}}],
+      "now": 500,
+      "generation": "0",
+      "expected": "refused"
+    }
+  ]
+}

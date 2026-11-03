@@ -76,6 +76,15 @@
 //! names the first node that would be overdrawn; a delegation appends a child
 //! with any allowance; a refill raises one node's allowance.
 //!
+//! [`lower`] turns a Perch policy document ([`Doc`], the part of one that
+//! Perch's lowering reads, as plain data with identifiers as bytes) into the
+//! rules Perch installs for it on OpenZeppelin's smart account: one per
+//! document rule, then the recovery rule when the document configures
+//! recovery. [`lower_scoped`] turns a scoped document, a grant the owner
+//! issues under the admin document, into rules carrying the generation they
+//! were issued under, and refuses one that names the account or a contract of
+//! the excluded set [`excluded`] takes from the admin document.
+//!
 //! Identifiers and byte payloads compare exactly (same length, same bytes).
 //! Values of different [`Val`] constructors are never equal, and signers of
 //! different [`Signer`] constructors are never equal. The evaluator
@@ -98,13 +107,18 @@
 //!   every target with at least 32-bit pointers (asserted at compile time
 //!   below);
 //! - no parameter or local variable is named after a module of the crate
-//!   (`attenuate`, `authorize`, `budget`, `bytes`, `cap`, `context`, `rule`,
-//!   `rule_set`, `signer`, `val`): the translation puts each module's items in a Lean
-//!   namespace of that name, which a binding of the same name would shadow.
+//!   (`attenuate`, `authorize`, `budget`, `bytes`, `cap`, `context`,
+//!   `document`, `lowering`, `rule`, `rule_set`, `scoped`, `signer`, `val`):
+//!   the translation puts each module's items in a Lean namespace of that
+//!   name, which a binding of the same name would shadow;
+//! - integer conversions narrow only where the value fits: a signer count
+//!   under `count <= u32::MAX as usize`, and a byte of a `u32` after `% 256`
+//!   or a division that leaves less than 256.
 //!
 //! The only panic left is allocation failure in `Vec::push`, which the
-//! attenuation steps, [`check_spend`], [`authorize`] and the budget operations
-//! call to build their result; [`allows`] and [`allows_all`] do not allocate.
+//! attenuation steps, [`check_spend`], [`authorize`], the budget operations
+//! and the lowering call to build their result; [`allows`] and
+//! [`allows_all`] do not allocate.
 #![no_std]
 #![forbid(unsafe_code)]
 
@@ -116,8 +130,11 @@ mod budget;
 mod bytes;
 mod cap;
 mod context;
+mod document;
+mod lowering;
 mod rule;
 mod rule_set;
+mod scoped;
 mod signer;
 mod val;
 
@@ -133,8 +150,13 @@ pub use cap::{
     params_valid,
 };
 pub use context::Context;
+pub use document::{
+    ArgConstraint, Doc, DocCap, DocRule, Pred, Principals, Recovery, Scope, SignerDecl, ZkFactor,
+};
+pub use lowering::{AMOUNT_ARG, MAX_STRING_LEN, lower, recovery_rule, u32_xdr};
 pub use rule::{Cap, Cond, Functions, Rule, cap_valid, cond_holds, functions_match, rule_allows};
 pub use rule_set::{allows, allows_all};
+pub use scoped::{ScopeError, excluded, lower_scoped};
 pub use signer::{Signer, signer_eq, signer_in, signers_met};
 pub use val::{Val, val_eq, val_in};
 

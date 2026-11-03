@@ -5,3 +5,4 @@ import Conformance.Random
 import Conformance.Caps
 import Conformance.Authorize
 import Conformance.Budget
+import Conformance.Documents

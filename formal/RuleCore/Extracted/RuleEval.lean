@@ -2864,10 +2864,591 @@ def cap.params_valid (params : cap.CapParams) : Result Bool := do
 def cap.empty_record : Result cap.SpendRecord := do
   ok { history := (alloc.vec.Vec.new cap.SpendEntry), total := 0#i128 }
 
+/-- [rule_eval::document::Scope]
+    Source: 'crates/rule-eval/src/document.rs', lines 19:0-24:1
+    Visibility: public -/
+@[discriminant isize]
+inductive document.Scope where
+| Contract : alloc.vec.Vec Std.U8 → document.Scope
+| SelfAdmin : document.Scope
+
+/-- [rule_eval::document::Principals]
+    Source: 'crates/rule-eval/src/document.rs', lines 27:0-32:1
+    Visibility: public -/
+@[discriminant isize]
+inductive document.Principals where
+| All : alloc.vec.Vec (alloc.vec.Vec Std.U8) → document.Principals
+| Threshold :
+  alloc.vec.Vec (alloc.vec.Vec Std.U8) →
+  Std.U32 →
+  document.Principals
+
+/-- [rule_eval::document::Pred]
+    Source: 'crates/rule-eval/src/document.rs', lines 35:0-46:1
+    Visibility: public -/
+@[discriminant isize]
+inductive document.Pred where
+| IsSelf : document.Pred
+| AddressEq : alloc.vec.Vec Std.U8 → document.Pred
+| StringIn : alloc.vec.Vec (alloc.vec.Vec Std.U8) → document.Pred
+| StringPrefix : alloc.vec.Vec Std.U8 → document.Pred
+| U32Eq : Std.U32 → document.Pred
+
+/-- [rule_eval::document::ArgConstraint]
+    Source: 'crates/rule-eval/src/document.rs', lines 49:0-52:1
+    Visibility: public -/
+structure document.ArgConstraint where
+  index : Std.U32
+  pred : document.Pred
+
+/-- [rule_eval::document::DocCap]
+    Source: 'crates/rule-eval/src/document.rs', lines 56:0-59:1
+    Visibility: public -/
+structure document.DocCap where
+  limit : Std.I128
+  period_ledgers : Std.U32
+
+/-- [rule_eval::document::DocRule]
+    Source: 'crates/rule-eval/src/document.rs', lines 62:0-72:1
+    Visibility: public -/
+structure document.DocRule where
+  scope : document.Scope
+  principals : document.Principals
+  functions : Option (alloc.vec.Vec (alloc.vec.Vec Std.U8))
+  args : Option (alloc.vec.Vec document.ArgConstraint)
+  not_after_ledger : Option Std.U32
+  cap : Option document.DocCap
+
+/-- [rule_eval::document::SignerDecl]
+    Source: 'crates/rule-eval/src/document.rs', lines 75:0-78:1
+    Visibility: public -/
+structure document.SignerDecl where
+  id : alloc.vec.Vec Std.U8
+  signer : signer.Signer
+
+/-- [rule_eval::document::ZkFactor]
+    Source: 'crates/rule-eval/src/document.rs', lines 81:0-84:1
+    Visibility: public -/
+structure document.ZkFactor where
+  adapter : alloc.vec.Vec Std.U8
+  pool : alloc.vec.Vec Std.U8
+
+/-- [rule_eval::document::Recovery]
+    Source: 'crates/rule-eval/src/document.rs', lines 88:0-91:1
+    Visibility: public -/
+structure document.Recovery where
+  controller : alloc.vec.Vec Std.U8
+  zk : Option document.ZkFactor
+
+/-- [rule_eval::document::Doc]
+    Source: 'crates/rule-eval/src/document.rs', lines 95:0-99:1
+    Visibility: public -/
+structure document.Doc where
+  signers : alloc.vec.Vec document.SignerDecl
+  rules : alloc.vec.Vec document.DocRule
+  recovery : Option document.Recovery
+
 /-- [rule_eval::_]
-    Source: 'crates/rule-eval/src/lib.rs', lines 141:0-141:41 -/
+    Source: 'crates/rule-eval/src/lib.rs', lines 163:0-163:41 -/
 @[global_simps, irreducible]
 def «_» : Result Unit := massert (core.num.Usize.BITS >= 32#u32)
+
+/-- [rule_eval::lowering::MAX_STRING_LEN]
+    Source: 'crates/rule-eval/src/lowering.rs', lines 38:0-38:38
+    Visibility: public -/
+@[global_simps, irreducible]
+def lowering.MAX_STRING_LEN : Std.Usize := 256#usize
+
+/-- [rule_eval::lowering::AMOUNT_ARG]
+    Source: 'crates/rule-eval/src/lowering.rs', lines 42:0-42:30
+    Visibility: public -/
+@[global_simps, irreducible] def lowering.AMOUNT_ARG : Std.U32 := 2#u32
+
+/-- [rule_eval::lowering::transfer]:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 45:0-47:1 -/
+def lowering.transfer : Result (alloc.vec.Vec Std.U8) := do
+  let s ←
+    lift (Array.to_slice
+      (Array.make 8#usize [
+        116#u8, 114#u8, 97#u8, 110#u8, 115#u8, 102#u8, 101#u8, 114#u8
+        ]))
+  bytes.bytes_copy s
+
+/-- [rule_eval::lowering::apply_doc]:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 50:0-52:1 -/
+def lowering.apply_doc : Result (alloc.vec.Vec Std.U8) := do
+  let s ←
+    lift (Array.to_slice
+      (Array.make 9#usize [
+        97#u8, 112#u8, 112#u8, 108#u8, 121#u8, 95#u8, 100#u8, 111#u8, 99#u8
+        ]))
+  bytes.bytes_copy s
+
+/-- [rule_eval::lowering::u32_xdr]:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 58:0-69:1
+    Visibility: public -/
+def lowering.u32_xdr (v : Std.U32) : Result (alloc.vec.Vec Std.U8) := do
+  let i ← v / 16777216#u32
+  let i1 ← lift (UScalar.cast .U8 i)
+  let i2 ← v / 65536#u32
+  let i3 ← i2 % 256#u32
+  let i4 ← lift (UScalar.cast .U8 i3)
+  let i5 ← v / 256#u32
+  let i6 ← i5 % 256#u32
+  let i7 ← lift (UScalar.cast .U8 i6)
+  let i8 ← v % 256#u32
+  let i9 ← lift (UScalar.cast .U8 i8)
+  let s ←
+    lift (Array.to_slice
+      (Array.make 8#usize [ 0#u8, 0#u8, 0#u8, 3#u8, i1, i4, i7, i9 ]))
+  bytes.bytes_copy s
+
+/-- [rule_eval::lowering::resolve]: loop body 0:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 74:4-81:1 -/
+@[rust_loop_body]
+def lowering.resolve_loop.body
+  (id : Slice Std.U8) (signers : Slice document.SignerDecl) (i : Std.Usize) :
+  Result (ControlFlow Std.Usize (Option signer.Signer))
+  := do
+  let i1 := Slice.len signers
+  if i < i1
+  then
+    let sd ← Slice.index_usize signers i
+    let s := alloc.vec.Vec.deref sd.id
+    let b ← bytes.bytes_eq s id
+    if b
+    then let s1 ← signer.signer_copy sd.signer
+         ok (done (some s1))
+    else let i2 ← i + 1#usize
+         ok (cont i2)
+  else ok (done none)
+
+/-- [rule_eval::lowering::resolve]: loop 0:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 74:4-81:1 -/
+@[rust_loop]
+def lowering.resolve_loop
+  (id : Slice Std.U8) (signers : Slice document.SignerDecl) (i : Std.Usize) :
+  Result (Option signer.Signer)
+  := do
+  loop
+    (fun i1 => lowering.resolve_loop.body id signers i1)
+    i
+
+/-- [rule_eval::lowering::resolve]:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 72:0-81:1 -/
+@[reducible]
+def lowering.resolve
+  (id : Slice Std.U8) (signers : Slice document.SignerDecl) :
+  Result (Option signer.Signer)
+  := do
+  lowering.resolve_loop id signers 0#usize
+
+/-- [rule_eval::lowering::named]: loop body 0:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 88:4-93:5 -/
+@[rust_loop_body]
+def lowering.named_loop.body
+  (ids : Slice (alloc.vec.Vec Std.U8)) (signers : Slice document.SignerDecl)
+  (out : alloc.vec.Vec signer.Signer) (i : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec signer.Signer) × Std.Usize)
+    (alloc.vec.Vec signer.Signer))
+  := do
+  let i1 := Slice.len ids
+  if i < i1
+  then
+    let v ← Slice.index_usize ids i
+    let s := alloc.vec.Vec.deref v
+    let o ← lowering.resolve s signers
+    let out1 ←
+      match o with
+      | none => ok out
+      | some s1 => alloc.vec.Vec.push out s1
+    let i2 ← i + 1#usize
+    ok (cont (out1, i2))
+  else ok (done out)
+
+/-- [rule_eval::lowering::named]: loop 0:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 88:4-93:5 -/
+@[rust_loop]
+def lowering.named_loop
+  (ids : Slice (alloc.vec.Vec Std.U8)) (signers : Slice document.SignerDecl)
+  (out : alloc.vec.Vec signer.Signer) (i : Std.Usize) :
+  Result (alloc.vec.Vec signer.Signer)
+  := do
+  loop
+    (fun (out1, i1) => lowering.named_loop.body ids signers out1 i1)
+    (out, i)
+
+/-- [rule_eval::lowering::named]:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 85:0-95:1 -/
+@[reducible]
+def lowering.named
+  (ids : Slice (alloc.vec.Vec Std.U8)) (signers : Slice document.SignerDecl) :
+  Result (alloc.vec.Vec signer.Signer)
+  := do
+  lowering.named_loop ids signers (alloc.vec.Vec.new signer.Signer) 0#usize
+
+/-- [rule_eval::lowering::principal_ids]:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 98:0-102:1 -/
+def lowering.principal_ids
+  (p : document.Principals) : Result (Slice (alloc.vec.Vec Std.U8)) := do
+  let ids ←
+    match p with
+    | document.Principals.All ids1 => ok ids1
+    | document.Principals.Threshold ids1 _ => ok ids1
+  ok (alloc.vec.Vec.deref ids)
+
+/-- [rule_eval::lowering::threshold_of]:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 107:0-117:1 -/
+def lowering.threshold_of
+  (p : document.Principals) (count : Std.Usize) : Result Std.U32 := do
+  match p with
+  | document.Principals.All _ =>
+    let i ← lift (UScalar.cast .Usize core.num.U32.MAX)
+    if count > i
+    then ok core.num.U32.MAX
+    else ok (UScalar.cast .U32 count)
+  | document.Principals.Threshold _ m => ok m
+
+/-- [rule_eval::lowering::contract_of]:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 120:0-125:1 -/
+def lowering.contract_of
+  (s : document.Scope) (account : Slice Std.U8) :
+  Result (alloc.vec.Vec Std.U8)
+  := do
+  match s with
+  | document.Scope.Contract a =>
+    let s1 := alloc.vec.Vec.deref a
+    bytes.bytes_copy s1
+  | document.Scope.SelfAdmin => bytes.bytes_copy account
+
+/-- [rule_eval::lowering::covers_transfer]:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 128:0-133:1 -/
+def lowering.covers_transfer
+  (functions : Option (alloc.vec.Vec (alloc.vec.Vec Std.U8))) :
+  Result Bool
+  := do
+  match functions with
+  | none => ok true
+  | some fs =>
+    let v ← lowering.transfer
+    let s := alloc.vec.Vec.deref v
+    let s1 := alloc.vec.Vec.deref fs
+    bytes.bytes_in s s1
+
+/-- [rule_eval::lowering::capped_functions]:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 137:0-143:1 -/
+def lowering.capped_functions
+  (functions : Option (alloc.vec.Vec (alloc.vec.Vec Std.U8))) :
+  Result rule.Functions
+  := do
+  let b ← lowering.covers_transfer functions
+  if b
+  then
+    let v ← lowering.transfer
+    let «only» ←
+      alloc.vec.Vec.push (alloc.vec.Vec.new (alloc.vec.Vec Std.U8)) v
+    ok (rule.Functions.Only «only»)
+  else ok (rule.Functions.Only (alloc.vec.Vec.new (alloc.vec.Vec Std.U8)))
+
+/-- [rule_eval::lowering::listed_functions]:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 147:0-152:1 -/
+def lowering.listed_functions
+  (functions : Option (alloc.vec.Vec (alloc.vec.Vec Std.U8))) :
+  Result rule.Functions
+  := do
+  match functions with
+  | none =>
+    ok (rule.Functions.AnyExcept (alloc.vec.Vec.new (alloc.vec.Vec Std.U8)))
+  | some fs =>
+    let s := alloc.vec.Vec.deref fs
+    let v ← bytes.bytes_list_copy s
+    ok (rule.Functions.Only v)
+
+/-- [rule_eval::lowering::lower_functions]:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 155:0-160:1 -/
+def lowering.lower_functions
+  (functions : Option (alloc.vec.Vec (alloc.vec.Vec Std.U8)))
+  (cap : Option document.DocCap) :
+  Result rule.Functions
+  := do
+  match cap with
+  | none => lowering.listed_functions functions
+  | some _ => lowering.capped_functions functions
+
+/-- [rule_eval::lowering::strings_within]: loop body 0:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 167:4-172:5 -/
+@[rust_loop_body]
+def lowering.strings_within_loop.body
+  (values : Slice (alloc.vec.Vec Std.U8)) (out : alloc.vec.Vec val.Val)
+  (i : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec val.Val) × Std.Usize) (alloc.vec.Vec
+    val.Val))
+  := do
+  let i1 := Slice.len values
+  if i < i1
+  then
+    let v ← Slice.index_usize values i
+    let i2 := alloc.vec.Vec.len v
+    let out1 ←
+      if i2 <= lowering.MAX_STRING_LEN
+      then
+        do
+        let s := alloc.vec.Vec.deref v
+        let v1 ← bytes.bytes_copy s
+        alloc.vec.Vec.push out (val.Val.String v1)
+      else ok out
+    let i3 ← i + 1#usize
+    ok (cont (out1, i3))
+  else ok (done out)
+
+/-- [rule_eval::lowering::strings_within]: loop 0:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 167:4-172:5 -/
+@[rust_loop]
+def lowering.strings_within_loop
+  (values : Slice (alloc.vec.Vec Std.U8)) (out : alloc.vec.Vec val.Val)
+  (i : Std.Usize) :
+  Result (alloc.vec.Vec val.Val)
+  := do
+  loop
+    (fun (out1, i1) => lowering.strings_within_loop.body values out1 i1)
+    (out, i)
+
+/-- [rule_eval::lowering::strings_within]:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 164:0-174:1 -/
+@[reducible]
+def lowering.strings_within
+  (values : Slice (alloc.vec.Vec Std.U8)) :
+  Result (alloc.vec.Vec val.Val)
+  := do
+  lowering.strings_within_loop values (alloc.vec.Vec.new val.Val) 0#usize
+
+/-- [rule_eval::lowering::lower_pred]:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 177:0-185:1 -/
+def lowering.lower_pred
+  (index : Std.U32) (pred : document.Pred) (account : Slice Std.U8) :
+  Result rule.Cond
+  := do
+  match pred with
+  | document.Pred.IsSelf =>
+    let v ← bytes.bytes_copy account
+    ok (rule.Cond.ArgEq index (val.Val.Address v))
+  | document.Pred.AddressEq a =>
+    let s := alloc.vec.Vec.deref a
+    let v ← bytes.bytes_copy s
+    ok (rule.Cond.ArgEq index (val.Val.Address v))
+  | document.Pred.StringIn values =>
+    let s := alloc.vec.Vec.deref values
+    let v ← lowering.strings_within s
+    ok (rule.Cond.ArgIn index v)
+  | document.Pred.StringPrefix p =>
+    let s := alloc.vec.Vec.deref p
+    let v ← bytes.bytes_copy s
+    ok (rule.Cond.ArgStrPrefix index v)
+  | document.Pred.U32Eq v =>
+    let v1 ← lowering.u32_xdr v
+    ok (rule.Cond.ArgEq index (val.Val.Other v1))
+
+/-- [rule_eval::lowering::lower_args]: loop body 0:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 191:4-194:5 -/
+@[rust_loop_body]
+def lowering.lower_args_loop.body
+  (args : Slice document.ArgConstraint) (account : Slice Std.U8)
+  (out : alloc.vec.Vec rule.Cond) (i : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec rule.Cond) × Std.Usize) (alloc.vec.Vec
+    rule.Cond))
+  := do
+  let i1 := Slice.len args
+  if i < i1
+  then
+    let ac ← Slice.index_usize args i
+    let c ← lowering.lower_pred ac.index ac.pred account
+    let out1 ← alloc.vec.Vec.push out c
+    let i2 ← i + 1#usize
+    ok (cont (out1, i2))
+  else ok (done out)
+
+/-- [rule_eval::lowering::lower_args]: loop 0:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 191:4-194:5 -/
+@[rust_loop]
+def lowering.lower_args_loop
+  (args : Slice document.ArgConstraint) (account : Slice Std.U8)
+  (out : alloc.vec.Vec rule.Cond) (i : Std.Usize) :
+  Result (alloc.vec.Vec rule.Cond)
+  := do
+  loop
+    (fun (out1, i1) => lowering.lower_args_loop.body args account out1 i1)
+    (out, i)
+
+/-- [rule_eval::lowering::lower_args]:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 188:0-196:1 -/
+@[reducible]
+def lowering.lower_args
+  (args : Slice document.ArgConstraint) (account : Slice Std.U8) :
+  Result (alloc.vec.Vec rule.Cond)
+  := do
+  lowering.lower_args_loop args account (alloc.vec.Vec.new rule.Cond) 0#usize
+
+/-- [rule_eval::lowering::with_amount]:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 200:0-204:1 -/
+def lowering.with_amount
+  (conds : alloc.vec.Vec rule.Cond) : Result (alloc.vec.Vec rule.Cond) := do
+  alloc.vec.Vec.push conds (rule.Cond.ArgI128AtMost lowering.AMOUNT_ARG
+    core.num.I128.MAX)
+
+/-- [rule_eval::lowering::lower_conds]:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 208:0-221:1 -/
+def lowering.lower_conds
+  (args : Option (alloc.vec.Vec document.ArgConstraint))
+  (cap : Option document.DocCap) (account : Slice Std.U8) :
+  Result (alloc.vec.Vec rule.Cond)
+  := do
+  let out ←
+    match args with
+    | none => ok (alloc.vec.Vec.new rule.Cond)
+    | some cs => let s := alloc.vec.Vec.deref cs
+                 lowering.lower_args s account
+  match cap with
+  | none => ok out
+  | some _ => lowering.with_amount out
+
+/-- [rule_eval::lowering::lower_cap]:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 224:0-233:1 -/
+def lowering.lower_cap
+  (cap : Option document.DocCap) : Result (Option rule.Cap) := do
+  match cap with
+  | none => ok none
+  | some c =>
+    ok (some
+      {
+        limit := c.limit,
+        period := c.period_ledgers,
+        amount_arg := lowering.AMOUNT_ARG
+      })
+
+/-- [rule_eval::lowering::last_ledger]:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 237:0-242:1 -/
+def lowering.last_ledger
+  (not_after_ledger : Option Std.U32) : Result (Option Std.U32) := do
+  match not_after_ledger with
+  | none => ok none
+  | some x => let i ← lift (core.num.U32.saturating_sub x 1#u32)
+              ok (some i)
+
+/-- [rule_eval::lowering::lower_rule]:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 246:0-264:1 -/
+def lowering.lower_rule
+  (r : document.DocRule) (signers : Slice document.SignerDecl)
+  (account : Slice Std.U8) (generation : Option Std.U64) :
+  Result rule.Rule
+  := do
+  let s ← lowering.principal_ids r.principals
+  let rule_signers ← lowering.named s signers
+  let i := alloc.vec.Vec.len rule_signers
+  let threshold ← lowering.threshold_of r.principals i
+  let v ← lowering.contract_of r.scope account
+  let f ← lowering.lower_functions r.functions r.cap
+  let v1 ← lowering.lower_conds r.args r.cap account
+  let o ← lowering.lower_cap r.cap
+  let o1 ← lowering.last_ledger r.not_after_ledger
+  ok
+    {
+      contract := v,
+      functions := f,
+      conds := v1,
+      signers := rule_signers,
+      threshold,
+      cap := o,
+      valid_until := o1,
+      generation
+    }
+
+/-- [rule_eval::lowering::lower_rules]: loop body 0:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 276:4-279:5 -/
+@[rust_loop_body]
+def lowering.lower_rules_loop.body
+  (rules : Slice document.DocRule) (signers : Slice document.SignerDecl)
+  (account : Slice Std.U8) (generation : Option Std.U64)
+  (out : alloc.vec.Vec rule.Rule) (i : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec rule.Rule) × Std.Usize) (alloc.vec.Vec
+    rule.Rule))
+  := do
+  let i1 := Slice.len rules
+  if i < i1
+  then
+    let dr ← Slice.index_usize rules i
+    let r ← lowering.lower_rule dr signers account generation
+    let out1 ← alloc.vec.Vec.push out r
+    let i2 ← i + 1#usize
+    ok (cont (out1, i2))
+  else ok (done out)
+
+/-- [rule_eval::lowering::lower_rules]: loop 0:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 276:4-279:5 -/
+@[rust_loop]
+def lowering.lower_rules_loop
+  (rules : Slice document.DocRule) (signers : Slice document.SignerDecl)
+  (account : Slice Std.U8) (generation : Option Std.U64)
+  (out : alloc.vec.Vec rule.Rule) (i : Std.Usize) :
+  Result (alloc.vec.Vec rule.Rule)
+  := do
+  loop
+    (fun (out1, i1) => lowering.lower_rules_loop.body rules signers account
+      generation out1 i1)
+    (out, i)
+
+/-- [rule_eval::lowering::lower_rules]:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 268:0-281:1 -/
+@[reducible]
+def lowering.lower_rules
+  (rules : Slice document.DocRule) (signers : Slice document.SignerDecl)
+  (account : Slice Std.U8) (generation : Option Std.U64) :
+  Result (alloc.vec.Vec rule.Rule)
+  := do
+  lowering.lower_rules_loop rules signers account generation (alloc.vec.Vec.new
+    rule.Rule) 0#usize
+
+/-- [rule_eval::lowering::recovery_rule]:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 286:0-297:1
+    Visibility: public -/
+def lowering.recovery_rule (account : Slice Std.U8) : Result rule.Rule := do
+  let v ← bytes.bytes_copy account
+  let v1 ← lowering.apply_doc
+  let s ← lift (Array.to_slice (Array.make 1#usize [ v1 ]))
+  let v2 ← bytes.bytes_list_copy s
+  ok
+    {
+      contract := v,
+      functions := (rule.Functions.Only v2),
+      conds := (alloc.vec.Vec.new rule.Cond),
+      signers := (alloc.vec.Vec.new signer.Signer),
+      threshold := 0#u32,
+      cap := none,
+      valid_until := none,
+      generation := none
+    }
+
+/-- [rule_eval::lowering::with_recovery]:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 300:0-304:1 -/
+def lowering.with_recovery
+  (rules : alloc.vec.Vec rule.Rule) (account : Slice Std.U8) :
+  Result (alloc.vec.Vec rule.Rule)
+  := do
+  let r ← lowering.recovery_rule account
+  alloc.vec.Vec.push rules r
+
+/-- [rule_eval::lowering::lower]:
+    Source: 'crates/rule-eval/src/lowering.rs', lines 310:0-316:1
+    Visibility: public -/
+def lowering.lower
+  (d : document.Doc) (account : Slice Std.U8) :
+  Result (alloc.vec.Vec rule.Rule)
+  := do
+  let s := alloc.vec.Vec.deref d.rules
+  let s1 := alloc.vec.Vec.deref d.signers
+  let out ← lowering.lower_rules s s1 account none
+  match d.recovery with
+  | none => ok out
+  | some _ => lowering.with_recovery out account
 
 /-- [rule_eval::rule_set::allows]: loop body 0:
     Source: 'crates/rule-eval/src/rule_set.rs', lines 12:4-19:1
@@ -2956,5 +3537,117 @@ def rule_set.allows_all
   Result Bool
   := do
   rule_set.allows_all_loop rules contexts authenticated 0#usize
+
+/-- [rule_eval::scoped::ScopeError]
+    Source: 'crates/rule-eval/src/scoped.rs', lines 21:0-26:1
+    Visibility: public -/
+@[discriminant isize]
+inductive scoped.ScopeError where
+| RecoveryConfigured : scoped.ScopeError
+| ExcludedScope : scoped.ScopeError
+
+/-- [rule_eval::scoped::excluded]:
+    Source: 'crates/rule-eval/src/scoped.rs', lines 32:0-43:1
+    Visibility: public -/
+def scoped.excluded
+  (admin : document.Doc) (account : Slice Std.U8) :
+  Result (alloc.vec.Vec (alloc.vec.Vec Std.U8))
+  := do
+  let v ← bytes.bytes_copy account
+  let out ← alloc.vec.Vec.push (alloc.vec.Vec.new (alloc.vec.Vec Std.U8)) v
+  match admin.recovery with
+  | none => ok out
+  | some rc =>
+    let s := alloc.vec.Vec.deref rc.controller
+    let v1 ← bytes.bytes_copy s
+    let out1 ← alloc.vec.Vec.push out v1
+    match rc.zk with
+    | none => ok out1
+    | some z =>
+      let s1 := alloc.vec.Vec.deref z.adapter
+      let v2 ← bytes.bytes_copy s1
+      let out2 ← alloc.vec.Vec.push out1 v2
+      let s2 := alloc.vec.Vec.deref z.pool
+      let v3 ← bytes.bytes_copy s2
+      alloc.vec.Vec.push out2 v3
+
+/-- [rule_eval::scoped::scope_excluded]:
+    Source: 'crates/rule-eval/src/scoped.rs', lines 46:0-51:1 -/
+def scoped.scope_excluded
+  (s : document.Scope) (account : Slice Std.U8)
+  (excluded : Slice (alloc.vec.Vec Std.U8)) :
+  Result Bool
+  := do
+  match s with
+  | document.Scope.Contract a =>
+    let s1 := alloc.vec.Vec.deref a
+    let b ← bytes.bytes_eq s1 account
+    if b
+    then ok true
+    else let s2 := alloc.vec.Vec.deref a
+         bytes.bytes_in s2 excluded
+  | document.Scope.SelfAdmin => ok true
+
+/-- [rule_eval::scoped::any_excluded]: loop body 0:
+    Source: 'crates/rule-eval/src/scoped.rs', lines 57:4-64:1 -/
+@[rust_loop_body]
+def scoped.any_excluded_loop.body
+  (rules : Slice document.DocRule) (account : Slice Std.U8)
+  (excluded : Slice (alloc.vec.Vec Std.U8)) (i : Std.Usize) :
+  Result (ControlFlow Std.Usize Bool)
+  := do
+  let i1 := Slice.len rules
+  if i < i1
+  then
+    let dr ← Slice.index_usize rules i
+    let b ← scoped.scope_excluded dr.scope account excluded
+    if b
+    then ok (done true)
+    else let i2 ← i + 1#usize
+         ok (cont i2)
+  else ok (done false)
+
+/-- [rule_eval::scoped::any_excluded]: loop 0:
+    Source: 'crates/rule-eval/src/scoped.rs', lines 57:4-64:1 -/
+@[rust_loop]
+def scoped.any_excluded_loop
+  (rules : Slice document.DocRule) (account : Slice Std.U8)
+  (excluded : Slice (alloc.vec.Vec Std.U8)) (i : Std.Usize) :
+  Result Bool
+  := do
+  loop
+    (fun i1 => scoped.any_excluded_loop.body rules account excluded i1)
+    i
+
+/-- [rule_eval::scoped::any_excluded]:
+    Source: 'crates/rule-eval/src/scoped.rs', lines 55:0-64:1 -/
+@[reducible]
+def scoped.any_excluded
+  (rules : Slice document.DocRule) (account : Slice Std.U8)
+  (excluded : Slice (alloc.vec.Vec Std.U8)) :
+  Result Bool
+  := do
+  scoped.any_excluded_loop rules account excluded 0#usize
+
+/-- [rule_eval::scoped::lower_scoped]:
+    Source: 'crates/rule-eval/src/scoped.rs', lines 75:0-90:1
+    Visibility: public -/
+def scoped.lower_scoped
+  (d : document.Doc) (account : Slice Std.U8)
+  (excluded : Slice (alloc.vec.Vec Std.U8)) (generation : Std.U64) :
+  Result (core.result.Result (alloc.vec.Vec rule.Rule) scoped.ScopeError)
+  := do
+  match d.recovery with
+  | none =>
+    let s := alloc.vec.Vec.deref d.rules
+    let b ← scoped.any_excluded s account excluded
+    if b
+    then ok (core.result.Result.Err scoped.ScopeError.ExcludedScope)
+    else
+      let s1 := alloc.vec.Vec.deref d.rules
+      let s2 := alloc.vec.Vec.deref d.signers
+      let v ← lowering.lower_rules s1 s2 account (some generation)
+      ok (core.result.Result.Ok v)
+  | some _ => ok (core.result.Result.Err scoped.ScopeError.RecoveryConfigured)
 
 end rule_eval

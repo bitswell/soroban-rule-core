@@ -1,0 +1,103 @@
+{
+  "format": 1,
+  "name": "document-random-24",
+  "description": "Randomized admin document trace 24 of seed 20261102.",
+  "document": {
+    "signers": [
+      {"id": "7330", "signer": {"delegated": {"address": "61"}}},
+      {"id": "7331", "signer": {"external": {"verifier": "76", "key": "6b"}}},
+      {"id": "7332", "signer": {"external": {"verifier": "76", "key": "6b32"}}},
+      {"id": "7333", "signer": {"delegated": {"address": "6162"}}}
+    ],
+    "rules": [
+      {
+        "scope": "self_admin",
+        "principals": {"all": ["7330"]},
+        "functions": null,
+        "args": null,
+        "not_after_ledger": null,
+        "cap": null
+      },
+      {
+        "scope": {"contract": "746f6b656e"},
+        "principals": {"threshold": {"ids": ["7331"], "m": 1}},
+        "functions": ["617070726f7665", "7075626c697368"],
+        "args": null,
+        "not_after_ledger": null,
+        "cap": null
+      },
+      {
+        "scope": {"contract": "7661756c74"},
+        "principals": {"all": ["7330"]},
+        "functions": ["7075626c697368"],
+        "args": [{"index": 3, "pred": {"string_prefix": "70"}}, {"index": 0, "pred": "is_self"}],
+        "not_after_ledger": 1,
+        "cap": null
+      }
+    ],
+    "recovery": null
+  },
+  "account": "6163636f756e74",
+  "scoped": null,
+  "lowered": {
+    "ok": [
+      {
+        "contract": "6163636f756e74",
+        "functions": {"any_except": []},
+        "conds": [],
+        "signers": [{"delegated": {"address": "61"}}],
+        "threshold": 1,
+        "cap": null,
+        "valid_until": null,
+        "generation": null
+      },
+      {
+        "contract": "746f6b656e",
+        "functions": {"only": ["617070726f7665", "7075626c697368"]},
+        "conds": [],
+        "signers": [{"external": {"verifier": "76", "key": "6b"}}],
+        "threshold": 1,
+        "cap": null,
+        "valid_until": null,
+        "generation": null
+      },
+      {
+        "contract": "7661756c74",
+        "functions": {"only": ["7075626c697368"]},
+        "conds": [
+          {"arg_str_prefix": {"index": 3, "prefix": "70"}},
+          {"arg_eq": {"index": 0, "value": {"address": "6163636f756e74"}}}
+        ],
+        "signers": [{"delegated": {"address": "61"}}],
+        "threshold": 1,
+        "cap": null,
+        "valid_until": 0,
+        "generation": null
+      }
+    ]
+  },
+  "authorizations": [
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "617070726f7665",
+            "args": [{"address": "61"}, {"address": "62"}, {"i128": "1"}, {"bool": false}]
+          }
+        }
+      ],
+      "choices": [1],
+      "authenticated": [{"external": {"verifier": "76", "key": "6b"}}],
+      "now": 505,
+      "generation": "0",
+      "expected": {
+        "ok": [
+          {"history": [], "total": "0"},
+          {"history": [], "total": "0"},
+          {"history": [], "total": "0"}
+        ]
+      }
+    }
+  ]
+}

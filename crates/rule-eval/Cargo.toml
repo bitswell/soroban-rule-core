@@ -1,6 +1,6 @@
 [package]
 name = "rule-eval"
-description = "Rule-set evaluator and attenuation for Soroban authorization contexts"
+description = "Rule-set evaluator, attenuation and Perch document lowering for Soroban authorization contexts"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
