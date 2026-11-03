@@ -1,0 +1,9 @@
+# expect: job `entries` has no matrix entry {'entry': 'b', 'features': ''}
+# expect: job `check` has no matrix entry {'entry': 'a'}
+claims:
+  - id: c
+    claim: x
+    status: tested
+    evidence:
+      - ci: {workflow: .github/workflows/gate.yml, job: entries, step: Test, matrix: {entry: b, features: ""}}
+      - ci: {workflow: .github/workflows/gate.yml, job: check, step: Build, matrix: {entry: a}}

@@ -1,1 +1,3 @@
 /target
+# Host entries outside the workspace (conformance/host/p30) build here.
+/conformance/host/*/target

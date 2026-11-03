@@ -1640,6 +1640,7 @@ dependencies = [
  "rule-eval",
  "rule-eval-conformance",
  "sha2",
+ "soroban-env-host",
  "soroban-facade",
  "soroban-sdk",
 ]

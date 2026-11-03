@@ -1,0 +1,8 @@
+# expect: `matrix` a mapping of strings
+claims:
+  - id: c
+    claim: x
+    status: tested
+    evidence:
+      - ci: {workflow: .github/workflows/gate.yml, job: entries, step: Test, matrix: b}
+      - ci: {workflow: .github/workflows/gate.yml, job: check, step: Build}

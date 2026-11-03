@@ -16,8 +16,12 @@ trace and `doc-count` randomized document traces of the same seed into
 `<dir>/soroban/values` and `<dir>/soroban/contexts`, every named storage trace
 and `storage-count` randomized storage traces of the same seed into
 `<dir>/soroban/storage`, and every named host trace and `host-count`
-randomized host traces of the same seed into `<dir>/soroban/host`, after
-removing the `.json` files already in each.
+randomized host traces of the same seed into `<dir>/soroban/host`, and the
+traces transcribed from soroban-env-host's own tests into
+`<dir>/soroban/seed/host` and `<dir>/soroban/seed/storage`, with their
+coverage in `<dir>/soroban/seed/coverage.json`, after removing the `.json`
+files already in each. It writes nothing when the model's outcome for a
+transcribed case differs from the host test's.
 -/
 
 open Conformance
@@ -143,6 +147,31 @@ def main (args : List String) : IO UInt32 := do
     unless t.inDomain do
       IO.eprintln s!"{t.name}: the harness cannot drive this trace on the host"
       return 1
+  let seeds := Soroban.Seed.hostSeeds
+  let seedStorages := Soroban.Seed.storageSeeds
+  let seedNames := seeds.map (·.trace.name) ++ seedStorages.map (·.trace.name)
+  if seedNames.eraseDups.length ≠ seedNames.length then
+    IO.eprintln "two seed traces share a name"
+    return 1
+  for s in seeds do
+    unless s.trace.inDomain do
+      IO.eprintln s!"{s.trace.name}: the harness cannot drive this trace on the host"
+      return 1
+    unless s.expects.length == s.trace.txs.length do
+      IO.eprintln s!"{s.trace.name}: one expectation for each transaction"
+      return 1
+  for s in seedStorages do
+    unless s.trace.inDomain do
+      IO.eprintln s!"{s.trace.name}: a muxed key is used in instance storage"
+      return 1
+  for e in Soroban.Seed.inconsistencies do
+    IO.eprintln e
+  unless Soroban.Seed.inconsistencies.isEmpty do
+    return 1
+  for (file, test, line) in Soroban.Seed.disagreements do
+    IO.eprintln s!"{file} {test}, line {line}: the model's outcome differs from the host test's"
+  unless Soroban.Seed.disagreements.isEmpty do
+    return 1
   let capDir := o.dir / "caps"
   let authDir := o.dir / "authorize"
   let budgetDir := o.dir / "budget"
@@ -151,7 +180,11 @@ def main (args : List String) : IO UInt32 := do
   let contextDir := o.dir / "soroban" / "contexts"
   let storageDir := o.dir / "soroban" / "storage"
   let hostDir := o.dir / "soroban" / "host"
-  for d in [o.dir, capDir, authDir, budgetDir, docDir, valueDir, contextDir, storageDir, hostDir] do
+  let seedDir := o.dir / "soroban" / "seed"
+  let seedHostDir := seedDir / "host"
+  let seedStorageDir := seedDir / "storage"
+  for d in [o.dir, capDir, authDir, budgetDir, docDir, valueDir, contextDir, storageDir, hostDir,
+      seedDir, seedHostDir, seedStorageDir] do
     IO.FS.createDirAll d
     for entry in ← d.readDir do
       if entry.path.extension == some "json" then
@@ -174,5 +207,10 @@ def main (args : List String) : IO UInt32 := do
     IO.FS.writeFile (storageDir / s!"{t.name}.json") t.toJson.render
   for t in hosts do
     IO.FS.writeFile (hostDir / s!"{t.name}.json") t.toJson.render
-  IO.println s!"wrote {cases.length} vectors to {o.dir}, {traces.length} cap traces to {capDir}, {auths.length} authorization traces to {authDir}, {budgets.length} budget traces to {budgetDir}, {docs.length} document traces to {docDir}, {Soroban.Values.valueVectors.length + Soroban.Values.contextVectors.length} Soroban value and context vectors to {o.dir / "soroban"}, {storages.length} storage traces to {storageDir} and {hosts.length} host traces to {hostDir}"
+  for s in seeds do
+    IO.FS.writeFile (seedHostDir / s!"{s.trace.name}.json") s.trace.toJson.render
+  for s in seedStorages do
+    IO.FS.writeFile (seedStorageDir / s!"{s.trace.name}.json") s.trace.toJson.render
+  IO.FS.writeFile (seedDir / "coverage.json") Soroban.Seed.coverageJson.render
+  IO.println s!"wrote {cases.length} vectors to {o.dir}, {traces.length} cap traces to {capDir}, {auths.length} authorization traces to {authDir}, {budgets.length} budget traces to {budgetDir}, {docs.length} document traces to {docDir}, {Soroban.Values.valueVectors.length + Soroban.Values.contextVectors.length} Soroban value and context vectors to {o.dir / "soroban"}, {storages.length} storage traces to {storageDir}, {hosts.length} host traces to {hostDir}, and {seeds.length} host and {seedStorages.length} storage traces transcribed from the host's tests to {seedDir}"
   return 0

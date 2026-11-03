@@ -837,7 +837,9 @@ a muxed key; and accounts that check their contexts with `rule-eval`.
 Randomized traces add call trees with their entries changed.
 
 `conformance/host` replays them on the host. Each contract of a trace is a
-native test contract that runs what the trace says; each transaction's
+native test contract that runs what the trace says: before each call the
+harness hands the callee the body the trace gives that call, so two calls of
+one context may run different bodies. Each transaction's
 entries are installed with `set_auths` and its top call is invoked with
 `try_invoke_contract`, so the host runs its enforcing authorization: it calls
 `__check_auth`, consumes nonces, checks expiry and matches trees. The harness
@@ -852,7 +854,7 @@ the reading of contexts and the account's rule check go through
 also tests the shell's path from the host's contexts to the evaluator's
 verdict.
 
-The harness also reads every context vector with SDK 29's `auth::Context`,
+The harness also reads every context vector with the SDK's `auth::Context`,
 the type a shell's `__check_auth` takes its contexts as: the SDK reads a
 vector exactly when the model does, and writes what it read back as the same
 XDR. And it checks that the facade's real implementation refuses an
@@ -860,10 +862,68 @@ executable tag as a key or a value, which the host itself would take.
 
 The harness source (`conformance/host/src`, `conformance/host/tests`) is one
 crate per host version, named `soroban-host-p<protocol>` with its library
-named `harness`: `p29` pins soroban-sdk 29.0.1 and is a workspace member,
-sharing the lock with the facade. A crate for another host is a directory
-beside it with its own `Cargo.toml` and `Cargo.lock`; when its SDK is not the
-facade's it leaves `facade` off and drives the SDK directly.
+named `harness`:
+
+| Entry | SDK | Host | Protocol | Lock | Through |
+| --- | --- | --- | --- | --- | --- |
+| `p29` | soroban-sdk 29.0.1 | soroban-env-host 29.0.1 | 29 | the workspace's, shared with the facade | the facade's real implementation (`facade`, on by default), and the SDK directly (`--no-default-features`) |
+| `p30` | soroban-sdk 30.0.0-rc.1 | soroban-env-host 30.0.0 | 30 | its own (`[workspace]` in its `Cargo.toml`) | the SDK directly |
+
+A crate whose SDK is not the facade's leaves `facade` off, since the facade's
+real implementation takes soroban-sdk 29.0.1's `Env`. Running `p29` both ways
+separates a facade difference from a host difference: the two SDK runs differ
+only in the host. Each crate names `soroban-env-host` at the version its SDK
+fixes, so the harness can turn the host's diagnostic events off (they are no
+part of what it compares, and with them on, a native contract's storage call
+refused for a muxed key spends the host's shadow budget and testutils' next
+record of the authorizations panics, on both hosts). Neither entry needs a
+`cfg` gate in the shared source or a lock pin beyond its SDK.
+
+`host.yml` runs three checks on every pull request and push to `main`, each
+with no condition and no allowed failure: `Host 29.0.1 (facade)`,
+`Host 29.0.1 (SDK)` and `Host 30.0.0 (SDK)`. Each lints the harness with
+clippy and replays every Soroban vector, seed traces included. Every vector
+agrees on both hosts: no host behaviour the vectors exercise changed from
+29.0.1 to 30.0.0.
+
+### The host's own tests
+
+`conformance/generator/Conformance/Soroban/Seed.lean` transcribes the
+authorization and storage tests of soroban-env-host 29.0.1 into traces of
+the existing formats, in `conformance/vectors/soroban/seed/host` and
+`seed/storage`:
+
+- `src/test/auth.rs`: every case of `AuthTest::tree_test_enforcing` and its two variants (addresses passed with duplicates, addresses read from storage), parsed from the test source with each setup tree, signed tree and expected `success`, and the `verify_nonces_consumed` after it; and `test_out_of_order_auth`. A host test's Stellar-account signers become contract accounts whose `__check_auth` accepts, so the case still tests the matching; the credentials alternate `ADDRESS_V2` and `ADDRESS` as in the test. `tree_fn`'s `require_auth_for_args(addr, [])` is a `require_auth` in a call with no arguments, which has the same context.
+- `src/test/auth_delegation.rs`: each case whose test account only checks its payload or contexts and delegates (`BuiltinDelegated`), as a trace of its own, since each case gives its accounts their own programs. The payload and contexts the account checks are checked on every `__check_auth` event instead.
+- `src/test/storage.rs`: the storage operations of `test_storage` on each durability and of `test_storage_mix`, and the muxed-address cases.
+- `src/test/invoker_auth.rs` and `src/test/frame.rs`: nothing; every test there is about `authorize_as_current_contract` or a host-internal function.
+
+Each case keeps the host test's own expectation. `gen-vectors` runs every
+trace on the model and writes nothing when the model's outcome for a case,
+or a nonce count, differs from the host test's; otherwise each trace carries
+the model's outcome, events and storage like any other, and the harness
+replays it on every host entry. `seed/coverage.json` records, for each of the
+74 tests of the five files, whether the traces express it, how many of its
+cases, how many agree, and why each case or test left out is outside the
+models:
+
+| | Tests | Cases |
+| --- | --- | --- |
+| In the five files | 74 | |
+| Expressed | 27 | 155 of their 213 |
+| The model agrees with the host test | | 155 |
+| The model disagrees | | 0 |
+| Outside the models | 47 | 58 more in the expressed tests |
+
+The cases outside are recording authorization, `authorize_as_current_contract`,
+`require_auth` inside `__check_auth`, `require_auth_for_args` with other
+arguments, accounts whose `__check_auth` branches on storage or calls other
+contracts, `get_delegated_signers`, Stellar-account signers and delegates,
+the host's validation of the delegate list (order, duplicates, depth), test
+accounts comparing their payload or contexts with values the test computed,
+time to live, footprints, size limits, a muxed key in instance storage, and
+host-internal functions. The transcription is of 29.0.1; a later host's tests
+are read as a diff against it when the window moves.
 
 ### What the models leave out
 
@@ -876,20 +936,41 @@ and source-account credentials (only contract accounts authenticate);
 context is data the facade reads); executable tags (CAP-85), which the facade
 refuses; a muxed key in instance storage, which host 29.0.1 refuses only when
 it writes the instance back at the end of the call; and every protocol but
-29. The vectors stay inside this domain
+29 (the vectors also run on host 30.0.0, which tests the models at protocol
+30 as far as they reach). The vectors stay inside this domain
 (`Trace.inDomain`): contract accounts, valid symbols, maps keyed in the host's
 order, and transactions within 16 ledgers, so temporary entries and used
 nonces stay live.
 
 ### Keeping the models in step with the host
 
-A model is only as current as the host version it is tested against. The
-design:
+A model is only as current as the host version it is tested against. As
+built:
 
-- one pin, soroban-sdk 29.0.1 with soroban-env-host 29.0.1 (protocol 29, the protocol mainnet runs), which the facade and the shells build against; moving the pin is a pull request that must pass every vector, or change the model and its proofs;
-- the same vectors in a CI matrix on the pin and the next released host (29.x and 30.x), so a host change shows before the network adopts it; `host.yml` is that matrix, with the pin as its one entry so far, run on every pull request and push to `main` with no allowed failure;
-- the host's own authorization and storage tests transcribed once as seed vectors, to measure how much of the host's own specification the models cover;
+- one pin, soroban-sdk 29.0.1 with soroban-env-host 29.0.1 (protocol 29, the protocol mainnet runs), which the facade and the shells build against;
+- the same vectors on a window of two hosts, the pin's and the next release's (29.0.1 and 30.0.0, `host.yml`), so a host change shows as a failing check before the network adopts it, since stellar-core releases a host before the network votes its protocol in;
+- the host's own authorization and storage tests of the pin's release, transcribed once as seed traces ([above](#the-hosts-own-tests));
 - models parameterised by protocol only when a theorem must hold across a protocol change.
+
+A bump is a pull request, and it must pass every check:
+
+- **Moving the window** (a new next release, such as 31.x): add `conformance/host/p31` as a copy of `p30` with its package name, its SDK and host pins and a fresh `Cargo.lock` (`cargo generate-lockfile`), add its entry to `host.yml`'s matrix, and drop the oldest entry that is not the pin. A pre-release SDK becomes the release by changing the pin in place. If a vector fails on the new entry, the pull request reports it as a host behaviour change against the pinned protocol's models; the vector and the model stay as they are until the pin moves.
+- **Moving the pin** (the network's protocol advances): point the facade, `p29`'s successor and the workspace lock at the new SDK, read the host's history between the two releases for the files the models are written from, and record each change and its effect on the models, as below. A failing vector means changing the model and its proofs, or not moving. Transcribe the new release's tests as a diff of the five test files against the transcribed release, with the coverage updated.
+
+#### The host changes of protocol 30
+
+Read from soroban-env-host 30.0.0 against 29.0.1: `auth.rs`, `storage.rs`,
+`host/frame.rs`, `host/data_helper.rs`, `builtin_contracts/account_contract.rs`
+and `builtin_contracts/common_types.rs` are unchanged, so matching, rollback
+and storage are the same source.
+
+| Change | Model in scope | Effect |
+| --- | --- | --- |
+| CAP-84: `SC_ADDRESS_TYPE_MUXED_CONTRACT`, an address type (`host/conversion.rs`, `host.rs`, `builtin_contracts/base_types.rs`), refused in storage keys as a muxed account is | Values; storage key domain | Outside the facade's values: the facade's reader reads no muxed contract, so a context or value holding one is refused before `rule-eval` sees it. The storage model is unchanged. |
+| ML-DSA signature verification and its cost types (`crypto/ml_dsa.rs`, `budget.rs`) | None | New host functions no model uses. |
+| testutils' default ledger protocol 30 | None | The entry runs at protocol 30 (`the_host_runs_the_pinned_protocol`). |
+
+Every vector, the seed traces included, agrees on 30.0.0.
 
 #### The host changes of protocols 28 and 29
 
@@ -951,12 +1032,6 @@ This repository differs from all of these in four ways.
 These are design notes for work that is not built. Where the brief leaves a
 choice open, it is listed under [Open questions](#open-questions) and not
 decided here.
-
-### M5: the host matrix and seed vectors
-
-`host.yml` gains the entry for soroban-env-host 30.x, a crate in
-`conformance/host` beside `p29` with its own pins and lock, and the host's own
-authorization and storage tests are transcribed into seed vectors.
 
 ### M6: adoption
 

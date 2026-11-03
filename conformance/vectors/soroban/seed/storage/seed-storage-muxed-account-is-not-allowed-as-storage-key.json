@@ -1,0 +1,149 @@
+{
+  "format": 1,
+  "name": "seed-storage-muxed-account-is-not-allowed-as-storage-key",
+  "description": "test_muxed_account_is_not_allowed_as_storage_key of soroban-env-host 29.0.1 src/test/storage.rs: one operation for each call, at lines [508, 518, 527, 534, 508, 518, 527, 534, 527, 534] in order.",
+  "contract": {"contract": "0000000000000000000000000000000000000000000000000000000000000040"},
+  "ops": [
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {
+        "address": {
+          "muxed_account": {
+            "id": "123",
+            "key": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+          }
+        }
+      },
+      "expected": "refused"
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {
+        "address": {
+          "muxed_account": {
+            "id": "123",
+            "key": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+          }
+        }
+      },
+      "val": {"u64": "1234"},
+      "expected": "refused"
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"u64": "1234"},
+      "val": {
+        "address": {
+          "muxed_account": {
+            "id": "123",
+            "key": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+          }
+        }
+      },
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"u64": "1234"},
+      "expected": {
+        "value": {
+          "address": {
+            "muxed_account": {
+              "id": "123",
+              "key": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "get",
+      "durability": "temporary",
+      "key": {
+        "address": {
+          "muxed_account": {
+            "id": "123",
+            "key": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+          }
+        }
+      },
+      "expected": "refused"
+    },
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {
+        "address": {
+          "muxed_account": {
+            "id": "123",
+            "key": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+          }
+        }
+      },
+      "val": {"u64": "1234"},
+      "expected": "refused"
+    },
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"u64": "1234"},
+      "val": {
+        "address": {
+          "muxed_account": {
+            "id": "123",
+            "key": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+          }
+        }
+      },
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "temporary",
+      "key": {"u64": "1234"},
+      "expected": {
+        "value": {
+          "address": {
+            "muxed_account": {
+              "id": "123",
+              "key": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "set",
+      "durability": "instance",
+      "key": {"u64": "1234"},
+      "val": {
+        "address": {
+          "muxed_account": {
+            "id": "123",
+            "key": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+          }
+        }
+      },
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "instance",
+      "key": {"u64": "1234"},
+      "expected": {
+        "value": {
+          "address": {
+            "muxed_account": {
+              "id": "123",
+              "key": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

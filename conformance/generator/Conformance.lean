@@ -10,3 +10,4 @@ import Conformance.Soroban.Encode
 import Conformance.Soroban.Values
 import Conformance.Soroban.Storage
 import Conformance.Soroban.Host
+import Conformance.Soroban.Seed

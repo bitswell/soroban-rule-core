@@ -3,12 +3,12 @@
 //! authorization (`set_auths`).
 //!
 //! Every contract a host trace names is registered as a native contract
-//! ([`Dispatcher`]) that runs what the trace says: a call looks up its body
-//! by its context (contract, function and arguments) and runs its steps on
-//! the host; `__check_auth` records what it receives and runs the account's
-//! program. Each transaction's entries are installed with `set_auths`, its top
-//! call is invoked with `try_invoke_contract`, and the harness compares, with
-//! the model's:
+//! ([`Dispatcher`]) that runs what the trace says: before each call the
+//! harness hands the callee the body the trace gives that call, and the
+//! callee runs its steps on the host; `__check_auth` records what it receives
+//! and runs the account's program. Each transaction's entries are installed
+//! with `set_auths`, its top call is invoked with `try_invoke_contract`, and
+//! the harness compares, with the model's:
 //!
 //! - whether the transaction succeeded (refusals are compared as refusals,
 //!   whatever error the host reports);
@@ -50,12 +50,28 @@ use soroban_sdk::xdr::{
 };
 use soroban_sdk::{Address as SdkAddress, BytesN, Env, Error, Symbol, TryFromVal, Val as SdkVal};
 
-/// A fresh testutils environment that writes no test snapshot.
+/// A fresh testutils environment that writes no test snapshot and records
+/// no diagnostic events.
+///
+/// Diagnostic events are no part of what the harness compares. With them on
+/// (testutils' default), a native contract's storage call refused because its
+/// key holds a muxed address leaves the host's shadow budget spent while the
+/// refusal is recorded, and the next invocation hook (testutils' record of
+/// the authorizations) panics with `Error(Budget, ExceededLimit)`, on
+/// soroban-env-host 29.0.1 and 30.0.0 alike.
+///
+/// # Panics
+///
+/// If the host refuses the diagnostic level.
 #[must_use]
 pub fn env() -> Env {
-    Env::new_with_config(EnvTestConfig {
+    let env = Env::new_with_config(EnvTestConfig {
         capture_snapshot_at_drop: false,
-    })
+    });
+    env.host()
+        .set_diagnostic_level(soroban_env_host::DiagnosticLevel::None)
+        .expect("the host takes a diagnostic level");
+    env
 }
 
 // ---------------------------------------------------------------------------
@@ -259,11 +275,11 @@ pub enum Event {
     },
 }
 
-/// What the contracts of a trace share: the bodies of the current
-/// transaction's calls, the accounts' programs and what ran.
+/// What the contracts of a trace share: the call about to start, with the
+/// body the trace gives it, the accounts' programs and what ran.
 #[derive(Default)]
 pub struct State {
-    calls: Vec<(AuthContext, Vec<JsonStep>)>,
+    pending: Option<(AuthContext, Vec<JsonStep>)>,
     accounts: Vec<(Address, Vec<JsonAccountStep>)>,
     events: Vec<Event>,
 }
@@ -344,19 +360,7 @@ impl Dispatcher {
                     });
                 }
                 JsonStep::Call { callee, catches } => {
-                    let contract = decode_address(&callee.contract).expect("an address");
-                    let args = decode_values(&callee.args).expect("arguments");
-                    let mut host_args = soroban_sdk::Vec::<SdkVal>::new(env);
-                    for a in &args {
-                        host_args.push_back(to_host(env, a));
-                    }
-                    let fn_name = decode_hex(&callee.fn_name).expect("a function name");
-                    let r = env.try_invoke_contract::<SdkVal, Error>(
-                        &sdk_address(env, &contract),
-                        &symbol(env, &fn_name),
-                        host_args,
-                    );
-                    if !matches!(r, Ok(Ok(_))) && !catches {
+                    if !invoke(env, &self.state, callee) && !catches {
                         return contract_error();
                     }
                 }
@@ -460,14 +464,13 @@ impl ContractFunctionSet for Dispatcher {
                     fn_name: func.as_bytes().to_vec(),
                     args: args.iter().map(|a| from_host(&env, a)).collect(),
                 };
-                let body = self
+                let (expected, body) = self
                     .state
-                    .borrow()
-                    .calls
-                    .iter()
-                    .find(|(c, _)| *c == context)
-                    .map(|(_, b)| b.clone())
-                    .unwrap_or_else(|| panic!("the trace has no call {context:?}"));
+                    .borrow_mut()
+                    .pending
+                    .take()
+                    .unwrap_or_else(|| panic!("the trace starts no call {context:?}"));
+                assert_eq!(context, expected, "the host started another call");
                 Some(self.run(&env, &me, &context, &body))
             }
         }
@@ -576,20 +579,33 @@ fn payload(network_id: [u8; 32], p: &JsonPreimage) -> [u8; 32] {
 // ---------------------------------------------------------------------------
 // Replaying.
 
-fn calls_of(c: &JsonCall, out: &mut Vec<(AuthContext, Vec<JsonStep>)>) {
-    out.push((
+/// Invokes a call of the trace, catching its failure, with its body pending
+/// for the callee. The host refuses a call of a contract already on the call
+/// stack before the callee runs, so the body is dropped afterwards whether
+/// the callee took it or not. Returns whether the call succeeded.
+fn invoke(env: &Env, state: &Rc<RefCell<State>>, c: &JsonCall) -> bool {
+    let contract = decode_address(&c.contract).expect("an address");
+    let fn_name = decode_hex(&c.fn_name).expect("a function name");
+    let args = decode_values(&c.args).expect("arguments");
+    let mut host_args = soroban_sdk::Vec::<SdkVal>::new(env);
+    for a in &args {
+        host_args.push_back(to_host(env, a));
+    }
+    state.borrow_mut().pending = Some((
         AuthContext::Contract {
-            contract: decode_address(&c.contract).expect("an address"),
-            fn_name: decode_hex(&c.fn_name).expect("a function name"),
-            args: decode_values(&c.args).expect("arguments"),
+            contract: contract.clone(),
+            fn_name: fn_name.clone(),
+            args,
         },
         c.body.clone(),
     ));
-    for step in &c.body {
-        if let JsonStep::Call { callee, .. } = step {
-            calls_of(callee, out);
-        }
-    }
+    let r = env.try_invoke_contract::<SdkVal, Error>(
+        &sdk_address(env, &contract),
+        &symbol(env, &fn_name),
+        host_args,
+    );
+    state.borrow_mut().pending = None;
+    matches!(r, Ok(Ok(_)))
 }
 
 /// A host with every contract of `contracts` registered, sharing `state`.
@@ -611,26 +627,11 @@ fn host(contracts: &[JsonAddress], state: &Rc<RefCell<State>>) -> Env {
 /// Runs one transaction: its entries with `set_auths`, then its top call.
 /// Returns whether it succeeded and what ran.
 fn run_tx(env: &Env, state: &Rc<RefCell<State>>, tx: &JsonTx) -> (bool, Vec<Event>) {
-    {
-        let mut s = state.borrow_mut();
-        s.calls.clear();
-        calls_of(&tx.call, &mut s.calls);
-        s.events.clear();
-    }
+    state.borrow_mut().events.clear();
     env.ledger().set_sequence_number(tx.ledger);
     env.set_auths(&tx.entries.iter().map(entry).collect::<Vec<_>>());
-    let call = &tx.call;
-    let contract = decode_address(&call.contract).expect("an address");
-    let mut args = soroban_sdk::Vec::<SdkVal>::new(env);
-    for a in decode_values(&call.args).expect("arguments") {
-        args.push_back(to_host(env, &a));
-    }
-    let r = env.try_invoke_contract::<SdkVal, Error>(
-        &sdk_address(env, &contract),
-        &symbol(env, &decode_hex(&call.fn_name).expect("a function name")),
-        args,
-    );
-    (matches!(r, Ok(Ok(_))), state.borrow().events.clone())
+    let ok = invoke(env, state, &tx.call);
+    (ok, state.borrow().events.clone())
 }
 
 fn check_event(env: &Env, got: &Event, want: &JsonEvent) -> Result<(), String> {

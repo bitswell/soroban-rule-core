@@ -23,11 +23,14 @@ and every cited piece of evidence must exist:
                             test target of workspace package PKG, as
                             `cargo test --no-run` builds it, and PATH is a
                             test that target's `--list` prints.
-  ci       {workflow, job, step[, runs]}
+  ci       {workflow, job, step[, runs][, matrix]}
                             the workflow runs on every pull request and on
                             every push to main, has that job and that step
                             (by name), neither is conditional or allowed to
-                            fail, and the step's `run` contains `runs`.
+                            fail, the step's `run` contains `runs`, and the
+                            job's matrix has an entry with every value
+                            `matrix` gives (one of its `include` entries, or
+                            a value of each named axis).
   file     PATH [contains: TEXT]
                             PATH exists; with `contains`, it is a file
                             holding TEXT.
@@ -49,8 +52,10 @@ Theorem names are checked in one of two ways (--theorems):
           `lake env lean` in formal/. Needs a finished `lake build`.
 
 Test names come from cargo (`cargo test --workspace --locked --no-run`, then
-each test executable's `--list`) unless --test-list names a file holding one
-PKG/TARGET::PATH per line. --skip-tests leaves test names unchecked, for a
+each test executable's `--list`), for the repository's workspace and for each
+other workspace with a Cargo.lock that git tracks (a host entry of
+conformance/host that pins its own host), unless --test-list names a file
+holding one PKG/TARGET::PATH per line. --skip-tests leaves test names unchecked, for a
 run where another one checks them.
 
 Usage: tools/check-claims [--root DIR] [--ledger FILE] [--theorems record|lean]
@@ -89,7 +94,7 @@ ALLOWED = {
 }
 
 CLAIM_KEYS = {"id", "claim", "status", "evidence", "assumes"}
-CI_KEYS = {"workflow", "job", "step", "runs"}
+CI_KEYS = {"workflow", "job", "step", "runs", "matrix"}
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9.-]*$")
 LEAN_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_'!?]*(\.[A-Za-z_][A-Za-z0-9_'!?]*)*$")
 TEST_RE = re.compile(r"^[A-Za-z0-9_-]+/[A-Za-z0-9_-]+::[A-Za-z0-9_:]+$")
@@ -167,10 +172,17 @@ def evidence_kind(ledger: Ledger, where: str, item) -> str | None:
     value = item[kind]
     if kind == "ci":
         if not isinstance(value, dict) or not {"workflow", "job", "step"} <= set(value) <= CI_KEYS:
-            ledger.error(where, "ci evidence needs `workflow`, `job` and `step`, and may give `runs`")
+            ledger.error(
+                where, "ci evidence needs `workflow`, `job` and `step`, and may give `runs` and `matrix`"
+            )
             return None
-        if not all(isinstance(v, str) for v in value.values()):
-            ledger.error(where, "ci evidence fields must be strings")
+        matrix = value.get("matrix")
+        fields_ok = all(isinstance(v, str) for k, v in value.items() if k != "matrix")
+        matrix_ok = matrix is None or (
+            isinstance(matrix, dict) and matrix and all(isinstance(v, str) for v in matrix.values())
+        )
+        if not (fields_ok and matrix_ok):
+            ledger.error(where, "ci evidence fields must be strings, and `matrix` a mapping of strings")
             return None
     elif not isinstance(value, str) or not value:
         ledger.error(where, f"{kind} evidence must be a non-empty string")
@@ -240,11 +252,30 @@ def lean_theorems(root: Path, names: set[str]) -> set[str]:
     return {n for n, v in verdicts.items() if v == "ok"}
 
 
+def workspaces(root: Path) -> list[Path]:
+    """The manifest of the repository's workspace, then of every other
+    workspace whose Cargo.lock git tracks."""
+    listed = subprocess.run(
+        ["git", "ls-files", "--", "*Cargo.lock"], cwd=root, check=True, capture_output=True, text=True
+    ).stdout.split()
+    others = sorted(root / Path(lock).parent / "Cargo.toml" for lock in listed if Path(lock).parent != Path("."))
+    return [root / "Cargo.toml", *others]
+
+
 def cargo_tests(root: Path) -> set[str]:
-    """PKG/TARGET::PATH for every test cargo builds in the workspace."""
+    """PKG/TARGET::PATH for every test cargo builds in the repository's
+    workspaces."""
+    tests = set()
+    for manifest in workspaces(root):
+        tests |= workspace_tests(root, manifest)
+    return tests
+
+
+def workspace_tests(root: Path, manifest: Path) -> set[str]:
+    """PKG/TARGET::PATH for every test cargo builds in one workspace."""
     meta = json.loads(
         subprocess.run(
-            ["cargo", "metadata", "--format-version", "1", "--no-deps", "--locked"],
+            ["cargo", "metadata", "--format-version", "1", "--no-deps", "--locked", "--manifest-path", manifest],
             cwd=root,
             check=True,
             capture_output=True,
@@ -253,7 +284,16 @@ def cargo_tests(root: Path) -> set[str]:
     )
     packages = {p["id"]: p["name"] for p in meta["packages"]}
     build = subprocess.run(
-        ["cargo", "test", "--workspace", "--locked", "--no-run", "--message-format=json"],
+        [
+            "cargo",
+            "test",
+            "--workspace",
+            "--locked",
+            "--no-run",
+            "--message-format=json",
+            "--manifest-path",
+            manifest,
+        ],
         cwd=root,
         capture_output=True,
         text=True,
@@ -318,7 +358,20 @@ def check_ci(root: Path, ci: dict) -> str | None:
         return f"step `{ci['step']}` is conditional or may fail"
     if "runs" in ci and ci["runs"] not in (step.get("run") or ""):
         return f"step `{ci['step']}` does not run `{ci['runs']}`"
+    if "matrix" in ci and not matrix_has(job, ci["matrix"]):
+        return f"job `{ci['job']}` has no matrix entry {ci['matrix']}"
     return None
+
+
+def matrix_has(job: dict, want: dict) -> bool:
+    """Whether one entry of the job's matrix has every value of `want`."""
+    matrix = (job.get("strategy") or {}).get("matrix")
+    if not isinstance(matrix, dict):
+        return False
+    include = matrix.get("include") or []
+    if any(isinstance(e, dict) and all(e.get(k) == v for k, v in want.items()) for e in include):
+        return True
+    return all(isinstance(matrix.get(k), list) and v in matrix[k] for k, v in want.items())
 
 
 def article(word: str) -> str:
