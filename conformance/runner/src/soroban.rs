@@ -747,11 +747,5 @@ pub fn load_dir<T: DeserializeOwned + Named>(dir: &Path) -> Result<Vec<(PathBuf,
 /// the directory `CONFORMANCE_VECTORS` names, or under `conformance/vectors`.
 #[must_use]
 pub fn vectors_dir(kind: &str) -> PathBuf {
-    std::env::var_os("CONFORMANCE_VECTORS")
-        .map_or_else(
-            || Path::new(env!("CARGO_MANIFEST_DIR")).join("../vectors"),
-            PathBuf::from,
-        )
-        .join("soroban")
-        .join(kind)
+    crate::vectors_dir().join("soroban").join(kind)
 }

@@ -140,6 +140,29 @@ every storage trace's results.
 `rule-eval` itself keeps no dependencies; the runner depends on it,
 `soroban-facade`, `serde` and `serde_json`.
 
+### Using the vectors from another repository
+
+A consumer takes the runner as a git dependency pinned to a revision and asks
+it where the vectors are:
+
+```toml
+[dev-dependencies]
+rule-eval-conformance = { git = "https://github.com/bitswell/soroban-rule-core", rev = "<rev>" }
+```
+
+```rust
+let dir = rule_eval_conformance::vectors_dir();
+let rules = rule_eval_conformance::load_dir(&dir)?;
+let caps = rule_eval_conformance::caps::load_dir(&dir.join("caps"))?;
+```
+
+`vectors_dir()` returns `conformance/vectors` beside the runner crate in
+cargo's checkout of the repository, so the vectors come from the same revision
+as the runner that reads them. Setting `CONFORMANCE_VECTORS` replaces that
+directory, as it does for the runner's own tests. The rule vectors sit at the
+top of the directory; the other kinds sit in `authorize`, `budget`, `caps`,
+`documents` and `soroban/{values,contexts,storage,host}`.
+
 ## Running them against the host
 
 ```sh

@@ -3,17 +3,12 @@
 //! environment variable names.
 
 use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use rule_eval_conformance::caps::{JsonCapError, Outcome, Trace, check, load_dir};
 
 fn dir() -> PathBuf {
-    std::env::var_os("CONFORMANCE_VECTORS")
-        .map_or_else(
-            || Path::new(env!("CARGO_MANIFEST_DIR")).join("../vectors"),
-            PathBuf::from,
-        )
-        .join("caps")
+    rule_eval_conformance::vectors_dir().join("caps")
 }
 
 fn traces() -> Vec<(PathBuf, Trace)> {
