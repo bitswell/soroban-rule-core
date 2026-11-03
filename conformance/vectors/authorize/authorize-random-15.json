@@ -1,135 +1,116 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "authorize-random-15",
   "description": "Randomized authorization trace 15 of seed 20261102.",
   "rules": [
     {
       "contract": "6331",
-      "functions": ["67", "67"],
-      "conds": [
-        {
-          "arg_eq": {
-            "index": 4294967295,
-            "value": {"i128": "-170141183460469231731687303715884105728"}
-          }
-        }
-      ],
-      "signers": [{"external": {"verifier": "76", "key": "6b32"}}],
-      "threshold": 0,
-      "cap": {"limit": "0", "period": 2, "amount_arg": 2}
+      "functions": {"only": ["67", "666f", "67"]},
+      "conds": [],
+      "signers": [],
+      "threshold": 1,
+      "cap": {"limit": "5", "period": 2, "amount_arg": 1},
+      "valid_until": 4,
+      "generation": null
     },
     {
-      "contract": "",
-      "functions": ["666f", "66"],
-      "conds": [
-        {"arg_i128_at_most": {"index": 1, "bound": "0"}},
-        {"arg_eq": {"index": 1, "value": {"address": "62"}}}
-      ],
-      "signers": [{"external": {"verifier": "76", "key": "6b32"}}],
+      "contract": "6332",
+      "functions": {"only": ["66", "67", "67"]},
+      "conds": [{"arg_i128_at_most": {"index": 1, "bound": "100"}}],
+      "signers": [],
       "threshold": 0,
-      "cap": null
+      "cap": null,
+      "valid_until": 4294967295,
+      "generation": null
     }
   ],
   "start": [{"history": [], "total": "0"}, {"history": [], "total": "0"}],
   "authorizations": [
     {
       "batch": [
+        {"call": {"contract": "6331", "function": "67", "args": [{"bool": false}, {"i128": "2"}]}},
         {
           "call": {
-            "contract": "",
-            "function": "666f",
-            "args": [{"address": "616263"}, {"address": "62"}]
+            "contract": "6332",
+            "function": "67",
+            "args": [{"string": ""}, {"i128": "-170141183460469231731687303715884105728"}]
           }
         },
-        {"call": {"contract": "", "function": "66", "args": [{"bytes": ""}, {"i128": "0"}]}},
         {
           "call": {
             "contract": "6331",
             "function": "67",
-            "args": [{"bytes": "6162"}, {"address": ""}]
+            "args": [{"i128": "170141183460469231731687303715884105727"}, {"bytes": ""}]
           }
         }
       ],
-      "choices": [1, 1, 1],
+      "choices": [0, 1, 1],
       "authenticated": [],
-      "now": 12,
+      "now": 6,
+      "generation": "2",
+      "expected": {"error": "expired"}
+    },
+    {
+      "batch": [
+        {"call": {"contract": "6332", "function": "66", "args": [{"symbol": "61"}, {"i128": "-1"}]}},
+        {"call": {"contract": "6331", "function": "67", "args": []}},
+        {"call": {"contract": "6331", "function": "67", "args": [{"bool": false}, {"i128": "0"}]}}
+      ],
+      "choices": [1, 0, 0],
+      "authenticated": [],
+      "now": 8,
+      "generation": "3",
+      "expected": {"error": "expired"}
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "6331",
+            "function": "67",
+            "args": [{"bytes": "00ff"}, {"i128": "-1"}]
+          }
+        },
+        {
+          "call": {
+            "contract": "6331",
+            "function": "67",
+            "args": [{"bool": true}, {"i128": "5"}, {"i128": "0"}, {"i128": "1"}]
+          }
+        },
+        {"call": {"contract": "6332", "function": "", "args": [{"other": "00ff"}, {"i128": "100"}]}}
+      ],
+      "choices": [0, 0, 0],
+      "authenticated": [],
+      "now": 16,
+      "generation": "4",
+      "expected": {"error": "expired"}
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "63",
+            "function": "67",
+            "args": [{"bytes": "616263"}, {"address": "61"}]
+          }
+        }
+      ],
+      "choices": [1],
+      "authenticated": [],
+      "now": 17,
+      "generation": "4",
       "expected": {"error": "not_allowed"}
     },
     {
       "batch": [
-        {"call": {"contract": "", "function": "66", "args": [{"other": "00ff"}, {"address": "62"}]}}
-      ],
-      "choices": [2147483648],
-      "authenticated": [],
-      "now": 14,
-      "expected": {"error": "no_such_rule"}
-    },
-    {
-      "batch": [],
-      "choices": [],
-      "authenticated": [
-        {"external": {"verifier": "76", "key": "6b32"}},
-        {"external": {"verifier": "76", "key": "6b32"}}
-      ],
-      "now": 23,
-      "expected": {"ok": [{"history": [], "total": "0"}, {"history": [], "total": "0"}]}
-    },
-    {
-      "batch": [
-        {
-          "call": {
-            "contract": "6331",
-            "function": "67",
-            "args": [{"bool": false}, {"bool": false}, {"i128": "0"}]
-          }
-        },
-        {
-          "call": {
-            "contract": "6331",
-            "function": "67",
-            "args": [{"address": "00ff"}, {"address": "6162"}, {"i128": "-1"}]
-          }
-        }
+        {"call": {"contract": "6331", "function": "66", "args": [{"bool": false}, {"i128": "1"}]}}
       ],
       "choices": [0],
-      "authenticated": [
-        {"external": {"verifier": "76", "key": "6b32"}},
-        {"external": {"verifier": "61", "key": ""}}
-      ],
-      "now": 34,
-      "expected": {"error": "choices_mismatch"}
-    },
-    {
-      "batch": [
-        {
-          "call": {
-            "contract": "",
-            "function": "666f",
-            "args": [{"bool": true}, {"address": "62"}, {"bool": false}, {"bytes": "00ff"}]
-          }
-        },
-        {
-          "call": {
-            "contract": "",
-            "function": "666f",
-            "args": [
-              {"address": "616263"},
-              {"i128": "-170141183460469231731687303715884105728"},
-              {"bool": true},
-              {"u64": "18446744073709551615"}
-            ]
-          }
-        }
-      ],
-      "choices": [1, 1],
-      "authenticated": [
-        {"external": {"verifier": "76", "key": "6b32"}},
-        {"external": {"verifier": "76", "key": "6b32"}},
-        {"external": {"verifier": "76", "key": "6b32"}},
-        {"external": {"verifier": "61", "key": ""}}
-      ],
-      "now": 46,
-      "expected": {"error": "not_allowed"}
+      "authenticated": [],
+      "now": 25,
+      "generation": "4",
+      "expected": {"error": "expired"}
     }
   ]
 }

@@ -11,7 +11,12 @@ the denoted inputs:
 * `bytes_eq_eq`: `bytes_eq a b` is whether `a` and `b` hold the same bytes;
 * `bytes_in_eq`: `bytes_in x list` is whether some element of `list` holds
   the same bytes as `x`;
+* `bytes_starts_with_eq`: `bytes_starts_with s prefix` is whether the bytes of
+  `prefix` are a prefix of those of `s`;
 * `val_eq_eq`: `val_eq a b` is equality of the denoted values;
+* `val_in_eq`: `val_in x list` is membership of the denotation;
+* `functions_match_eq`: `functions_match functions function` is membership of
+  the function in the denoted functions;
 * `cond_holds_eq`: `cond_holds c args` is `Cond.holds` of the denotations;
 * `conds_hold_eq`: `conds_hold conds args` is whether every condition holds;
 * `signer_eq_eq`: `signer_eq a b` is equality of the denoted signers;
@@ -148,6 +153,49 @@ theorem any_bytes_eq_mem (x : List Std.U8) (list : List (alloc.vec.Vec Std.U8)) 
   · rintro ⟨y, hy, he⟩
     exact ⟨y, hy, decide_eq_true (bytesOf_inj.mp he).symm⟩
 
+theorem slice_get_eq {α : Type} (s : Slice α) (i : Usize) :
+    core.slice.Slice.get (core.slice.index.SliceIndexUsizeSlice α) s i = ok s.val[i.val]? := by
+  simp [core.slice.Slice.get]
+
+/-- Prefixes compare exactly: `bytes_starts_with s prefix` is whether the bytes
+of `prefix` are the first bytes of `s`. -/
+theorem bytes_starts_with_eq (s pre : Slice Std.U8) :
+    rule_eval.bytes.bytes_starts_with s pre = ok (decide (bytesOf pre.val <+: bytesOf s.val)) := by
+  unfold rule_eval.bytes.bytes_starts_with rule_eval.bytes.bytes_starts_with_loop
+  rw [loop_all (List.range pre.val.length) (fun k => decide (s.val[k]? = pre.val[k]?))]
+  · have h0 : (0#usize).val = 0 := by simp
+    rw [h0, List.drop_zero]
+    congr 1
+    rw [Bool.eq_iff_iff, List.all_eq_true, decide_eq_true_iff]
+    simp only [bytesOf]
+    rw [List.prefix_map_iff_of_injective byte_injective, List.prefix_iff_getElem?]
+    simp only [List.mem_range, decide_eq_true_eq]
+    constructor
+    · intro h i hi
+      rw [h i hi, List.getElem?_eq_getElem hi]
+    · intro h i hi
+      rw [h i hi, List.getElem?_eq_getElem hi]
+  · intro i hi
+    have hi' : i.val < pre.length := by simpa [Slice.length] using hi
+    obtain ⟨j, hj, hj'⟩ := incr_eq pre i hi'
+    refine ⟨j, hj', ?_⟩
+    have hp : pre.val[i.val]? = some pre.val[i.val] := List.getElem?_eq_getElem hi'
+    simp only [List.getElem_range]
+    cases hs : s.val[i.val]? with
+    | none =>
+      simp [rule_eval.bytes.bytes_starts_with_loop.body, hi', slice_get_eq, hs]
+    | some x =>
+      by_cases he : x = pre.val[i.val]
+      · simp [rule_eval.bytes.bytes_starts_with_loop.body, hi', slice_get_eq, hs,
+          index_usize_eq _ _ hi', he, hj]
+      · have hne : (x != pre.val[i.val]) = true := bne_iff_ne.mpr he
+        simp only [rule_eval.bytes.bytes_starts_with_loop.body, slice_len_lt, hi', ↓reduceIte,
+          slice_get_eq, hs, index_usize_eq _ _ hi', bind_ok, hne, hp, Option.some.injEq, he,
+          decide_false, Bool.false_eq_true]
+  · intro i hi
+    have : ¬ i.val < pre.length := by simp only [Slice.length]; simpa using hi
+    simp [rule_eval.bytes.bytes_starts_with_loop.body, this]
+
 /-! ## Values and conditions -/
 
 theorem val_eq_eq (a b : rule_eval.val.Val) :
@@ -156,9 +204,31 @@ theorem val_eq_eq (a b : rule_eval.val.Val) :
     simp [rule_eval.val.val_eq, denoteVal, bytes_eq_eq, denoteBytes_inj, i128_bv_inj,
       denoteU64_inj]
 
-theorem slice_get_eq {α : Type} (s : Slice α) (i : Usize) :
-    core.slice.Slice.get (core.slice.index.SliceIndexUsizeSlice α) s i = ok s.val[i.val]? := by
-  simp [core.slice.Slice.get]
+/-- `val_eq` with one side fixed is membership of the denotation. -/
+theorem any_val_eq_mem (x : rule_eval.val.Val) (list : List rule_eval.val.Val) :
+    list.any (fun y => decide (denoteVal x = denoteVal y)) =
+      decide (denoteVal x ∈ list.map denoteVal) := by
+  rw [Bool.eq_iff_iff, List.any_eq_true, decide_eq_true_iff, List.mem_map]
+  constructor
+  · rintro ⟨y, hy, he⟩
+    exact ⟨y, hy, (of_decide_eq_true he).symm⟩
+  · rintro ⟨y, hy, he⟩
+    exact ⟨y, hy, decide_eq_true he.symm⟩
+
+theorem val_in_eq (x : rule_eval.val.Val) (list : Slice rule_eval.val.Val) :
+    rule_eval.val.val_in x list = ok (decide (denoteVal x ∈ list.val.map denoteVal)) := by
+  unfold rule_eval.val.val_in rule_eval.val.val_in_loop
+  rw [loop_any list.val (fun y => decide (denoteVal x = denoteVal y))]
+  · simp [any_val_eq_mem]
+  · intro i hi
+    obtain ⟨j, hj, hj'⟩ := incr_eq list i hi
+    refine ⟨j, hj', ?_⟩
+    simp only [rule_eval.val.val_in_loop.body, slice_len_lt, hi, ↓reduceIte,
+      index_usize_eq _ _ hi, val_eq_eq, bind_ok, hj]
+    cases decide (denoteVal x = denoteVal list.val[i.val]) <;> simp
+  · intro i hi
+    have : ¬ i.val < list.length := by simp only [Slice.length]; omega
+    simp [rule_eval.val.val_in_loop.body, this]
 
 theorem cond_holds_eq (c : rule_eval.rule.Cond) (args : Slice rule_eval.val.Val) :
     rule_eval.rule.cond_holds c args = ok ((denoteCond c).holds (args.val.map denoteVal)) := by
@@ -175,6 +245,20 @@ theorem cond_holds_eq (c : rule_eval.rule.Cond) (args : Slice rule_eval.val.Val)
     cases args.val[index.val]? with
     | none => rfl
     | some v => cases v <;> simp [denoteVal]
+  | ArgIn index values =>
+    simp only [rule_eval.rule.cond_holds, lift, bind_ok, slice_get_eq, cast_usize_val,
+      denoteCond, Chain.Cond.holds, List.getElem?_map, denoteU32_toNat]
+    cases args.val[index.val]? with
+    | none => rfl
+    | some v => simp [val_in_eq]
+  | ArgStrPrefix index pre =>
+    simp only [rule_eval.rule.cond_holds, lift, bind_ok, slice_get_eq, cast_usize_val,
+      denoteCond, Chain.Cond.holds, List.getElem?_map, denoteU32_toNat]
+    cases args.val[index.val]? with
+    | none => rfl
+    | some v =>
+      cases v <;> simp [denoteVal, bytes_starts_with_eq, denoteBytes]
+      exact decide_eq_decide.mpr Iff.rfl
 
 theorem conds_hold_eq (conds : Slice rule_eval.rule.Cond) (args : Slice rule_eval.val.Val) :
     rule_eval.rule.conds_hold conds args =
@@ -322,6 +406,11 @@ theorem signers_met_eq (signers : Slice rule_eval.signer.Signer) (threshold : St
 
 /-! ## Rules and rule sets -/
 
+theorem functions_match_eq (fs : rule_eval.rule.Functions) (function : Slice Std.U8) :
+    rule_eval.rule.functions_match fs function =
+      ok (decide (bytesOf function.val ∈ denoteFunctions fs)) := by
+  cases fs <;> simp [rule_eval.rule.functions_match, bytes_in_eq, any_bytes_eq_mem, denoteFunctions]
+
 theorem rule_allows_eq (r : rule_eval.rule.Rule) (c : rule_eval.context.Context)
     (authenticated : Slice rule_eval.signer.Signer) :
     rule_eval.rule.rule_allows r c authenticated =
@@ -333,21 +422,27 @@ theorem rule_allows_eq (r : rule_eval.rule.Rule) (c : rule_eval.context.Context)
     simp only [denoteContext, chain_rule_allows_call, denoteRule, rule_eval.rule.rule_allows,
       bytes_eq_eq, vec_deref_val, bind_ok, hd]
     by_cases hc : contract.val = r.contract.val
-    · simp only [hc, decide_true, ↓reduceIte, bytes_in_eq, vec_deref_val, bind_ok,
-        any_bytes_eq_mem, Bool.true_and]
-      cases decide (bytesOf function.val ∈ r.functions.val.map denoteBytes)
-      · simp
-      · simp only [↓reduceIte, conds_hold_eq, bind_ok, Bool.true_and, List.all_map,
-          Function.comp_def]
+    · simp only [hc, decide_true, ↓reduceIte, Bool.true_and]
+      by_cases hf : bytesOf function.val ∈ denoteFunctions r.functions
+      · have hfm : rule_eval.rule.functions_match r.functions (alloc.vec.Vec.deref function) =
+            ok true := by
+          rw [functions_match_eq, vec_deref_val]
+          simpa using hf
+        simp only [hfm, bind_ok, ↓reduceIte, hf, decide_true, Bool.true_and, conds_hold_eq,
+          List.all_map, Function.comp_def]
         by_cases hconds : ∀ x ∈ r.conds.val, (denoteCond x).holds (args.val.map denoteVal) = true
         · have hall : (r.conds.val.all fun c => (denoteCond c).holds (args.val.map denoteVal)) =
               true := List.all_eq_true.mpr hconds
-          simp only [vec_deref_val, hall, ↓reduceIte, Bool.true_and, signers_met_eq,
-            denoteU32_toNat]
+          simp only [vec_deref_val, hall, ↓reduceIte, signers_met_eq, denoteU32_toNat]
           rfl
         · have hall : (r.conds.val.all fun c => (denoteCond c).holds (args.val.map denoteVal)) =
               false := by simpa using hconds
           simp [hall]
+      · have hfm : rule_eval.rule.functions_match r.functions (alloc.vec.Vec.deref function) =
+            ok false := by
+          rw [functions_match_eq, vec_deref_val]
+          simpa using hf
+        simp [hfm, hf]
     · have : bytesOf contract.val ≠ bytesOf r.contract.val := fun h => hc (bytesOf_inj.mp h)
       simp [hc, this]
 

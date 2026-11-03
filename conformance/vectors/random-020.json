@@ -1,56 +1,48 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "random-020",
   "description": "Randomized case 20 of seed 20261102.",
   "rules": [
-    {"contract": "6331", "functions": [], "conds": [], "signers": [], "threshold": 0, "cap": null},
     {
-      "contract": "63",
-      "functions": ["67"],
-      "conds": [
-        {"arg_eq": {"index": 2, "value": {"address": ""}}},
-        {"arg_i128_at_most": {"index": 0, "bound": "100"}}
-      ],
+      "contract": "6331",
+      "functions": {"only": []},
+      "conds": [],
       "signers": [],
+      "threshold": 1,
+      "cap": {"limit": "5", "period": 2, "amount_arg": 4294967295},
+      "valid_until": null,
+      "generation": null
+    },
+    {
+      "contract": "",
+      "functions": {"only": [""]},
+      "conds": [],
+      "signers": [{"external": {"verifier": "76", "key": "6b"}}],
       "threshold": 0,
-      "cap": null
+      "cap": {"limit": "100", "period": 10, "amount_arg": 3},
+      "valid_until": null,
+      "generation": null
     }
   ],
-  "batch": [
-    {"call": {"contract": "6331", "function": "", "args": []}},
-    {"call": {"contract": "6331", "function": "", "args": []}}
+  "batch": [],
+  "authenticated": [
+    {"external": {"verifier": "76", "key": "6b"}},
+    {"external": {"verifier": "61", "key": ""}},
+    {"external": {"verifier": "76", "key": "6b"}}
   ],
-  "authenticated": [],
-  "expected": {"allows": [false, false], "allows_all": false},
+  "expected": {"allows": [], "allows_all": true},
   "attenuations": [
     {
-      "steps": [
-        {"add_cap": {"index": 0, "cap": {"limit": "5", "period": 0, "amount_arg": 2}}},
-        {"lower_cap_limit": {"index": 0, "limit": "10"}}
-      ],
-      "expected": {"error": "invalid_cap"}
+      "steps": [{"raise_threshold": {"index": 4294967295, "threshold": 0}}],
+      "expected": {"error": "no_such_rule"}
     },
     {
-      "steps": [
-        {"lower_cap_limit": {"index": 1, "limit": "0"}},
-        {
-          "remove_signers": {
-            "index": 1,
-            "signers": [
-              {"external": {"verifier": "76", "key": "6b32"}},
-              {"external": {"verifier": "61", "key": ""}}
-            ]
-          }
-        }
-      ],
-      "expected": {"error": "no_cap"}
+      "steps": [{"lengthen_cap_period": {"index": 0, "period": 1}}],
+      "expected": {"error": "period_shortened"}
     },
     {
-      "steps": [
-        {"add_cap": {"index": 0, "cap": {"limit": "0", "period": 10, "amount_arg": 2}}},
-        {"remove_signers": {"index": 1, "signers": []}}
-      ],
-      "expected": {"error": "invalid_cap"}
+      "steps": [{"lower_valid_until": {"index": 2, "valid_until": 0}}],
+      "expected": {"error": "no_such_rule"}
     }
   ]
 }

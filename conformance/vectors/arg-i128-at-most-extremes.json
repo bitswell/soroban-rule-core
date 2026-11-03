@@ -1,35 +1,41 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "arg-i128-at-most-extremes",
   "description": "Bounds at the i128 extremes and at -1: the comparison is signed.",
   "rules": [
     {
       "contract": "6d696e",
-      "functions": ["66"],
+      "functions": {"only": ["66"]},
       "conds": [
         {"arg_i128_at_most": {"index": 0, "bound": "-170141183460469231731687303715884105728"}}
       ],
       "signers": [],
       "threshold": 0,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     },
     {
       "contract": "6d6178",
-      "functions": ["66"],
+      "functions": {"only": ["66"]},
       "conds": [
         {"arg_i128_at_most": {"index": 0, "bound": "170141183460469231731687303715884105727"}}
       ],
       "signers": [],
       "threshold": 0,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     },
     {
       "contract": "6e6567",
-      "functions": ["66"],
+      "functions": {"only": ["66"]},
       "conds": [{"arg_i128_at_most": {"index": 0, "bound": "-1"}}],
       "signers": [],
       "threshold": 0,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     }
   ],
   "batch": [

@@ -284,7 +284,7 @@ fn allows_agrees_with_the_reference_reading() {
 fn allows_all_is_the_conjunction_of_allows() {
     // Every batch of up to two contexts from a twenty-context slice of the
     // universe, against every rule set of up to two rules.
-    let small: Vec<_> = contexts().into_iter().step_by(17).collect();
+    let small: Vec<_> = contexts().into_iter().step_by(21).collect();
     assert_eq!(small.len(), 20);
     let mut batches: Vec<Vec<rule_eval::Context>> = vec![Vec::new()];
     for x in &small {
@@ -303,4 +303,83 @@ fn allows_all_is_the_conjunction_of_allows() {
         let each = whole.iter().all(|c| allows(&rs, c, &[]));
         assert_eq!(allows_all(&rs, &whole, &[]), each, "{specs:?}");
     }
+}
+
+#[test]
+fn a_wildcard_matches_every_function_but_its_exclusions() {
+    let rs = vec![wildcard(rule("c1", &[], Vec::new()), &["g"])];
+    assert!(allows(&rs, &call("c1", "f", Vec::new()), &[]));
+    assert!(allows(&rs, &call("c1", "", Vec::new()), &[]));
+    assert!(allows(&rs, &call("c1", "gg", Vec::new()), &[]));
+    assert!(!allows(&rs, &call("c1", "g", Vec::new()), &[]));
+    // Only on its contract.
+    assert!(!allows(&rs, &call("c2", "f", Vec::new()), &[]));
+    assert!(!allows(&rs, &call("c", "f", Vec::new()), &[]));
+    assert!(!allows(&rs, &create("c1"), &[]));
+    assert!(rule_eval::functions_match(&any_except(&[]), b"anything"));
+    assert!(!rule_eval::functions_match(&only(&[]), b"anything"));
+}
+
+#[test]
+fn arg_in_compares_as_arg_eq() {
+    let values = vec![Val::I128(5), Val::Symbol(b("c1")), Val::String(b("s"))];
+    let c = Cond::ArgIn(0, values);
+    for k in 0..VALS {
+        let expected = [Val::I128(5), Val::Symbol(b("c1")), Val::String(b("s"))]
+            .iter()
+            .any(|v| cond_holds(&Cond::ArgEq(0, copy_val(v)), &[val(k)]));
+        assert_eq!(cond_holds(&c, &[val(k)]), expected, "value {k}");
+    }
+    assert!(cond_holds(&c, &[Val::String(b("s"))]));
+    assert!(!cond_holds(&c, &[Val::Bytes(b("s"))]));
+    assert!(!cond_holds(&c, &[]));
+    assert!(!cond_holds(&Cond::ArgIn(0, Vec::new()), &[Val::I128(5)]));
+    assert!(!cond_holds(
+        &Cond::ArgIn(u32::MAX, vec![Val::I128(5)]),
+        &[Val::I128(5)]
+    ));
+}
+
+#[test]
+fn arg_str_prefix_needs_a_string_starting_with_the_prefix() {
+    let c = Cond::ArgStrPrefix(1, b("pkg_"));
+    let with = |v: Val| vec![Val::Bool(true), v];
+    assert!(cond_holds(&c, &with(Val::String(b("pkg_a")))));
+    assert!(cond_holds(&c, &with(Val::String(b("pkg_")))));
+    assert!(!cond_holds(&c, &with(Val::String(b("pkg")))));
+    assert!(!cond_holds(&c, &with(Val::String(b("Pkg_a")))));
+    assert!(!cond_holds(&c, &with(Val::String(b("xpkg_a")))));
+    // A symbol, bytes or other value with the same bytes is not a string.
+    assert!(!cond_holds(&c, &with(Val::Symbol(b("pkg_a")))));
+    assert!(!cond_holds(&c, &with(Val::Bytes(b("pkg_a")))));
+    assert!(!cond_holds(&c, &with(Val::Other(b("pkg_a")))));
+    assert!(!cond_holds(&c, &[Val::String(b("pkg_a"))]));
+    // The empty prefix holds on every string, and only on strings.
+    assert!(cond_holds(
+        &Cond::ArgStrPrefix(0, Vec::new()),
+        &[Val::String(Vec::new())]
+    ));
+    assert!(!cond_holds(
+        &Cond::ArgStrPrefix(0, Vec::new()),
+        &[Val::Symbol(Vec::new())]
+    ));
+    assert!(rule_eval::bytes_starts_with(b"abc", b"ab"));
+    assert!(!rule_eval::bytes_starts_with(b"ab", b"abc"));
+}
+
+#[test]
+fn strings_and_symbols_are_different_values() {
+    assert!(!val_eq(&Val::String(b("c1")), &Val::Symbol(b("c1"))));
+    assert!(!val_eq(&Val::String(b("c1")), &Val::Bytes(b("c1"))));
+    assert!(!val_eq(&Val::String(b("c1")), &Val::Other(b("c1"))));
+    assert!(val_eq(&Val::String(b("c1")), &Val::String(b("c1"))));
+    assert!(!val_eq(&Val::String(b("c1")), &Val::String(b("c12"))));
+    assert!(rule_eval::val_in(
+        &Val::String(b("c1")),
+        &[Val::Symbol(b("c1")), Val::String(b("c1"))]
+    ));
+    assert!(!rule_eval::val_in(
+        &Val::String(b("c1")),
+        &[Val::Symbol(b("c1"))]
+    ));
 }

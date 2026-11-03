@@ -4,27 +4,36 @@ import RuleCore.Equiv.Eval
 # Attenuation: the extracted steps agree with the model
 
 The extracted copies return their input: a fresh Rust copy is the same Lean
-value (`bytes_copy_deref`, `val_copy_eq`, `cond_copy_eq`, `conds_copy_deref`,
-`bytes_list_copy_deref`, `signer_copy_eq`, `signers_copy_deref`, `cap_copy_eq`,
-`cap_option_copy_eq`, `rule_copy_eq`). So each extracted attenuation step builds exactly the model's
+value (`bytes_copy_deref`, `val_copy_eq`, `vals_copy_deref`, `cond_copy_eq`,
+`conds_copy_deref`, `bytes_list_copy_deref`, `functions_copy_eq`,
+`signer_copy_eq`, `signers_copy_deref`, `cap_copy_eq`, `cap_option_copy_eq`,
+`rule_copy_eq`). So each extracted attenuation step builds exactly the model's
 list of rules:
 
 * `drop_rule_eq`: `drop_rule rules index` returns `ok` of an outcome whose
   denotation is `RuleSet.dropRule` of the denotations;
-* `remove_functions_eq`, `remove_signers_eq`, `raise_threshold_eq`: likewise
-  for `RuleSet.removeFunctions`, `RuleSet.removeSigners` and
+* `restrict_functions_eq`, `remove_signers_eq`, `raise_threshold_eq`: likewise
+  for `RuleSet.restrictFunctions`, `RuleSet.removeSigners` and
   `RuleSet.raiseThreshold`, `thresholdLowered` included;
-* `add_cond_eq`: likewise for `RuleSet.addCond`, under `CondRoom`;
-* `add_cap_eq`, `lower_cap_limit_eq`, `lengthen_cap_period_eq`: likewise for
-  `RuleSet.addCap`, `RuleSet.lowerCapLimit` and `RuleSet.lengthenCapPeriod`,
-  every refusal included.
+* `add_cond_eq`, `remove_functions_eq`: likewise for `RuleSet.addCond`, under
+  `CondRoom`, and for `RuleSet.removeFunctions`, under `FunctionsRoomAt`;
+* `add_cap_eq`, `lower_cap_limit_eq`, `lengthen_cap_period_eq`,
+  `lower_valid_until_eq`: likewise for `RuleSet.addCap`,
+  `RuleSet.lowerCapLimit`, `RuleSet.lengthenCapPeriod` and
+  `RuleSet.lowerValidUntil`, every refusal included.
 
-`add_cond` is the one step whose `Vec::push` is not bounded by a slice it
-walks: it appends to the condition vector of the rule at `index`. Aeneas's
-model of `Vec` holds at most `Usize.max` elements, so the step needs the rule
-stated as `CondRoom rules index`: the rule at `index`, if there is one, holds
-fewer than `Usize.max` conditions. `add_cond_full` shows the rule is exact: on a
-rule already holding `Usize.max` conditions, the extracted step fails.
+`add_cond` and `remove_functions` are the steps whose `Vec::push` is not
+bounded by a slice they walk. `add_cond` appends to the condition vector of the
+rule at `index`; `remove_functions` on a wildcard appends the removed functions
+to the ones it already excludes (`bytes_list_extend`). Aeneas's model of `Vec`
+holds at most `Usize.max` elements, so each step needs a rule stated:
+`CondRoom rules index`, the rule at `index`, if there is one, holds fewer than
+`Usize.max` conditions; `FunctionsRoomAt rules index functions`, a wildcard at
+`index` excludes at most `Usize.max` functions together with `functions`, which
+every rule whose functions are a list meets. `add_cond_full` and
+`remove_functions_full` show each rule is exact: without room, the extracted
+step fails; `remove_functions_room` reads the rule off a step that returned
+`ok`.
 
 `drop_rule_ok`, `drop_rule_err`, `add_cond_ok`, `add_cond_err`,
 `remove_functions_ok`, `remove_functions_err`, `remove_signers_ok`,
@@ -97,8 +106,32 @@ theorem bytes_copy_deref (v : alloc.vec.Vec Std.U8) :
 theorem val_copy_eq (v : rule_eval.val.Val) : rule_eval.val.val_copy v = ok v := by
   cases v <;> simp [rule_eval.val.val_copy, bytes_copy_deref]
 
+theorem vals_copy_loop_eq (s : Slice rule_eval.val.Val) (out : alloc.vec.Vec rule_eval.val.Val)
+    (i : Usize) (h : out.val.length ≤ i.val) :
+    ∃ out', rule_eval.val.vals_copy_loop s out i = ok out' ∧
+      out'.val.map id = out.val.map id ++
+        pushedFrom (fun _ a => some (id a)) (s.val.drop i.val) i.val := by
+  unfold rule_eval.val.vals_copy_loop
+  refine loop_build s.val (fun _ a => some (id a)) id _ ?_ ?_ out i h
+  · intro out i hi hout
+    obtain ⟨out', hp, hv⟩ := push_eq out s.val[i.val] (room_of_lt s out i hi hout)
+    obtain ⟨j, hj, hj'⟩ := incr_eq s i hi
+    refine ⟨out', j, hj', by simp [hv], ?_⟩
+    simp [rule_eval.val.vals_copy_loop.body, hi, index_usize_eq _ _ hi, val_copy_eq, hp, hj]
+  · intro out i hi
+    have : ¬ i.val < s.length := by simp only [Slice.length]; omega
+    simp [rule_eval.val.vals_copy_loop.body, this]
+
+theorem vals_copy_deref (v : alloc.vec.Vec rule_eval.val.Val) :
+    rule_eval.val.vals_copy (alloc.vec.Vec.deref v) = ok v := by
+  obtain ⟨out, h, hv⟩ := vals_copy_loop_eq (alloc.vec.Vec.deref v)
+    (alloc.vec.Vec.new rule_eval.val.Val) 0#usize (by simp)
+  rw [rule_eval.val.vals_copy, h]
+  congr 1
+  exact vec_eq_of_val (by simpa [pushedFrom_map] using hv)
+
 theorem cond_copy_eq (c : rule_eval.rule.Cond) : rule_eval.rule.cond_copy c = ok c := by
-  cases c <;> simp [rule_eval.rule.cond_copy, val_copy_eq]
+  cases c <;> simp [rule_eval.rule.cond_copy, val_copy_eq, vals_copy_deref, bytes_copy_deref]
 
 theorem conds_copy_loop_eq (s : Slice rule_eval.rule.Cond) (out : alloc.vec.Vec rule_eval.rule.Cond)
     (i : Usize) (h : out.val.length ≤ i.val) :
@@ -183,8 +216,12 @@ theorem cap_option_copy_eq (c : Option rule_eval.rule.Cap) :
     rule_eval.rule.cap_option_copy c = ok c := by
   cases c <;> simp [rule_eval.rule.cap_option_copy, cap_copy_eq]
 
+theorem functions_copy_eq (fs : rule_eval.rule.Functions) :
+    rule_eval.rule.functions_copy fs = ok fs := by
+  cases fs <;> simp [rule_eval.rule.functions_copy, bytes_list_copy_deref]
+
 theorem rule_copy_eq (r : rule_eval.rule.Rule) : rule_eval.rule.rule_copy r = ok r := by
-  simp [rule_eval.rule.rule_copy, bytes_copy_deref, bytes_list_copy_deref, conds_copy_deref,
+  simp [rule_eval.rule.rule_copy, bytes_copy_deref, functions_copy_eq, conds_copy_deref,
     signers_copy_deref, cap_option_copy_eq]
 
 /-! ## Removing functions from a rule -/
@@ -243,16 +280,211 @@ theorem denote_filter_inList (l : List (alloc.vec.Vec Std.U8))
   rw [this]
   rfl
 
-theorem rule_without_functions_eq (r : rule_eval.rule.Rule)
+theorem bytes_list_extend_loop_eq (more : Slice (alloc.vec.Vec Std.U8))
+    (out : alloc.vec.Vec (alloc.vec.Vec Std.U8)) (i : Usize)
+    (h : out.val.length + (more.length - i.val) ≤ Usize.max) :
+    ∃ out', rule_eval.bytes.bytes_list_extend_loop more out i = ok out' ∧
+      out'.val = out.val ++ more.val.drop i.val := by
+  unfold rule_eval.bytes.bytes_list_extend_loop
+  rw [loop]
+  dsimp only
+  by_cases hi : i.val < more.length
+  · obtain ⟨out', hp, hv⟩ := push_eq out more.val[i.val] (by omega)
+    obtain ⟨j, hj, hj'⟩ := incr_eq more i hi
+    obtain ⟨out'', hl, hv'⟩ := bytes_list_extend_loop_eq more out' j (by
+      rw [hv, List.length_append, List.length_singleton, hj']
+      omega)
+    unfold rule_eval.bytes.bytes_list_extend_loop at hl
+    refine ⟨out'', ?_, ?_⟩
+    · have hb : rule_eval.bytes.bytes_list_extend_loop.body more out i = ok (cont (out', j)) := by
+        simp [rule_eval.bytes.bytes_list_extend_loop.body, hi, index_usize_eq _ _ hi,
+          bytes_copy_deref, hp, hj]
+      rw [hb, bind_ok]
+      exact hl
+    · rw [hv', hv, hj', List.drop_eq_getElem_cons hi]
+      simp
+  · refine ⟨out, ?_, ?_⟩
+    · simp [rule_eval.bytes.bytes_list_extend_loop.body, hi]
+    · rw [List.drop_of_length_le (by simp only [Slice.length] at hi; omega)]
+      simp
+termination_by more.length - i.val
+decreasing_by omega
+
+theorem bytes_list_extend_loop_fail (more : Slice (alloc.vec.Vec Std.U8))
+    (out : alloc.vec.Vec (alloc.vec.Vec Std.U8)) (i : Usize) (hi : i.val ≤ more.length)
+    (h : Usize.max < out.val.length + (more.length - i.val)) :
+    rule_eval.bytes.bytes_list_extend_loop more out i = fail .maximumSizeExceeded := by
+  unfold rule_eval.bytes.bytes_list_extend_loop
+  rw [loop]
+  dsimp only
+  have hout := alloc.vec.Vec.property out
+  have hlt : i.val < more.length := by omega
+  by_cases hfull : out.val.length = Usize.max
+  · simp [rule_eval.bytes.bytes_list_extend_loop.body, hlt, index_usize_eq _ _ hlt,
+      bytes_copy_deref, push_full _ _ hfull]
+  · obtain ⟨out', hp, hv⟩ := push_eq out more.val[i.val] (by omega)
+    obtain ⟨j, hj, hj'⟩ := incr_eq more i hlt
+    have hrec := bytes_list_extend_loop_fail more out' j (by omega) (by
+      rw [hv, List.length_append, List.length_singleton, hj']
+      omega)
+    unfold rule_eval.bytes.bytes_list_extend_loop at hrec
+    have hb : rule_eval.bytes.bytes_list_extend_loop.body more out i = ok (cont (out', j)) := by
+      simp [rule_eval.bytes.bytes_list_extend_loop.body, hlt, index_usize_eq _ _ hlt,
+        bytes_copy_deref, hp, hj]
+    rw [hb, bind_ok]
+    exact hrec
+termination_by more.length - i.val
+decreasing_by omega
+
+/-- `bytes_list_extend out more` appends a copy of `more` to `out`, when the
+result fits a vector. -/
+theorem bytes_list_extend_eq (out : alloc.vec.Vec (alloc.vec.Vec Std.U8))
+    (more : Slice (alloc.vec.Vec Std.U8)) (h : out.val.length + more.length ≤ Usize.max) :
+    ∃ out', rule_eval.bytes.bytes_list_extend out more = ok out' ∧
+      out'.val = out.val ++ more.val := by
+  have h0 : (0#usize).val = 0 := by simp
+  obtain ⟨out', hl, hv⟩ := bytes_list_extend_loop_eq more out 0#usize (by rw [h0]; omega)
+  exact ⟨out', hl, by rw [hv, h0, List.drop_zero]⟩
+
+theorem bytes_list_extend_fail (out : alloc.vec.Vec (alloc.vec.Vec Std.U8))
+    (more : Slice (alloc.vec.Vec Std.U8)) (h : Usize.max < out.val.length + more.length) :
+    rule_eval.bytes.bytes_list_extend out more = fail .maximumSizeExceeded := by
+  have h0 : (0#usize).val = 0 := by simp
+  exact bytes_list_extend_loop_fail more out 0#usize (by rw [h0]; omega) (by rw [h0]; omega)
+
+/-- Whether the byte string `a` is one of `keep`, as `bytes_in` computes it. -/
+theorem bytes_list_within_loop_eq (s keep : Slice (alloc.vec.Vec Std.U8))
+    (out : alloc.vec.Vec (alloc.vec.Vec Std.U8)) (i : Usize) (h : out.val.length ≤ i.val) :
+    ∃ out', rule_eval.bytes.bytes_list_within_loop s keep out i = ok out' ∧
+      out'.val.map id = out.val.map id ++
+        pushedFrom (fun _ a => if inList keep a then some (id a) else none)
+          (s.val.drop i.val) i.val := by
+  unfold rule_eval.bytes.bytes_list_within_loop
+  refine loop_build s.val _ id _ ?_ ?_ out i h
+  · intro out i hi hout
+    obtain ⟨j, hj, hj'⟩ := incr_eq s i hi
+    cases hin : inList keep s.val[i.val]
+    · refine ⟨out, j, hj', by simp, ?_⟩
+      simp only [inList] at hin
+      simp only [rule_eval.bytes.bytes_list_within_loop.body, slice_len_lt, hi, ↓reduceIte,
+        index_usize_eq _ _ hi, bind_ok, bytes_in_eq, vec_deref_val, hin, Bool.false_eq_true, hj]
+    · obtain ⟨out', hp, hv⟩ := push_eq out s.val[i.val] (room_of_lt s out i hi hout)
+      refine ⟨out', j, hj', by simp [hv], ?_⟩
+      simp only [inList] at hin
+      simp only [rule_eval.bytes.bytes_list_within_loop.body, slice_len_lt, hi, ↓reduceIte,
+        index_usize_eq _ _ hi, bind_ok, bytes_in_eq, vec_deref_val, hin, bytes_copy_deref, hp, hj]
+  · intro out i hi
+    have : ¬ i.val < s.length := by simp only [Slice.length]; omega
+    simp [rule_eval.bytes.bytes_list_within_loop.body, this]
+
+/-- `bytes_list_within list keep` keeps, in order, the byte strings of `list`
+that are in `keep`. -/
+theorem bytes_list_within_eq (s keep : Slice (alloc.vec.Vec Std.U8)) :
+    ∃ out, rule_eval.bytes.bytes_list_within s keep = ok out ∧
+      out.val = s.val.filter (fun a => inList keep a) := by
+  obtain ⟨out, h, hv⟩ := bytes_list_within_loop_eq s keep
+    (alloc.vec.Vec.new (alloc.vec.Vec Std.U8)) 0#usize (by simp)
+  refine ⟨out, h, ?_⟩
+  rw [pushedFrom_filter (fun a => inList keep a) id] at hv
+  simpa using hv
+
+/-- The denotation of the functions `bytes_list_within` keeps is the model's
+filter. -/
+theorem denote_filter_inList_mem (l : List (alloc.vec.Vec Std.U8))
+    (keep : Slice (alloc.vec.Vec Std.U8)) :
+    (l.filter (fun a => inList keep a)).map denoteBytes =
+      (l.map denoteBytes).filter (fun f => decide (f ∈ keep.val.map denoteBytes)) := by
+  rw [List.filter_map]
+  congr 2
+  funext a
+  have := any_bytes_eq_mem a.val keep.val
+  simp only [inList, Function.comp_def]
+  rw [this]
+  rfl
+
+/-- The rule `remove_functions` needs on a wildcard: the functions it already
+excludes and the ones removed fit together in one vector, of at most
+`Usize.max` elements in Aeneas's model of `Vec`. A list never grows. -/
+def FunctionsRoom (fs : rule_eval.rule.Functions) (functions : Slice (alloc.vec.Vec Std.U8)) :
+    Prop :=
+  ∀ removed, fs = .AnyExcept removed → removed.val.length + functions.length ≤ Usize.max
+
+/-- Every rule whose functions are a list has room: removing functions from a
+list never grows it. -/
+theorem functionsRoom_only (listed : alloc.vec.Vec (alloc.vec.Vec Std.U8))
+    (functions : Slice (alloc.vec.Vec Std.U8)) : FunctionsRoom (.Only listed) functions :=
+  fun _ h => by cases h
+
+theorem functions_without_eq (fs : rule_eval.rule.Functions)
+    (functions : Slice (alloc.vec.Vec Std.U8)) (h : FunctionsRoom fs functions) :
+    ∃ fs', rule_eval.attenuate.functions_without fs functions = ok fs' ∧
+      denoteFunctions fs' = (denoteFunctions fs).remove (functions.val.map denoteBytes) := by
+  cases fs with
+  | AnyExcept removed =>
+    obtain ⟨out, ho, hv⟩ := bytes_list_extend_eq removed functions (h removed rfl)
+    refine ⟨.AnyExcept out, ?_, ?_⟩
+    · simp [rule_eval.attenuate.functions_without, bytes_list_copy_deref, ho]
+    · simp [denoteFunctions, Chain.Functions.remove, hv]
+  | Only listed =>
+    obtain ⟨out, ho, hv⟩ := bytes_list_without_eq (alloc.vec.Vec.deref listed) functions
+    refine ⟨.Only out, ?_, ?_⟩
+    · simp [rule_eval.attenuate.functions_without, ho]
+    · simp only [denoteFunctions, Chain.Functions.remove, hv, vec_deref_val,
+        denote_filter_inList]
+
+theorem functions_without_fail {removed : alloc.vec.Vec (alloc.vec.Vec Std.U8)}
+    (functions : Slice (alloc.vec.Vec Std.U8))
+    (h : Usize.max < removed.val.length + functions.length) :
+    rule_eval.attenuate.functions_without (.AnyExcept removed) functions =
+      fail .maximumSizeExceeded := by
+  simp [rule_eval.attenuate.functions_without, bytes_list_copy_deref,
+    bytes_list_extend_fail removed functions h]
+
+theorem functions_within_eq (fs : rule_eval.rule.Functions)
     (functions : Slice (alloc.vec.Vec Std.U8)) :
+    ∃ fs', rule_eval.attenuate.functions_within fs functions = ok fs' ∧
+      denoteFunctions fs' = (denoteFunctions fs).restrict (functions.val.map denoteBytes) := by
+  cases fs with
+  | AnyExcept removed =>
+    obtain ⟨out, ho, hv⟩ := bytes_list_without_eq functions (alloc.vec.Vec.deref removed)
+    refine ⟨.Only out, ?_, ?_⟩
+    · simp [rule_eval.attenuate.functions_within, ho]
+    · simp only [denoteFunctions, Chain.Functions.restrict, hv, denote_filter_inList,
+        vec_deref_val]
+  | Only listed =>
+    obtain ⟨out, ho, hv⟩ := bytes_list_within_eq (alloc.vec.Vec.deref listed) functions
+    refine ⟨.Only out, ?_, ?_⟩
+    · simp [rule_eval.attenuate.functions_within, ho]
+    · simp only [denoteFunctions, Chain.Functions.restrict, hv, vec_deref_val,
+        denote_filter_inList_mem]
+
+theorem rule_without_functions_eq (r : rule_eval.rule.Rule)
+    (functions : Slice (alloc.vec.Vec Std.U8)) (h : FunctionsRoom r.functions functions) :
     ∃ r', rule_eval.attenuate.rule_without_functions r functions = ok r' ∧
       denoteRule r' = (denoteRule r).removeFunctions (functions.val.map denoteBytes) := by
-  obtain ⟨fs, hfs, hv⟩ := bytes_list_without_eq (alloc.vec.Vec.deref r.functions) functions
+  obtain ⟨fs, hfs, hv⟩ := functions_without_eq r.functions functions h
   refine ⟨{ r with functions := fs }, ?_, ?_⟩
   · simp [rule_eval.attenuate.rule_without_functions, bytes_copy_deref, hfs, conds_copy_deref,
       signers_copy_deref, cap_option_copy_eq]
-  · simp only [denoteRule, Chain.Rule.removeFunctions, hv, vec_deref_val,
-      denote_filter_inList]
+  · simp only [denoteRule, Chain.Rule.removeFunctions, hv]
+
+theorem rule_without_functions_fail {r : rule_eval.rule.Rule}
+    {removed : alloc.vec.Vec (alloc.vec.Vec Std.U8)} (functions : Slice (alloc.vec.Vec Std.U8))
+    (hf : r.functions = .AnyExcept removed)
+    (h : Usize.max < removed.val.length + functions.length) :
+    rule_eval.attenuate.rule_without_functions r functions = fail .maximumSizeExceeded := by
+  simp [rule_eval.attenuate.rule_without_functions, bytes_copy_deref, hf,
+    functions_without_fail functions h]
+
+theorem rule_within_functions_eq (r : rule_eval.rule.Rule)
+    (functions : Slice (alloc.vec.Vec Std.U8)) :
+    ∃ r', rule_eval.attenuate.rule_within_functions r functions = ok r' ∧
+      denoteRule r' = (denoteRule r).restrictFunctions (functions.val.map denoteBytes) := by
+  obtain ⟨fs, hfs, hv⟩ := functions_within_eq r.functions functions
+  refine ⟨{ r with functions := fs }, ?_, ?_⟩
+  · simp [rule_eval.attenuate.rule_within_functions, bytes_copy_deref, hfs, conds_copy_deref,
+      signers_copy_deref, cap_option_copy_eq]
+  · simp only [denoteRule, Chain.Rule.restrictFunctions, hv]
 
 /-! ## Removing signers from a rule -/
 
@@ -309,7 +541,7 @@ theorem rule_without_signers_eq (r : rule_eval.rule.Rule)
       denoteRule r' = (denoteRule r).removeSigners (denoteSigners signers.val) := by
   obtain ⟨ss, hss, hv⟩ := signers_without_eq (alloc.vec.Vec.deref r.signers) signers
   refine ⟨{ r with signers := ss }, ?_, ?_⟩
-  · simp [rule_eval.attenuate.rule_without_signers, bytes_copy_deref, bytes_list_copy_deref,
+  · simp [rule_eval.attenuate.rule_without_signers, bytes_copy_deref, functions_copy_eq,
       conds_copy_deref, hss, cap_option_copy_eq]
   · simp only [denoteRule, Chain.Rule.removeSigners, hv, vec_deref_val,
       denote_filter_signerInList]
@@ -373,8 +605,16 @@ theorem drop_rule_eq (rules : Slice rule_eval.rule.Rule) (index : Std.U32) :
 
 /-! ## Removing functions -/
 
+/-- The rule `remove_functions` needs: the rule at `index`, when there is one,
+has room for the removed functions (`FunctionsRoom`). It holds for every rule
+whose functions are a list. -/
+def FunctionsRoomAt (rules : Slice rule_eval.rule.Rule) (index : Std.U32)
+    (functions : Slice (alloc.vec.Vec Std.U8)) : Prop :=
+  ∀ r, rules.val[index.val]? = some r → FunctionsRoom r.functions functions
+
 theorem remove_functions_loop_eq (rules : Slice rule_eval.rule.Rule)
     (functions : Slice (alloc.vec.Vec Std.U8)) (index : Usize)
+    (hroom : ∀ r, rules.val[index.val]? = some r → FunctionsRoom r.functions functions)
     (out : alloc.vec.Vec rule_eval.rule.Rule) (i : Usize) (h : out.val.length ≤ i.val) :
     ∃ out', rule_eval.attenuate.remove_functions_loop rules functions index out i = ok out' ∧
       out'.val.map denoteRule = out.val.map denoteRule ++
@@ -389,6 +629,7 @@ theorem remove_functions_loop_eq (rules : Slice rule_eval.rule.Rule)
     by_cases hii : i = index
     · subst hii
       obtain ⟨r', hr', hd⟩ := rule_without_functions_eq rules.val[i.val] functions
+        (hroom _ (List.getElem?_eq_getElem hi))
       obtain ⟨out', hp, hval⟩ := push_eq out r' (room_of_lt rules out i hi hout)
       refine ⟨out', j, hj', by simp [hval, hd], ?_⟩
       simp [rule_eval.attenuate.remove_functions_loop.body, hi, index_usize_eq _ _ hi, hr',
@@ -403,13 +644,15 @@ theorem remove_functions_loop_eq (rules : Slice rule_eval.rule.Rule)
     simp [rule_eval.attenuate.remove_functions_loop.body, this]
 
 theorem remove_functions_ok (rules : Slice rule_eval.rule.Rule) (index : Std.U32)
-    (functions : Slice (alloc.vec.Vec Std.U8)) (h : index.val < rules.length) :
+    (functions : Slice (alloc.vec.Vec Std.U8)) (h : index.val < rules.length)
+    (hroom : FunctionsRoomAt rules index functions) :
     ∃ out, rule_eval.attenuate.remove_functions rules index functions = ok (.Ok out) ∧
       denoteRules out.val =
         (denoteRules rules.val).set index.val
           ((denoteRule rules.val[index.val]).removeFunctions (functions.val.map denoteBytes)) := by
   obtain ⟨out, hl, hv⟩ := remove_functions_loop_eq rules functions (UScalar.cast .Usize index)
-    (alloc.vec.Vec.new rule_eval.rule.Rule) 0#usize (by simp)
+    (by rw [cast_usize_val]; exact hroom) (alloc.vec.Vec.new rule_eval.rule.Rule) 0#usize
+    (by simp)
   refine ⟨out, ?_, ?_⟩
   · have : ¬ rules.length ≤ index.val := by omega
     simp [rule_eval.attenuate.remove_functions, lift, this, hl]
@@ -428,16 +671,19 @@ theorem remove_functions_err (rules : Slice rule_eval.rule.Rule) (index : Std.U3
       ok (.Err rule_eval.attenuate.AttenuationError.NoSuchRule) := by
   simp [rule_eval.attenuate.remove_functions, lift, h]
 
-/-- The extracted `remove_functions` returns `ok` on every input, and its
-outcome is `RuleSet.removeFunctions` of the denotations. -/
+/-- The extracted `remove_functions` returns `ok`, and its outcome is
+`RuleSet.removeFunctions` of the denotations, on every input with room
+(`FunctionsRoomAt`): every input whose rule at `index`, if any, lists its
+functions, and every wildcard whose exclusions fit a vector with the removed
+functions. -/
 theorem remove_functions_eq (rules : Slice rule_eval.rule.Rule) (index : Std.U32)
-    (functions : Slice (alloc.vec.Vec Std.U8)) :
+    (functions : Slice (alloc.vec.Vec Std.U8)) (hroom : FunctionsRoomAt rules index functions) :
     ∃ res, rule_eval.attenuate.remove_functions rules index functions = ok res ∧
       denoteOutcome res =
         (denoteRules rules.val).removeFunctions (denoteU32 index)
           (functions.val.map denoteBytes) := by
   by_cases h : index.val < rules.length
-  · obtain ⟨out, hd, hv⟩ := remove_functions_ok rules index functions h
+  · obtain ⟨out, hd, hv⟩ := remove_functions_ok rules index functions h hroom
     refine ⟨_, hd, ?_⟩
     have : index.val < rules.val.length := h
     simp only [denoteRules] at hv
@@ -446,6 +692,131 @@ theorem remove_functions_eq (rules : Slice rule_eval.rule.Rule) (index : Std.U32
   · refine ⟨_, remove_functions_err rules index functions (by omega), ?_⟩
     have : rules.val.length ≤ index.val := by simp only [Slice.length] at h; omega
     simp [denoteOutcome, denoteError, Chain.RuleSet.removeFunctions, Chain.RuleSet.modifyRule,
+      denoteRules, this]
+
+/-- The room rule is exact: on a wildcard whose exclusions and the removed
+functions do not fit one vector, the extracted step fails. -/
+theorem remove_functions_full (rules : Slice rule_eval.rule.Rule) (index : Std.U32)
+    (functions : Slice (alloc.vec.Vec Std.U8)) {r : rule_eval.rule.Rule}
+    {removed : alloc.vec.Vec (alloc.vec.Vec Std.U8)} (hr : rules.val[index.val]? = some r)
+    (hf : r.functions = .AnyExcept removed)
+    (hfull : Usize.max < removed.val.length + functions.length) :
+    rule_eval.attenuate.remove_functions rules index functions = fail .maximumSizeExceeded := by
+  obtain ⟨hlt, hget⟩ := List.getElem?_eq_some_iff.mp hr
+  have hloop : rule_eval.attenuate.remove_functions_loop rules functions (UScalar.cast .Usize index)
+      (alloc.vec.Vec.new rule_eval.rule.Rule) 0#usize = fail .maximumSizeExceeded := by
+    unfold rule_eval.attenuate.remove_functions_loop
+    refine loop_build_fail rules.val index.val _ _ ?_ ?_ _ _ (by simp) (by simp)
+    · intro out i hn hout
+      have hi : i.val < rules.length := by simp only [Slice.length]; omega
+      have hii : i ≠ UScalar.cast .Usize index := by
+        intro h
+        rw [← usize_val_eq_iff, cast_usize_val] at h
+        omega
+      obtain ⟨j, hj, hj'⟩ := incr_eq rules i hi
+      obtain ⟨out', hp, hval⟩ := push_eq out rules.val[i.val] (room_of_lt rules out i hi hout)
+      refine ⟨out', j, hj', by simp [hval], ?_⟩
+      simp [rule_eval.attenuate.remove_functions_loop.body, hi, hii, index_usize_eq _ _ hi,
+        rule_copy_eq, hp, hj]
+    · intro out i hn hout
+      have hi : i.val < rules.length := by simp only [Slice.length]; omega
+      have hii : i = UScalar.cast .Usize index := by
+        rw [← usize_val_eq_iff, cast_usize_val]
+        exact hn
+      have hri : rules.val[i.val] = r := by simp only [hn]; exact hget
+      simp [rule_eval.attenuate.remove_functions_loop.body, hi, hii.symm, index_usize_eq _ _ hi,
+        hri, rule_without_functions_fail functions hf hfull]
+  have : ¬ rules.length ≤ index.val := by simp only [Slice.length]; omega
+  simp [rule_eval.attenuate.remove_functions, lift, this, hloop]
+
+/-- A `remove_functions` that returned `ok` had room. -/
+theorem remove_functions_room {rules : Slice rule_eval.rule.Rule} {index : Std.U32}
+    {functions : Slice (alloc.vec.Vec Std.U8)} {res}
+    (h : rule_eval.attenuate.remove_functions rules index functions = ok res) :
+    FunctionsRoomAt rules index functions := by
+  intro r hr removed hf
+  by_contra hno
+  rw [remove_functions_full rules index functions hr hf (by omega)] at h
+  simp at h
+
+/-! ## Restricting functions -/
+
+theorem restrict_functions_loop_eq (rules : Slice rule_eval.rule.Rule)
+    (functions : Slice (alloc.vec.Vec Std.U8)) (index : Usize)
+    (out : alloc.vec.Vec rule_eval.rule.Rule) (i : Usize) (h : out.val.length ≤ i.val) :
+    ∃ out', rule_eval.attenuate.restrict_functions_loop rules functions index out i = ok out' ∧
+      out'.val.map denoteRule = out.val.map denoteRule ++
+        pushedFrom (fun j a => some (if j = index.val then
+            (fun r : Chain.Rule => r.restrictFunctions (functions.val.map denoteBytes))
+              (denoteRule a)
+          else denoteRule a))
+          (rules.val.drop i.val) i.val := by
+  unfold rule_eval.attenuate.restrict_functions_loop
+  refine loop_build rules.val _ denoteRule _ ?_ ?_ out i h
+  · intro out i hi hout
+    obtain ⟨j, hj, hj'⟩ := incr_eq rules i hi
+    by_cases hii : i = index
+    · subst hii
+      obtain ⟨r', hr', hd⟩ := rule_within_functions_eq rules.val[i.val] functions
+      obtain ⟨out', hp, hval⟩ := push_eq out r' (room_of_lt rules out i hi hout)
+      refine ⟨out', j, hj', by simp [hval, hd], ?_⟩
+      simp [rule_eval.attenuate.restrict_functions_loop.body, hi, index_usize_eq _ _ hi, hr',
+        hp, hj]
+    · have hv : i.val ≠ index.val := fun h => hii (usize_val_eq_iff.mp h)
+      obtain ⟨out', hp, hval⟩ := push_eq out rules.val[i.val] (room_of_lt rules out i hi hout)
+      refine ⟨out', j, hj', by simp [hval, hv], ?_⟩
+      simp [rule_eval.attenuate.restrict_functions_loop.body, hi, hii, index_usize_eq _ _ hi,
+        rule_copy_eq, hp, hj]
+  · intro out i hi
+    have : ¬ i.val < rules.length := by simp only [Slice.length]; omega
+    simp [rule_eval.attenuate.restrict_functions_loop.body, this]
+
+theorem restrict_functions_ok (rules : Slice rule_eval.rule.Rule) (index : Std.U32)
+    (functions : Slice (alloc.vec.Vec Std.U8)) (h : index.val < rules.length) :
+    ∃ out, rule_eval.attenuate.restrict_functions rules index functions = ok (.Ok out) ∧
+      denoteRules out.val =
+        (denoteRules rules.val).set index.val
+          ((denoteRule rules.val[index.val]).restrictFunctions
+            (functions.val.map denoteBytes)) := by
+  obtain ⟨out, hl, hv⟩ := restrict_functions_loop_eq rules functions (UScalar.cast .Usize index)
+    (alloc.vec.Vec.new rule_eval.rule.Rule) 0#usize (by simp)
+  refine ⟨out, ?_, ?_⟩
+  · have : ¬ rules.length ≤ index.val := by omega
+    simp [rule_eval.attenuate.restrict_functions, lift, this, hl]
+  · have h0 : (0#usize).val = 0 := by simp
+    simp only [vec_new_val, List.map_nil, List.nil_append, cast_usize_val, h0,
+      List.drop_zero] at hv
+    have key := pushedFrom_set denoteRule
+      (fun r : Chain.Rule => r.restrictFunctions (functions.val.map denoteBytes)) rules.val
+      index.val h
+    beta_reduce at key
+    rw [show denoteRules out.val = out.val.map denoteRule from rfl, hv, key]
+    rfl
+
+theorem restrict_functions_err (rules : Slice rule_eval.rule.Rule) (index : Std.U32)
+    (functions : Slice (alloc.vec.Vec Std.U8)) (h : rules.length ≤ index.val) :
+    rule_eval.attenuate.restrict_functions rules index functions =
+      ok (.Err rule_eval.attenuate.AttenuationError.NoSuchRule) := by
+  simp [rule_eval.attenuate.restrict_functions, lift, h]
+
+/-- The extracted `restrict_functions` returns `ok` on every input, and its
+outcome is `RuleSet.restrictFunctions` of the denotations. -/
+theorem restrict_functions_eq (rules : Slice rule_eval.rule.Rule) (index : Std.U32)
+    (functions : Slice (alloc.vec.Vec Std.U8)) :
+    ∃ res, rule_eval.attenuate.restrict_functions rules index functions = ok res ∧
+      denoteOutcome res =
+        (denoteRules rules.val).restrictFunctions (denoteU32 index)
+          (functions.val.map denoteBytes) := by
+  by_cases h : index.val < rules.length
+  · obtain ⟨out, hd, hv⟩ := restrict_functions_ok rules index functions h
+    refine ⟨_, hd, ?_⟩
+    have : index.val < rules.val.length := h
+    simp only [denoteRules] at hv
+    simp [denoteOutcome, Chain.RuleSet.restrictFunctions, Chain.RuleSet.modifyRule, denoteRules,
+      hv, this]
+  · refine ⟨_, restrict_functions_err rules index functions (by omega), ?_⟩
+    have : rules.val.length ≤ index.val := by simp only [Slice.length] at h; omega
+    simp [denoteOutcome, denoteError, Chain.RuleSet.restrictFunctions, Chain.RuleSet.modifyRule,
       denoteRules, this]
 
 /-! ## Removing signers -/
@@ -1051,5 +1422,106 @@ theorem lengthen_cap_period_eq (rules : Slice rule_eval.rule.Rule) (index period
     refine ⟨.Err .NoSuchRule, by simp [rule_eval.attenuate.lengthen_cap_period, lift,
       slice_get_eq, hget], ?_⟩
     simp [denoteOutcome, denoteError, Chain.RuleSet.lengthenCapPeriod, denoteRules, hlen]
+
+/-! ## Lowering a last ledger -/
+
+theorem extends_validity_eq (r : rule_eval.rule.Rule) (v : Std.U32) :
+    rule_eval.attenuate.extends_validity r v =
+      ok (match r.valid_until with
+        | some c => decide (c.val < v.val)
+        | none => false) := by
+  cases h : r.valid_until <;> simp [rule_eval.attenuate.extends_validity, h]
+
+theorem lower_valid_until_ok (rules : Slice rule_eval.rule.Rule) (index v : Std.U32)
+    (h : index.val < rules.length)
+    (hv : ∀ c, rules.val[index.val].valid_until = some c → v.val ≤ c.val) :
+    ∃ out, rule_eval.attenuate.lower_valid_until rules index v = ok (.Ok out) ∧
+      denoteRules out.val =
+        (denoteRules rules.val).set index.val
+          { denoteRule rules.val[index.val] with validUntil := some (denoteU32 v) } := by
+  obtain ⟨idx, hidx⟩ : ∃ idx : Usize, UScalar.cast .Usize index = idx := ⟨_, rfl⟩
+  have hidxv : idx.val = index.val := by rw [← hidx]; exact cast_usize_val index
+  obtain ⟨out, hl, hden⟩ := loop_set_eq rules idx
+    (fun r => { r with validUntil := some (denoteU32 v) })
+    (fun p => rule_eval.attenuate.lower_valid_until_loop.body rules v idx p.1 p.2)
+    (by
+      intro out i hi hout hii
+      subst hii
+      obtain ⟨out', hp, hval⟩ := push_eq out { rules.val[i.val] with valid_until := some v }
+        (room_of_lt rules out i hi hout)
+      obtain ⟨j, hj, hj'⟩ := incr_eq rules i hi
+      refine ⟨_, out', j, by simp [denoteRule], hval, hj', ?_⟩
+      simp [rule_eval.attenuate.lower_valid_until_loop.body, hi, index_usize_eq _ _ hi,
+        rule_copy_eq, hp, hj])
+    (by
+      intro out i hi hout hii
+      obtain ⟨out', hp, hval⟩ := push_eq out rules.val[i.val] (room_of_lt rules out i hi hout)
+      obtain ⟨j, hj, hj'⟩ := incr_eq rules i hi
+      refine ⟨out', j, hval, hj', ?_⟩
+      simp [rule_eval.attenuate.lower_valid_until_loop.body, hi, hii, index_usize_eq _ _ hi,
+        rule_copy_eq, hp, hj])
+    (by
+      intro out i hi
+      have : ¬ i.val < rules.length := Nat.not_lt.mpr hi
+      simp [rule_eval.attenuate.lower_valid_until_loop.body, this])
+    (by rw [hidxv]; exact h)
+  refine ⟨out, ?_, by simpa [hidxv] using hden⟩
+  have hget : rules.val[index.val]? = some rules.val[index.val] := List.getElem?_eq_getElem h
+  have he : rule_eval.attenuate.extends_validity rules.val[index.val] v = ok false := by
+    rw [extends_validity_eq]
+    cases hc : rules.val[index.val].valid_until with
+    | none => rfl
+    | some c =>
+      have hn : ¬ c.val < v.val := Nat.not_lt.mpr (hv c hc)
+      simp [hn]
+  simp only [rule_eval.attenuate.lower_valid_until, lift, bind_ok, slice_get_eq, hidx, hidxv,
+    hget, he, Bool.false_eq_true, ↓reduceIte]
+  unfold rule_eval.attenuate.lower_valid_until_loop
+  rw [hl, bind_ok]
+
+/-- The extracted `lower_valid_until` returns `ok` on every input, and its
+outcome is `RuleSet.lowerValidUntil` of the denotations, every refusal
+included. -/
+theorem lower_valid_until_eq (rules : Slice rule_eval.rule.Rule) (index v : Std.U32) :
+    ∃ res, rule_eval.attenuate.lower_valid_until rules index v = ok res ∧
+      denoteOutcome res =
+        (denoteRules rules.val).lowerValidUntil (denoteU32 index) (denoteU32 v) := by
+  by_cases h : index.val < rules.length
+  · have hlen : index.val < rules.val.length := h
+    have hget : rules.val[index.val]? = some rules.val[index.val] := List.getElem?_eq_getElem h
+    have hgetd : (denoteRules rules.val)[index.val]? = some (denoteRule rules.val[index.val]) := by
+      simp [denoteRules, hlen]
+    cases hc : rules.val[index.val].valid_until with
+    | none =>
+      obtain ⟨out, hd, hden⟩ := lower_valid_until_ok rules index v h
+        (by intro c h'; rw [hc] at h'; cases h')
+      refine ⟨_, hd, ?_⟩
+      have hcd : (denoteRule rules.val[index.val]).validUntil = none := by simp [denoteRule, hc]
+      simp [denoteOutcome, Chain.RuleSet.lowerValidUntil, hgetd, hcd, hden]
+    | some c =>
+      have hcd : (denoteRule rules.val[index.val]).validUntil = some (denoteU32 c) := by
+        simp [denoteRule, hc]
+      by_cases hlt : c.val < v.val
+      · refine ⟨.Err .ValidUntilRaised, ?_, ?_⟩
+        · have he : rule_eval.attenuate.extends_validity rules.val[index.val] v = ok true := by
+            rw [extends_validity_eq, hc]
+            simp [hlt]
+          simp [rule_eval.attenuate.lower_valid_until, lift, slice_get_eq, hget, he]
+        · have : denoteU32 c < denoteU32 v := by
+            simp only [UInt32.lt_iff_toNat_lt, denoteU32_toNat]
+            exact hlt
+          simp [denoteOutcome, denoteError, Chain.RuleSet.lowerValidUntil, hgetd, hcd, this]
+      · obtain ⟨out, hd, hden⟩ := lower_valid_until_ok rules index v h
+          (by intro c' h'; rw [hc] at h'; cases h'; omega)
+        refine ⟨_, hd, ?_⟩
+        have : ¬ denoteU32 c < denoteU32 v := by
+          simp only [UInt32.lt_iff_toNat_lt, denoteU32_toNat]
+          exact hlt
+        simp [denoteOutcome, Chain.RuleSet.lowerValidUntil, hgetd, hcd, this, hden]
+  · have hlen : rules.val.length ≤ index.val := by simp only [Slice.length] at h; omega
+    have hget : rules.val[index.val]? = none := List.getElem?_eq_none_iff.mpr hlen
+    refine ⟨.Err .NoSuchRule,
+      by simp [rule_eval.attenuate.lower_valid_until, lift, slice_get_eq, hget], ?_⟩
+    simp [denoteOutcome, denoteError, Chain.RuleSet.lowerValidUntil, denoteRules, hlen]
 
 end RuleCore.Equiv

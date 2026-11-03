@@ -1,0 +1,188 @@
+{
+  "format": 2,
+  "name": "authorize-step-restrict-functions",
+  "description": "The run of authorize-step-base on the rule set after restrictFunctions 2 to transfer.",
+  "rules": [
+    {
+      "contract": "746f6b656e",
+      "functions": {"only": ["7472616e73666572"]},
+      "conds": [],
+      "signers": [],
+      "threshold": 0,
+      "cap": null,
+      "valid_until": null,
+      "generation": null
+    },
+    {
+      "contract": "746f6b656e",
+      "functions": {"only": ["7472616e73666572"]},
+      "conds": [],
+      "signers": [],
+      "threshold": 0,
+      "cap": {"limit": "30", "period": 10, "amount_arg": 2},
+      "valid_until": null,
+      "generation": null
+    },
+    {
+      "contract": "746f6b656e",
+      "functions": {"only": []},
+      "conds": [],
+      "signers": [],
+      "threshold": 0,
+      "cap": {"limit": "20", "period": 5, "amount_arg": 2},
+      "valid_until": null,
+      "generation": null
+    }
+  ],
+  "start": [
+    {"history": [], "total": "0"},
+    {"history": [], "total": "0"},
+    {"history": [], "total": "0"}
+  ],
+  "authorizations": [
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "25"}]
+          }
+        }
+      ],
+      "choices": [0],
+      "authenticated": [],
+      "now": 1,
+      "generation": "0",
+      "expected": {
+        "ok": [
+          {"history": [], "total": "0"},
+          {"history": [], "total": "0"},
+          {"history": [], "total": "0"}
+        ]
+      }
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "25"}]
+          }
+        }
+      ],
+      "choices": [1],
+      "authenticated": [],
+      "now": 1,
+      "generation": "0",
+      "expected": {
+        "ok": [
+          {"history": [], "total": "0"},
+          {"history": [{"ledger": 1, "amount": "25"}], "total": "25"},
+          {"history": [], "total": "0"}
+        ]
+      }
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "10"}]
+          }
+        },
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "617070726f7665",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "15"}]
+          }
+        }
+      ],
+      "choices": [1, 2],
+      "authenticated": [],
+      "now": 3,
+      "generation": "0",
+      "expected": {"error": "not_allowed"}
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "617070726f7665",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "10"}]
+          }
+        }
+      ],
+      "choices": [2],
+      "authenticated": [],
+      "now": 6,
+      "generation": "0",
+      "expected": {"error": "not_allowed"}
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "20"}]
+          }
+        },
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "5"}]
+          }
+        }
+      ],
+      "choices": [1, 0],
+      "authenticated": [],
+      "now": 9,
+      "generation": "0",
+      "expected": {"error": "cap_limit_exceeded"}
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "30"}]
+          }
+        }
+      ],
+      "choices": [1],
+      "authenticated": [],
+      "now": 12,
+      "generation": "0",
+      "expected": {
+        "ok": [
+          {"history": [], "total": "0"},
+          {"history": [{"ledger": 12, "amount": "30"}], "total": "30"},
+          {"history": [], "total": "0"}
+        ]
+      }
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "617070726f7665",
+            "args": [{"address": "616c696365"}, {"address": "626f62"}, {"i128": "20"}]
+          }
+        }
+      ],
+      "choices": [2],
+      "authenticated": [],
+      "now": 12,
+      "generation": "0",
+      "expected": {"error": "not_allowed"}
+    }
+  ]
+}

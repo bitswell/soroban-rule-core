@@ -20,8 +20,8 @@ Each link of the chain is a theorem about rule sets, or about the code that
 builds, stores and checks them:
 
 - **Grant inside scope.** A delegated grant is reached from its scope by attenuation steps, so it allows only what the scope allows, under any signers. Milestones 1 and 2 prove this for rule matching and signer requirements (`Derives.narrower`, `Derives.allows_all`), and for spending caps on rules as trace inclusion: every run of authorizations a derived rule set accepts from empty records, its root accepts from its own ([Milestone 2: caps on rules](#milestone-2-caps-on-rules)). Milestone 3 bounds what is spent under each grant on the delegation tree: from a tree with nothing spent, the total successfully spent at or under any node never exceeds its allowance, however the allowances below it oversubscribe it (`spentUnder_le_allowance`, [Milestone 3: the budget tree](#milestone-3-the-budget-tree)).
-- **Scope inside the owner's authority.** A scoped document compiles to rules that reach none of the account, its recovery or the ZK adapter. That is M4.
-- **Recovery.** A completed recovery bumps a generation, and every scoped rule issued under an older generation then authorizes nothing. That is also M4.
+- **Scope inside the owner's authority.** A scoped document compiles to rules that reach none of the account, its recovery or the ZK adapter. That is M4. The rule model the lowering targets, extended so that every rule Perch installs has an exact counterpart, is [Milestone 4: the rule model Perch lowers to](#milestone-4-the-rule-model-perch-lowers-to).
+- **Recovery.** A completed recovery bumps a generation, and every scoped rule issued under an older generation then authorizes nothing. The rule-level half is proven: `authorize` refuses a rule issued under another generation, so once the generation moves past `g` a rule issued under `g` authorizes nothing, and no attenuation step changes a rule's generation (`authorize_not_chosen_of_stale`, `attenuateAll_generation_eq`). Which events advance the counter, and that the lowering stamps every scoped rule, are M4's next part.
 - **The code is the model.** The Rust that Perch's smart account, the grant signer, the agent host and the relay run is proven equal to the Lean model the theorems are about (M1 for rule matching and attenuation, M2 for signers, spending caps and the stateful `authorize`, M3 for the budget tree). Soroban's own behaviour enters through Lean models that are tested against the host (M5).
 
 ## Dependency direction
@@ -66,7 +66,10 @@ range.
 
 Each chain rule denotes a generic rule. Removing functions denotes restricting
 the scope to calls of the remaining ones. Every chain scope is false on a
-creation.
+creation. [Milestone 4](#milestone-4-the-rule-model-perch-lowers-to) extends
+the vocabulary: a rule's functions may be a wildcard, a rule may carry a last
+ledger and a generation, there are two more conditions, and strings are a
+value constructor of their own.
 
 ### The evaluator
 
@@ -173,9 +176,19 @@ The mapping is not exact in every respect. These differences are recorded for
 M4 and not decided here:
 
 - OpenZeppelin's caller names one rule per context (`context_rule_ids`). Here `allows` and `allows_all` accept a context when some rule allows it, and `authorize` takes one rule per context as OpenZeppelin does ([Milestone 2: caps on rules](#milestone-2-caps-on-rules)).
-- OpenZeppelin has rule kinds this model does not have: a `Default` context type that matches any contract, contract-creation rules, and `valid_until` expiry.
-- OpenZeppelin finds duplicate external signers through the verifier's canonical key (`batch_canonicalize_key`). Here two external signers are the same signer only when their bytes are equal.
+- OpenZeppelin has rule kinds this model does not have: a `Default` context type that matches any contract, and contract-creation rules. Its `valid_until` expiry has a counterpart from [Milestone 4](#milestone-4-the-rule-model-perch-lowers-to).
+- OpenZeppelin finds duplicate external signers through the verifier's canonical key (`batch_canonicalize_key`) when a rule is installed. Here two external signers are the same signer only when their bytes are equal.
 - The `weighted_threshold` policy gives signers weights, and `spending_limit` caps amounts. There is no counterpart to weights here; spending caps on rules are [Milestone 2: caps on rules](#milestone-2-caps-on-rules).
+
+What Perch installs on that smart account narrows these differences. Read at
+Perch `dff2a73` (the `bitswell-hq/stellar-registry__perch` fork) and
+OpenZeppelin `stellar-accounts` at the fork commit Perch pins
+(`theahaco/stellar-contracts-OZ@33726766`, Perch `Cargo.toml` line 61):
+
+- **OpenZeppelin compares signers exactly when it checks an authorization, and Perch refuses keys that are not canonical.** At check time `get_validated_context_by_id` matches rule signers against the authenticated ones with `all_signers.contains(s)`, exact `Signer` equality (`smart_account/storage.rs` lines 313–314); the canonical comparison runs only when a rule is installed. Perch's document compiler refuses a key that is not already in its verifier-canonical form (`crates/perch-doc-compiler/src/lib.rs` lines 537–550). So among the rules Perch installs, byte equality of external keys is signer identity, as it is here.
+- **Perch emits no `Default`, contract-creation or weighted rules.** Every rule it installs is `ContextRuleType::CallContract` of the scoped contract or of the account itself (`crates/perch-smart-account/src/rules.rs` lines 171–175, and the constructor's admin rule); thresholds are its interpreter's `MinSigners`, and `simple_threshold` and `weighted_threshold` appear only as golden XDR vectors.
+- **Perch emits `valid_until`.** It lowers a rule's `not-after-ledger X` to `valid_until = X - 1` (`crates/perch-compile/src/lib.rs` line 256), and drops rules already expired when it installs a document (`crates/perch-smart-account/src/rules.rs` lines 127–129).
+- **`apply_scope`, cross-token caps and per-rule generations do not exist in Perch at that commit.** It has one document per account, applied with `apply_doc`; validation refuses a cap whose token is not the rule's own contract (`CapTokenMismatch`, `crates/perch-ir/src/validate.rs` line 998); and its `recovery_generation` (`crates/perch-smart-account/src/lib.rs` lines 386–389) is account-level and only makes pending upgrades stale.
 
 ## Milestone 2: spending caps
 
@@ -276,10 +289,11 @@ and the cap steps in `Model/Attenuation.lean`; the theorems are
 
 - A `Rule` has `cap: Option<Cap>`, where `Cap { limit: i128, period: u32, amount_arg: u32 }` caps spends at `limit` within `period` consecutive ledgers and names the argument that holds a call's amount. `cap_valid` holds when `limit > 0` and `period > 0`, what `params_valid` requires of a cap's parameters.
 - `allows` and `allows_all` do not read the cap. They stay the cap-free view of a rule set, and every Milestone 1 theorem about them is unchanged.
-- `authorize(rules, records, contexts, choices, authenticated, now)` returns the records after the authorization, or a `Refusal` that changes nothing. `records[j]` is the record of `rules[j]`, one per rule, and `choices[i]` is the rule chosen for `contexts[i]`. In order:
+- `authorize(rules, records, contexts, choices, authenticated, now, generation)` returns the records after the authorization, or a `Refusal` that changes nothing. `records[j]` is the record of `rules[j]`, one per rule, and `choices[i]` is the rule chosen for `contexts[i]`. In order:
   1. `choices` must hold one index per context (`ChoicesMismatch`), and `records` one record per rule (`RecordsMismatch`);
-  2. in context order, every chosen rule must exist (`NoSuchRule`) and allow its context under `authenticated` (`NotAllowed`);
-  3. in context order, for every chosen rule with a cap, the context's argument at `amount_arg` must be an `I128` (`NoAmount`) and is charged to that rule's record with `check_spend` at ledger `now` (`Cap(e)` when the check refuses). Each charge starts from the record the charges before it left, so two contexts choosing one rule accumulate within the batch.
+  2. in context order, every chosen rule must exist (`NoSuchRule`), be unexpired at `now` (`Expired`), carry the current `generation` when it carries one (`StaleGeneration`), and allow its context under `authenticated` (`NotAllowed`); expiry and generation are [Milestone 4](#milestone-4-the-rule-model-perch-lowers-to)'s;
+  3. every authenticated signer must be a signer of some chosen rule (`UnauthorizedSigner`), also Milestone 4's;
+  4. in context order, for every chosen rule with a cap, the context's argument at `amount_arg` must be an `I128` (`NoAmount`) and is charged to that rule's record with `check_spend` at ledger `now` (`Cap(e)` when the check refuses). Each charge starts from the record the charges before it left, so two contexts choosing one rule accumulate within the batch.
 - A rule without a cap reads no amount and keeps its record. A refusal returns no records: the shell stores the result only on `Ok`, so the charges of a refused batch's earlier contexts are discarded with it, as a failed Soroban invocation rolls back.
 
 ### Mirroring OpenZeppelin
@@ -290,10 +304,12 @@ carries the rule choice in `AuthPayload::context_rule_ids` (lines 133–138),
 aligned by index with the authorization contexts and bound into the digest the
 signers sign (line 498). `do_check_auth` (lines 466–525) refuses a length
 mismatch first (line 472), validates every context against its chosen rule
-(lines 477–485), and only then enforces each rule's policies in context order
+(lines 477–485), refuses any authenticated signer outside the chosen rules
+(lines 504–507), and only then enforces each rule's policies in context order
 (lines 511–522). `authorize` keeps that order: its second step is the
-validation and its third the enforcement, so a batch with both a disallowed
-context and an exceeded cap is refused with `NotAllowed`. The spending-limit
+validation, its third the signer check and its fourth the enforcement, so a
+batch with both a disallowed context and an exceeded cap is refused with
+`NotAllowed`. The spending-limit
 policy stores one record per context rule (`SpendingLimitStorageKey::AccountContext`,
 [`policies/spending_limit.rs`](https://github.com/theahaco/stellar-contracts-OZ/blob/33726766a1fd5e7e3d2977d79f64ee29e1ea3ca9/packages/accounts/src/policies/spending_limit.rs)
 line 236) and writes it after each enforcement (line 281), so two contexts on
@@ -302,7 +318,8 @@ shell's job: `authorize` receives the choices the signatures covered.
 
 ### Attenuation
 
-There are eight steps: the five of Milestones 1 and 2 and these three. Each
+These three steps join the five of Milestones 1 and 2, and
+[Milestone 4](#milestone-4-the-rule-model-perch-lowers-to) adds two more. Each
 refuses an index out of range with `NoSuchRule` before anything else.
 
 - `add_cap(rules, i, cap)` gives rule `i` the cap. It refuses a rule that already has one (`CapPresent`) and a cap that is not valid (`InvalidCap`).
@@ -325,14 +342,16 @@ and `j + 1` from `i` on (`Attenuation.source`); every other step keeps each
 index; a list of steps composes them (`Attenuation.chainSource`).
 
 The proof goes through `Refines rs' rs f`: `f` sends the rules of `rs'` one to
-one to rules of `rs`, each rule of `rs'` allows no more than its image, and its
+one to rules of `rs`, each rule of `rs'` allows no more than its image, its
 cap is at least as narrow, reading the same amount with a lower or equal limit
-and a longer or equal period, or there is a cap where the image has none. Along
+and a longer or equal period, or there is a cap where the image has none, it
+is current (unexpired and not stale) at no ledger and in no generation where
+its image is not, and it lists no signer its image does not. Along
 a run, the history of each image's record stays a suffix of the record it
 corresponds to (`check_of_narrower_suffix`, the single step of the cap trace
-inclusion), so every charge `rs'` accepts, `rs` accepts. Each of the eight
-steps refines along its renumbering, refinement composes, and so every chain of
-steps is trace inclusion (`attenuateAll_traceNarrower`).
+inclusion), so every charge `rs'` accepts, `rs` accepts. Each step refines
+along its renumbering, refinement composes, and so every chain of steps is
+trace inclusion (`attenuateAll_traceNarrower`).
 
 ### Theorems
 
@@ -352,8 +371,8 @@ steps is trace inclusion (`attenuateAll_traceNarrower`).
 
 ### In the restricted subset
 
-- Each pass is one `while i < contexts.len()` loop. A choice is read with `choices.get(i)`, a rule with `rules.get(index)`, and a context with `contexts[i]` under `i < contexts.len()`.
-- The second pass copies the records once and charges in place through `out.get_mut(index)`. Aeneas models `get_mut` on a `Vec` as `DerefMut` to a slice and `<[T]>::get_mut`, which returns the element and a function writing a new one back at the index.
+- The validation and the charging are each one `while i < contexts.len()` loop. A choice is read with `choices.get(i)`, a rule with `rules.get(index)`, and a context with `contexts[i]` under `i < contexts.len()`.
+- The charging pass copies the records once and charges in place through `out.get_mut(index)`. Aeneas models `get_mut` on a `Vec` as `DerefMut` to a slice and `<[T]>::get_mut`, which returns the element and a function writing a new one back at the index.
 - `charge_all_loop_eq` and `check_choices_loop_eq` prove that the loops compute the model's `foldlM` of `charge` and `forM` of `checkChoice` over the contexts with their choices.
 
 ### Caps on rules, as input for M4
@@ -449,6 +468,78 @@ None of this is built here.
 - `charged` copies the tree and walks the chain again, writing each charged node back through `out.get_mut(current as usize)`. Its `checked_add` cannot fail after the check: the walk found the same sum fits at each node it visits (`charged_loop_eq`).
 - `refill` rebuilds the tree in one loop, replacing the node at its index, as `raise_threshold` does for a rule. `delegate` copies the tree and pushes the new node.
 
+## Milestone 4: the rule model Perch lowers to
+
+M4 proves Perch's document lowering sound. Each construct Perch's lowering
+emits needs a counterpart that gives the same verdict on every input, so the
+rule model is extended with exactly those constructs. Every Milestone 1 to 3
+theorem keeps holding, and `allows` and `allows_all` stay the view without
+time or generation that `authorize` refines. The document model, the lowering
+and its theorems build on this. The code is spread over `rule.rs`, `val.rs`,
+`bytes.rs`, `attenuate.rs` and `authorize.rs`; the model over
+`Model/RuleSet.lean`, `Model/Attenuation.lean`, `Model/Authorize.lean` and
+`Vocab/Chain.lean`.
+
+### The function wildcard
+
+- A rule's functions are `Functions::Only(list)`, the functions listed, or `Functions::AnyExcept(list)`, every function except those listed. Perch's rule without a function list, every function on its contract, is `AnyExcept` of the empty list (`Functions.any`). Every applied Perch document holds one: its admin rule.
+- The wildcard is a chain-vocabulary construct. The generic model's scope is unchanged: a rule's denoted scope is its contract and `f ∈ functions`, with membership read per constructor (`Functions.Mem`).
+- `remove_functions(rules, i, fs)` removes `fs` from a list; on a wildcard it adds `fs` to the functions it excludes, so a removal is never refused and the rule then matches exactly the functions it matched but those. It still denotes restricting the scope to calls of functions not in `fs`, as in Milestone 1.
+- `restrict_functions(rules, i, fs)`, a step of its own, restricts rule `i`'s functions to those also in `fs`: a list keeps the functions also named, in its own order; a wildcard becomes the list of the named functions it does not exclude. It denotes restricting the scope to calls of functions in `fs`, the generic `restrictScope`, so it narrows.
+- On the translation, `remove_functions` on a wildcard appends to a vector, whose length Aeneas's model bounds at `Usize.max`; its equivalence takes the stated rule `FunctionsRoomAt`, which every list meets ([`TRUSTED.md`](TRUSTED.md#functionsroom)).
+
+### Expiry
+
+- A rule carries `valid_until: Option<u32>`, its last ledger. `authorize` refuses a chosen rule whose last ledger is before `now` (`Expired`), exactly OpenZeppelin's `if valid_until < e.ledger().sequence()` at Perch's pin (`smart_account/storage.rs` line 282): the rule authorizes at its last ledger and is refused one ledger later.
+- `lower_valid_until(rules, i, v)`, a step, gives rule `i` the last ledger `v`, or moves its last ledger earlier, and refuses to move it later (`ValidUntilRaised`). `allows` does not read the last ledger, so the step leaves every verdict as it was; it narrows as trace inclusion, since a rule refines another only when it is unexpired at no ledger where the other has expired.
+
+### Generations
+
+- A rule carries `generation: Option<u64>`, the generation it was issued under, `None` for an admin rule, and `authorize` takes the account's current generation. A chosen rule issued under another generation is refused (`StaleGeneration`).
+- Once the current generation is not `g`, a rule issued under `g` authorizes nothing: no accepted authorization chooses it (`authorize_not_chosen_of_stale`), and a rule set issued under `g` accepts only an empty batch (`authorize_contexts_nil_of_stale`).
+- No attenuation step changes a rule's generation: each rule after a step, or after any chain of steps, carries the generation of the root rule it comes from (`attenuate_generation`, `attenuateAll_generation`), so everything derived from a scoped rule set issued under `g` is issued under `g` (`attenuateAll_generation_eq`).
+- Which events advance the counter is the shell's and the lowering's, recorded for M4's next part: a new account-level counter that advances only when a recovery completes, separate from Perch's `recovery_generation`, which also advances on recovery reconfiguration and on executed upgrades.
+
+### Signers outside the chosen rules
+
+`authorize` refuses an authorization in which an authenticated signer is a
+signer of no chosen rule (`UnauthorizedSigner`), as OpenZeppelin's
+`do_check_auth` does after validating every context and before enforcing any
+policy (`smart_account/storage.rs` lines 504–507 at Perch's pin). The check
+compares signers exactly, as the signer requirement does. It only refuses more:
+`allows`, which has no chosen rules, does not make it, and every batch
+`authorize` accepts, `allows_all` still allows.
+
+### Conditions and strings
+
+- `Cond::ArgIn(i, values)` holds when argument `i` exists and equals one of `values`, each compared as `ArgEq` compares (`val_in`). It is Perch's `string-in`, a disjunction over one argument that one rule's conjunctive conditions cannot otherwise express without splitting the rule, which would give each part its own spend record.
+- `Val::String(bytes)` is a string argument, as its bytes, distinct from every other constructor: a `Symbol` or `Bytes` value with the same bytes is a different value.
+- `Cond::ArgStrPrefix(i, prefix)` holds when argument `i` is a `String` whose first bytes are exactly `prefix` (`bytes_starts_with`). It is Perch's `string-prefix`, which reads only `ScVal::String` arguments.
+
+### Theorems
+
+- **Every Milestone 1 to 3 theorem holds of the extended model.** A statement about a rule's functions reads them as the set `Functions` denotes (`Rule.allows_false_of_functions_nil` takes `functions = .only []`; `rule_allows_call` names `functions_match`). `authorize_eq_ok_iff`, `checkChoice_ok_iff` and `Rule.Refines` include the expiry, generation and signer checks.
+- **Conditions** (`Cond.argIn_holds_iff`, `Cond.argIn_holds_iff_argEq`, `Cond.argStrPrefix_holds_iff`) and **strings** (`Val.string_ne_symbol`, `Cond.argStrPrefix_kind`, `Cond.argStrPrefix_false_of_symbol`, `Cond.argEq_string_false_of_symbol`).
+- **The wildcard** matches every function of its contract (`Rule.allows_call_any`); removing and restricting keep exactly the expected functions (`Functions.mem_remove`, `Functions.mem_restrict`).
+- **`restrict_functions` and `lower_valid_until` narrow** (`restrictFunctions_narrower`, `lowerValidUntil_narrower`), every chain of all ten chain steps stays inside its root, and each step and chain is trace inclusion (`attenuate_traceNarrower`, `attenuateAll_traceNarrower`, through `lowerValidUntil_refines`).
+- **The refusals**: an accepted authorization chooses no expired rule (`authorize_validUntil`), no rule of another generation (`authorize_generation`), and authenticates no signer outside its chosen rules (`authorize_signers`); `authorize` stays sound (`authorize_allowsAll`).
+- **On the translation**: `authorize_eq`, `restrict_functions_eq`, `lower_valid_until_eq`, `remove_functions_eq`, `cond_holds_eq`, `val_in_eq`, `bytes_starts_with_eq` and `functions_match_eq` prove that each of these functions returns `ok` of the model's result, termination included; `authorize_valid_until`, `authorize_generation`, `authorize_not_chosen_of_stale`, `authorize_contexts_nil_of_stale`, `authorize_signers`, `StepAlong.generation` and `DerivesAlong.generation_eq` carry these theorems to the Rust functions.
+
+### In the restricted subset
+
+- `bytes_starts_with` is one loop over the prefix, reading the string's byte with `get`; `val_in` is one loop over the values; `bytes_list_within` and `bytes_list_extend` each build a vector in one loop.
+- The signer check is two functions of one loop each: `signers_chosen` over the authenticated signers, and `signer_chosen` over the choices, reading each rule with `rules.get`.
+- Expiry, staleness and `lower_valid_until`'s refusal are matches on an `Option` field, each in a function of its own, so the step keeps one building loop.
+
+### Recorded for M4's lowering
+
+These are the lowering's rules, recorded for the next part of M4 and not built
+here:
+
+- A rule without a function list lowers to the wildcard; `not-after-ledger X` to `valid_until = X - 1`; `string-in` values over 256 bytes, which never match on chain, are dropped; a capped rule's functions are restricted to `transfer`, which is all OpenZeppelin's spending-limit policy meters.
+- The recovery rule, whose only check is the recovery controller's state, lowers to its over-approximation: a rule with no signers and threshold 0 on the account's `apply_doc`. That is sound for containment, since the model then allows at least what is installed.
+- Cross-token caps split into paired rules are not part of M4: Perch refuses them, so there is nothing to lower.
+
 ## Later milestones
 
 These are design notes for work that is not built. Where the brief leaves a
@@ -459,14 +550,16 @@ decided here.
 
 Perch lowers an owner's document to installed rules.
 
-- **Soundness.** The installed rules allow exactly what the document says. This includes cross-token caps, which split into paired rules.
+- **Soundness.** The installed rules allow exactly what the document says.
 - **Scope.** No scoped document reaches the account itself, its recovery or the ZK adapter. Stated as a theorem: no rule a scoped document compiles to allows a call to those contracts or functions.
 - **Recovery.** Each scoped rule carries the generation it was issued under. After a recovery bumps the generation, every scoped rule authorizes nothing, so the chain ends at the admin document.
 
 The lowering is a pure function from the document to rule sets. Its proof
-relates the document's meaning to `RuleSet.allows` of its output. Whether
-Perch's compiled rules (OpenZeppelin context rules plus policies) map onto this
-rule model without loss, or need a richer condition set, is open.
+relates the document's meaning to `RuleSet.allows` of its output, and its
+trace statement to `authorize`. Perch's compiled rules map onto the rule model
+of [Milestone 4: the rule model Perch lowers to](#milestone-4-the-rule-model-perch-lowers-to)
+without loss, apart from the recovery rule, which lowers to a sound
+over-approximation.
 
 ### M5: the Soroban facade
 
@@ -533,5 +626,4 @@ failing vector in every consumer.
 
 These are not decided. They wait for the owner's decision.
 
-1. **M4: rule mapping.** Whether Perch's compiled rules (OpenZeppelin context rules plus policies) map onto this rule model without loss, or need a richer condition set.
-2. **M5: host versions.** How the Lean Soroban models are kept in step with new `soroban-env-host` versions.
+1. **M5: host versions.** How the Lean Soroban models are kept in step with new `soroban-env-host` versions.

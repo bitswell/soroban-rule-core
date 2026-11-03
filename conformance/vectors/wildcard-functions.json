@@ -1,0 +1,50 @@
+{
+  "format": 4,
+  "name": "wildcard-functions",
+  "description": "A wildcard rule allows every function of its contract, the empty name and names it was never told about included, except the ones it excludes, compared exactly; never another contract or a creation.",
+  "rules": [
+    {
+      "contract": "746f6b656e",
+      "functions": {"any_except": []},
+      "conds": [],
+      "signers": [],
+      "threshold": 0,
+      "cap": null,
+      "valid_until": null,
+      "generation": null
+    },
+    {
+      "contract": "7661756c74",
+      "functions": {"any_except": ["7769746864726177", ""]},
+      "conds": [],
+      "signers": [],
+      "threshold": 0,
+      "cap": null,
+      "valid_until": null,
+      "generation": null
+    }
+  ],
+  "batch": [
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": []}},
+    {"call": {"contract": "746f6b656e", "function": "", "args": []}},
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "616e797468696e675f61745f616c6c",
+        "args": [{"u64": "42"}]
+      }
+    },
+    {"call": {"contract": "746f6b656e73", "function": "7472616e73666572", "args": []}},
+    {"call": {"contract": "7661756c74", "function": "6465706f736974", "args": []}},
+    {"call": {"contract": "7661756c74", "function": "7769746864726177", "args": []}},
+    {"call": {"contract": "7661756c74", "function": "77697468647261775f616c6c", "args": []}},
+    {"call": {"contract": "7661756c74", "function": "", "args": []}},
+    {"create": {"wasm_hash": "746f6b656e"}}
+  ],
+  "authenticated": [],
+  "expected": {
+    "allows": [true, true, true, false, true, false, true, false, false],
+    "allows_all": false
+  },
+  "attenuations": []
+}

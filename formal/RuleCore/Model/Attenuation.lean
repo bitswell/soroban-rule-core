@@ -4,13 +4,13 @@ import RuleCore.Model.RuleSet
 # Attenuation
 
 A holder of a rule set derives a narrower one by attenuation steps. There are
-exactly eight, each naming a rule by its index:
+exactly nine, each naming a rule by its index:
 
 * `dropRule i`: remove rule `i`.
 * `addCond i p`: append condition `p` to rule `i`.
 * `restrictScope i s`: restrict rule `i`'s scope to the contexts that also
   satisfy `s`. In the chain vocabulary this is removing functions from the
-  rule's function list.
+  rule's functions, or restricting them to a list.
 * `removeSigners i ss`: remove every signer in `ss` from rule `i`'s signers,
   keeping its threshold.
 * `raiseThreshold i k`: set rule `i`'s threshold to `k`, refused with
@@ -25,10 +25,12 @@ exactly eight, each naming a rule by its index:
 * `lengthenCapPeriod i period`: set the period of rule `i`'s cap to `period`,
   refused with `noCap` when the rule has no cap and with `periodShortened`
   when `period` is below the current period.
+* `lowerValidUntil i v`: set rule `i`'s last ledger to `v`, refused with
+  `validUntilRaised` when the rule has a last ledger before `v`.
 
 Each step returns the new rule set, or `AttenuationError.noSuchRule` when its
 index is not below the number of rules, before any other refusal. Nothing else
-is an attenuation step.
+is an attenuation step, and no step changes a rule's generation.
 -/
 
 namespace RuleCore
@@ -52,6 +54,8 @@ inductive AttenuationError where
   | limitRaised
   /-- The new period is below the rule's current period. -/
   | periodShortened
+  /-- The new last ledger is after the rule's current one. -/
+  | validUntilRaised
   deriving DecidableEq, Repr
 
 /-- Rule `r` with condition `p` appended to its conditions. -/
@@ -138,6 +142,17 @@ def RuleSet.lengthenCapPeriod (rs : RuleSet Ctx Sig) (i period : Nat) :
     | none => .error .noCap
   | none => .error .noSuchRule
 
+def RuleSet.lowerValidUntil (rs : RuleSet Ctx Sig) (i v : Nat) :
+    Except AttenuationError (RuleSet Ctx Sig) :=
+  match rs.rules[i]? with
+  | some r =>
+    match r.validUntil with
+    | some last =>
+      if last < v then .error .validUntilRaised
+      else .ok (.ofRules (rs.rules.set i { r with validUntil := some v }))
+    | none => .ok (.ofRules (rs.rules.set i { r with validUntil := some v }))
+  | none => .error .noSuchRule
+
 /-- One attenuation step. -/
 inductive Attenuation (Ctx Sig : Type) where
   | dropRule (i : Nat)
@@ -148,6 +163,7 @@ inductive Attenuation (Ctx Sig : Type) where
   | addCap (i : Nat) (k : RuleCap Ctx)
   | lowerCapLimit (i : Nat) (limit : Int)
   | lengthenCapPeriod (i period : Nat)
+  | lowerValidUntil (i v : Nat)
 
 def RuleSet.attenuate [DecidableEq Sig] (rs : RuleSet Ctx Sig) :
     Attenuation Ctx Sig → Except AttenuationError (RuleSet Ctx Sig)
@@ -159,6 +175,7 @@ def RuleSet.attenuate [DecidableEq Sig] (rs : RuleSet Ctx Sig) :
   | .addCap i k => rs.addCap i k
   | .lowerCapLimit i limit => rs.lowerCapLimit i limit
   | .lengthenCapPeriod i period => rs.lengthenCapPeriod i period
+  | .lowerValidUntil i v => rs.lowerValidUntil i v
 
 /-- Apply `steps` in order, failing with the first step that fails. -/
 def RuleSet.attenuateAll [DecidableEq Sig] (rs : RuleSet Ctx Sig)

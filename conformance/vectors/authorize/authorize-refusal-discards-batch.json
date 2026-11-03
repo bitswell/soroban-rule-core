@@ -1,23 +1,27 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "authorize-refusal-discards-batch",
   "description": "A refusal discards the charges of the earlier contexts of its batch: 60 then 50 on one rule is refused, and the records stay empty, so 60 alone is then accepted.",
   "rules": [
     {
       "contract": "746f6b656e",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [],
       "signers": [],
       "threshold": 0,
-      "cap": {"limit": "100", "period": 10, "amount_arg": 2}
+      "cap": {"limit": "100", "period": 10, "amount_arg": 2},
+      "valid_until": null,
+      "generation": null
     },
     {
       "contract": "746f6b656e",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [],
       "signers": [],
       "threshold": 0,
-      "cap": {"limit": "100", "period": 10, "amount_arg": 2}
+      "cap": {"limit": "100", "period": 10, "amount_arg": 2},
+      "valid_until": null,
+      "generation": null
     }
   ],
   "start": [{"history": [], "total": "0"}, {"history": [], "total": "0"}],
@@ -42,6 +46,7 @@
       "choices": [0, 0],
       "authenticated": [],
       "now": 1,
+      "generation": "0",
       "expected": {"error": "cap_limit_exceeded"}
     },
     {
@@ -71,6 +76,7 @@
       "choices": [1, 0, 0],
       "authenticated": [],
       "now": 1,
+      "generation": "0",
       "expected": {
         "ok": [
           {
@@ -94,6 +100,7 @@
       "choices": [0],
       "authenticated": [],
       "now": 1,
+      "generation": "0",
       "expected": {"error": "cap_limit_exceeded"}
     },
     {
@@ -116,6 +123,7 @@
       "choices": [1, 0],
       "authenticated": [],
       "now": 2,
+      "generation": "0",
       "expected": {"error": "cap_limit_exceeded"}
     }
   ]

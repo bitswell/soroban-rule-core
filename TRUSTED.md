@@ -19,7 +19,7 @@ binary or the WebAssembly against the Lean translation.
 `overflow-checks = true` in the `release` and `contract` profiles makes
 overflowing arithmetic trap, as Aeneas's model of it fails. The evaluator's
 only arithmetic is the loop counter's `i += 1`, under `i < s.len()` (in
-`authorize`'s two passes, under `i < contexts.len()`), and the signer count's
+`authorize`'s first and third passes, under `i < contexts.len()`), and the signer count's
 `count += 1`, which runs at most once per position of its loop, so `count`
 stays at most `i`. The equivalence theorems prove that neither
 overflows. The spending-cap check sums with `i128::checked_add` and
@@ -85,7 +85,7 @@ each is trusted to match the Rust item.
 | `DerefMut` of `Vec<T>` to `&mut [T]` | `alloc.vec.Vec.deref_mut` | The same list, and a function that rebuilds the vector from the slice written back. Called in `authorize` to charge a record in place, and in the budget's charging walk to charge a node of the copied tree. |
 | `<[T]>::len` | `Slice.len` | The list's length. |
 | `s[i]` on a slice (`Index<usize>`) | `Slice.index_usize` | Element `i`, or `fail` when `i` is out of range. |
-| `<[T]>::get(i)` | `core.slice.Slice.get` with `core.slice.index.SliceIndexUsizeSlice` | `some` element `i`, or `none` when `i` is out of range. Called on a rule's arguments (a condition's, and a cap's amount), on the rules in `raise_threshold`, the cap steps and `authorize`, on an authorization's choices, and on the tree's nodes in the budget's walks and in `refill`. |
+| `<[T]>::get(i)` | `core.slice.Slice.get` with `core.slice.index.SliceIndexUsizeSlice` | `some` element `i`, or `none` when `i` is out of range. Called on a rule's arguments (a condition's, and a cap's amount), on a string argument's bytes in `bytes_starts_with`, on the rules in `raise_threshold`, the cap steps, `lower_valid_until` and both of `authorize`'s passes over choices, on an authorization's choices, and on the tree's nodes in the budget's walks and in `refill`. |
 | `<[T]>::get_mut(i)` | `core.slice.Slice.get_mut` with `core.slice.index.SliceIndexUsizeSlice` | `some` element `i` and a function that writes a new element back at `i` (`Slice.set_opt`), or `none` and the slice unchanged when `i` is out of range. Called in `authorize` on the copied records, and in the budget's charging walk on the copied tree. |
 | `u32 as usize` | `UScalar.cast` | The same value. Lossless because `usize` has at least 32 bits. Widens indices (an authorization's choices, a cap's `amount_arg` and the budget's node and parent indices included), in `signers_met` the threshold, and `u32::MAX` into `MAX_NODES`. |
 | `u32::MAX` | `core.num.U32.MAX` | `2^32 - 1`. |
@@ -93,18 +93,20 @@ each is trusted to match the Rust item.
 | `len - 1` and `len - kept_from` on `usize` | `-` on `Usize` | Checked subtraction: `fail` when the result would be negative. |
 | `<`, `<=`, `>=`, `==`, `!=` on `usize` | the order and equality of `Usize` | On the values. |
 | `!=` on `u8` | equality of `U8` | On the values. |
-| `==` on `u64` | equality of `U64` | On the values. |
+| `==` and `!=` on `u64` | equality of `U64` | On the values. `!=` compares a rule's generation with the current one in `authorize`. |
 | `==`, `<`, `<=`, `>` and `>=` on `i128` | equality and order of `I128` | On the values, as signed integers. `lower_cap_limit` compares limits with `>` and `<= 0`, `cap_valid` the limit with `> 0`, and `tree_valid` each allowance and spent amount with `>= 0`. |
 | `i128::checked_add`, `i128::checked_sub` | `I128.checked_add`, `I128.checked_sub` | `some` of the sum or difference when it lies between `i128::MIN` and `i128::MAX`, `none` otherwise. |
 | `Option<T>` (`Some`, `None`) | Lean's `Option` | The two-constructor inductive. |
 | `u32::saturating_sub` | `core.num.U32.saturating_sub` | The difference when it is not negative, `0` otherwise. |
 | `usize::BITS` | `core.num.Usize.BITS` | `System.Platform.numBits`, as a `U32`. |
-| `<`, `>` and `>=` on `u32` | the order of `U32` | On the values. `lengthen_cap_period` compares periods with `<`, `cap_valid` the period with `> 0`, and the budget's walks a parent index with the current one with `>=`. |
+| `<`, `>` and `>=` on `u32` | the order of `U32` | On the values. `lengthen_cap_period` compares periods with `<`, `cap_valid` the period with `> 0`, `authorize` a rule's last ledger with the current one with `<`, `lower_valid_until` a new last ledger with the current one with `>`, and the budget's walks a parent index with the current one with `>=`. |
 | `const _: () = assert!(usize::BITS >= 32)` | `massert` | `ok ()` when the condition holds, `fail` otherwise. |
 
-`==` on `bool` translates to Lean's own `Bool` equality, which needs no
-library model. Writing through a mutable borrow (`*record = next` in
-`authorize`, `c.limit = limit` and `c.period = period` in the cap steps)
+`==` on `bool` and `!` translate to Lean's own `Bool` equality and negation,
+which need no library model. Copying a rule's `Option<u32>` last ledger and
+`Option<u64>` generation copies the value. Writing through a mutable borrow
+(`*record = next` in `authorize`, `c.limit = limit` and `c.period = period` in
+the cap steps, `r.valid_until = Some(valid_until)` in `lower_valid_until`)
 translates to functional updates and backward functions in the generated Lean,
 not to library items. So does `m.spent = spent` in the budget's charging walk
 and `n.allowance = allowance` in `refill`.
@@ -127,14 +129,18 @@ structural:
 
 - a byte string is the same bytes;
 - an integer is its bit vector;
-- each enum constructor maps to the constructor of the same name, so `Signer::Delegated` is `Signer.delegated` and `Signer::External` is `Signer.external`, and each `AttenuationError` is the error of the same name;
-- each struct field maps to the field of the same name, so a rule's `threshold` is the same `u32`, a `Cap`'s `limit` the same `i128` and its `amount_arg` the chain cap's `amountArg`, and a rule's optional cap the optional denoted cap;
+- each enum constructor maps to the constructor of the same name, so `Signer::Delegated` is `Signer.delegated` and `Signer::External` is `Signer.external`, `Val::String` is `Val.string`, `Cond::ArgIn` and `Cond::ArgStrPrefix` are `Cond.argIn` and `Cond.argStrPrefix`, `Functions::AnyExcept` and `Functions::Only` are `Functions.anyExcept` and `Functions.only`, and each `AttenuationError` is the error of the same name;
+- each struct field maps to the field of the same name, so a rule's `threshold` is the same `u32`, a `Cap`'s `limit` the same `i128` and its `amount_arg` the chain cap's `amountArg`, a rule's optional cap the optional denoted cap, and its optional `valid_until` and `generation` the chain rule's optional `validUntil` (`u32`) and `generation` (`u64`);
 - a slice or vector maps to the list of its elements' denotations, so the authenticated signers are the list of their denotations.
 
 The chain vocabulary gives a cap its meaning (`Chain.Cap.denote`): its
 parameters are the cap model's `⟨limit, period⟩`, the limit read as a signed
 integer, and the amount a call spends is its argument at `amountArg` when that
-argument is an `i128`. That reading is part of the specification as well.
+argument is an `i128`. It gives a rule's functions their meaning
+(`Functions.Mem`): a list matches the functions it lists, and `anyExcept`
+every function it does not list. It reads a rule's last ledger and
+generation, and an authorization's ledger and generation, as natural numbers.
+Those readings are part of the specification as well.
 
 `formal/RuleCore/Equiv/DenoteCap.lean` maps the types of the `cap` module to
 the cap model of `formal/RuleCore/Model/Cap.lean` in the same way:
@@ -146,9 +152,9 @@ the cap model of `formal/RuleCore/Model/Cap.lean` in the same way:
 `formal/RuleCore/Equiv/Authorize.lean` maps the types of the `authorize`
 module the same way:
 
-- each `Refusal` constructor maps to the constructor of the same name, and `Refusal::Cap(e)` to `Refusal.cap` of the denoted `CapError`;
+- each `Refusal` constructor maps to the constructor of the same name (`Expired` to `expired`, `StaleGeneration` to `staleGeneration`, `UnauthorizedSigner` to `unauthorizedSigner`), and `Refusal::Cap(e)` to `Refusal.cap` of the denoted `CapError`;
 - a result of `authorize` is the `Except` of the denoted records or refusal;
-- `authorize`'s contexts, choices, authenticated signers and ledger are the chain vocabulary's authorization of their denotations.
+- `authorize`'s contexts, choices, authenticated signers, ledger and generation are the chain vocabulary's authorization of their denotations.
 
 `formal/RuleCore/Equiv/DenoteBudget.lean` maps the types of the `budget`
 module to the budget model of `formal/RuleCore/Model/Budget.lean` the same way:
@@ -175,13 +181,28 @@ never reaches that length. The theorems stated on the translation alone do not
 assume `CondRoom`, because an `add_cond` that returned `Ok` had room
 (`add_cond_room`).
 
+### FunctionsRoom
+
+`remove_functions_eq`, the equivalence for `remove_functions`, assumes
+`FunctionsRoomAt rules index functions`: when the rule at `index` is a
+wildcard, `AnyExcept(removed)`, the functions it excludes and the ones removed
+number at most `Usize.max` together, so the vector holding both fits Aeneas's
+model of `Vec`. Every rule whose functions are a list meets it
+(`functionsRoom_only`): removing functions from a list never grows it.
+`remove_functions_full` proves the rule exact: on a wildcard without that room,
+the translated step fails. In Rust a `Vec<Vec<u8>>` holds at most
+`isize::MAX` bytes, so two of them never hold `Usize.max` names between them.
+The theorems stated on the translation alone do not assume it, because a
+`remove_functions` that returned `Ok` had room (`remove_functions_room`).
+
 ### The empty batch
 
 Every rule set, the empty one included, allows the empty batch
 (`RuleCore.RuleSet.allowsAll_nil`), because that is how `List.all` and
 `allows_all`'s loop behave. A Soroban authorization tree always has a root
 context, so a batch collected from one is never empty. A caller that builds
-batches some other way must reject the empty batch itself.
+batches some other way must reject the empty batch itself. `authorize` accepts
+an empty batch only when it authenticates no signer, since no rule is chosen.
 
 ### No creation is a vocabulary property
 

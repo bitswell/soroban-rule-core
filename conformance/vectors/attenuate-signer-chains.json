@@ -1,11 +1,11 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "attenuate-signer-chains",
   "description": "Lists of all five step kinds: a threshold raised then a signer removed, a refusal for lowering part-way through, and a threshold raised past the remaining signers.",
   "rules": [
     {
       "contract": "746f6b656e",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [],
       "signers": [
         {"delegated": {"address": "616c696365"}},
@@ -14,15 +14,19 @@
         {"delegated": {"address": "616c696365"}}
       ],
       "threshold": 2,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     },
     {
       "contract": "706f6f6c",
-      "functions": ["6465706f736974"],
+      "functions": {"only": ["6465706f736974"]},
       "conds": [],
       "signers": [],
       "threshold": 0,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     }
   ],
   "batch": [
@@ -51,7 +55,7 @@
           "rules": [
             {
               "contract": "746f6b656e",
-              "functions": ["7472616e73666572"],
+              "functions": {"only": ["7472616e73666572"]},
               "conds": [],
               "signers": [
                 {"delegated": {"address": "616c696365"}},
@@ -59,15 +63,19 @@
                 {"delegated": {"address": "616c696365"}}
               ],
               "threshold": 3,
-              "cap": null
+              "cap": null,
+              "valid_until": null,
+              "generation": null
             },
             {
               "contract": "706f6f6c",
-              "functions": ["6465706f736974"],
+              "functions": {"only": ["6465706f736974"]},
               "conds": [],
               "signers": [],
               "threshold": 0,
-              "cap": null
+              "cap": null,
+              "valid_until": null,
+              "generation": null
             }
           ],
           "allows": [false, true],
@@ -91,7 +99,7 @@
           "rules": [
             {
               "contract": "746f6b656e",
-              "functions": ["7472616e73666572"],
+              "functions": {"only": ["7472616e73666572"]},
               "conds": [],
               "signers": [
                 {"delegated": {"address": "616c696365"}},
@@ -99,15 +107,19 @@
                 {"delegated": {"address": "616c696365"}}
               ],
               "threshold": 2,
-              "cap": null
+              "cap": null,
+              "valid_until": null,
+              "generation": null
             },
             {
               "contract": "706f6f6c",
-              "functions": ["6465706f736974"],
+              "functions": {"only": ["6465706f736974"]},
               "conds": [{"arg_eq": {"index": 0, "value": {"address": "616c696365"}}}],
               "signers": [],
               "threshold": 0,
-              "cap": null
+              "cap": null,
+              "valid_until": null,
+              "generation": null
             }
           ],
           "allows": [true, false],
@@ -134,11 +146,13 @@
           "rules": [
             {
               "contract": "706f6f6c",
-              "functions": [],
+              "functions": {"only": []},
               "conds": [],
               "signers": [],
               "threshold": 1,
-              "cap": null
+              "cap": null,
+              "valid_until": null,
+              "generation": null
             }
           ],
           "allows": [false, false],
@@ -164,19 +178,23 @@
           "rules": [
             {
               "contract": "746f6b656e",
-              "functions": ["7472616e73666572"],
+              "functions": {"only": ["7472616e73666572"]},
               "conds": [],
               "signers": [{"delegated": {"address": "626f62"}}],
               "threshold": 2,
-              "cap": null
+              "cap": null,
+              "valid_until": null,
+              "generation": null
             },
             {
               "contract": "706f6f6c",
-              "functions": ["6465706f736974"],
+              "functions": {"only": ["6465706f736974"]},
               "conds": [],
               "signers": [],
               "threshold": 0,
-              "cap": null
+              "cap": null,
+              "valid_until": null,
+              "generation": null
             }
           ],
           "allows": [false, true],

@@ -13,8 +13,11 @@ pub enum Val {
     /// An address, as its `ScAddress` XDR.
     Address(Vec<u8>),
     Symbol(Vec<u8>),
-    /// An argument of any other type (`u32`, `i64`, `string`, `vec`, `map`,
-    /// ...), as its full `ScVal` XDR. The XDR begins with the type's
+    /// A string, as its bytes. A `Symbol` with the same bytes is a different
+    /// value.
+    String(Vec<u8>),
+    /// An argument of any other type (`u32`, `i64`, `vec`, `map`, ...), as its
+    /// full `ScVal` XDR. The XDR begins with the type's
     /// discriminant, so two `Other` values are equal only when the arguments
     /// have the same type and the same value.
     Other(Vec<u8>),
@@ -30,6 +33,7 @@ pub fn val_eq(a: &Val, b: &Val) -> bool {
         (Val::Bytes(x), Val::Bytes(y))
         | (Val::Address(x), Val::Address(y))
         | (Val::Symbol(x), Val::Symbol(y))
+        | (Val::String(x), Val::String(y))
         | (Val::Other(x), Val::Other(y)) => bytes_eq(x, y),
         _ => false,
     }
@@ -44,6 +48,31 @@ pub(crate) fn val_copy(v: &Val) -> Val {
         Val::Bytes(x) => Val::Bytes(bytes_copy(x)),
         Val::Address(x) => Val::Address(bytes_copy(x)),
         Val::Symbol(x) => Val::Symbol(bytes_copy(x)),
+        Val::String(x) => Val::String(bytes_copy(x)),
         Val::Other(x) => Val::Other(bytes_copy(x)),
     }
+}
+
+/// Whether `x` equals one of the values in `list`, as [`val_eq`] compares.
+#[must_use]
+pub fn val_in(x: &Val, list: &[Val]) -> bool {
+    let mut i = 0;
+    while i < list.len() {
+        if val_eq(x, &list[i]) {
+            return true;
+        }
+        i += 1;
+    }
+    false
+}
+
+/// A fresh copy of `list`, keeping order.
+pub(crate) fn vals_copy(list: &[Val]) -> Vec<Val> {
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < list.len() {
+        out.push(val_copy(&list[i]));
+        i += 1;
+    }
+    out
 }

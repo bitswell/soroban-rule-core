@@ -1,18 +1,20 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "arg-eq-u64",
   "description": "argEq on a u64: equal value, another value, the same number as an i128, and the maximum.",
   "rules": [
     {
       "contract": "746f6b656e",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [
         {"arg_eq": {"index": 0, "value": {"u64": "7"}}},
         {"arg_eq": {"index": 1, "value": {"u64": "18446744073709551615"}}}
       ],
       "signers": [],
       "threshold": 0,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     }
   ],
   "batch": [

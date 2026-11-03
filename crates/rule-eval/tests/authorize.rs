@@ -10,8 +10,8 @@ use common::*;
 use rule_eval::{
     AttenuationError, Cap, CapError, Context, Refusal, Rule, Signer, SpendEntry, SpendRecord, Val,
     add_cap, add_cond, allows, allows_all, authorize, cap_valid, check_spend, drop_rule,
-    empty_record, lengthen_cap_period, lower_cap_limit, raise_threshold, remove_functions,
-    remove_signers, rule_allows,
+    empty_record, lengthen_cap_period, lower_cap_limit, lower_valid_until, raise_threshold,
+    remove_functions, remove_signers, rule_allows,
 };
 
 /// A record as its entries and total.
@@ -54,7 +54,10 @@ fn refusal_name(r: &Refusal) -> String {
         Refusal::ChoicesMismatch => "choices_mismatch".into(),
         Refusal::RecordsMismatch => "records_mismatch".into(),
         Refusal::NoSuchRule => "no_such_rule".into(),
+        Refusal::Expired => "expired".into(),
+        Refusal::StaleGeneration => "stale_generation".into(),
         Refusal::NotAllowed => "not_allowed".into(),
+        Refusal::UnauthorizedSigner => "unauthorized_signer".into(),
         Refusal::NoAmount => "no_amount".into(),
         Refusal::Cap(e) => format!("cap {}", cap_error_name(e)),
     }
@@ -62,6 +65,7 @@ fn refusal_name(r: &Refusal) -> String {
 
 type Outcome = Result<Vec<Rec>, String>;
 
+/// `authorize` in generation 0, as a comparable outcome.
 fn outcome(
     rules: &[Rule],
     records: &[SpendRecord],
@@ -70,15 +74,28 @@ fn outcome(
     auth: &[Signer],
     now: u32,
 ) -> Outcome {
-    match authorize(rules, records, contexts, choices, auth, now) {
+    outcome_in(rules, records, contexts, choices, auth, now, 0)
+}
+
+fn outcome_in(
+    rules: &[Rule],
+    records: &[SpendRecord],
+    contexts: &[Context],
+    choices: &[u32],
+    auth: &[Signer],
+    now: u32,
+    generation: u64,
+) -> Outcome {
+    match authorize(rules, records, contexts, choices, auth, now, generation) {
         Ok(out) => Ok(out.iter().map(rec_of).collect()),
         Err(e) => Err(refusal_name(&e)),
     }
 }
 
 /// A plain reading of `authorize`: the length checks, then every chosen rule
-/// allowing its context, then each charge in context order against the
-/// record the charges before it left.
+/// unexpired, in the generation and allowing its context, then every
+/// authenticated signer a signer of a chosen rule, then each charge in context
+/// order against the record the charges before it left.
 fn reference(
     rules: &[Rule],
     records: &[SpendRecord],
@@ -86,6 +103,7 @@ fn reference(
     choices: &[u32],
     auth: &[Signer],
     now: u32,
+    generation: u64,
 ) -> Outcome {
     if choices.len() != contexts.len() {
         return Err("choices_mismatch".into());
@@ -96,8 +114,25 @@ fn reference(
     for (ctx, &j) in contexts.iter().zip(choices) {
         match rules.get(j as usize) {
             None => return Err("no_such_rule".into()),
+            Some(r) if r.valid_until.is_some_and(|last| last < now) => {
+                return Err("expired".into());
+            }
+            Some(r) if r.generation.is_some_and(|g| g != generation) => {
+                return Err("stale_generation".into());
+            }
             Some(r) if !ref_rule_allows(r, ctx, auth) => return Err("not_allowed".into()),
             Some(_) => {}
+        }
+    }
+    for a in auth {
+        let chosen = choices.iter().any(|&j| {
+            rules[j as usize]
+                .signers
+                .iter()
+                .any(|s| ref_signer_eq(s, a))
+        });
+        if !chosen {
+            return Err("unauthorized_signer".into());
         }
     }
     let mut out: Vec<Rec> = records.iter().map(rec_of).collect();
@@ -246,7 +281,7 @@ fn a_capped_rule_needs_an_i128_amount() {
 #[test]
 fn a_cap_refusal_is_passed_on() {
     let rs = sample();
-    let auth = [delegated("alice")];
+    let auth: [Signer; 0] = [];
     assert_eq!(
         outcome(&rs, &empty(2), &[transfer(-1)], &[0], &auth, 1),
         Err("cap negative_amount".into())
@@ -324,7 +359,7 @@ fn the_window_rolls() {
         (22, 50, true),
         (22, 1, false),
     ] {
-        match authorize(&rs, &records, &[transfer(amount)], &[0], &[], now) {
+        match authorize(&rs, &records, &[transfer(amount)], &[0], &[], now, 0) {
             Ok(out) => {
                 assert!(accepted, "ledger {now} amount {amount}");
                 records = out;
@@ -361,6 +396,7 @@ fn is_err(r: &Result<Vec<Rule>, AttenuationError>, name: &str) -> bool {
         Err(AttenuationError::InvalidCap) => "invalid_cap",
         Err(AttenuationError::LimitRaised) => "limit_raised",
         Err(AttenuationError::PeriodShortened) => "period_shortened",
+        Err(AttenuationError::ValidUntilRaised) => "valid_until_raised",
     };
     got == name
 }
@@ -482,6 +518,16 @@ fn rule_universe() -> Vec<Rule> {
             vec![delegated("alice")],
             1,
         ),
+        valid_until(
+            issued(
+                wildcard(
+                    signed_rule("vault", &[], Vec::new(), vec![delegated("alice")], 1),
+                    &["withdraw"],
+                ),
+                3,
+            ),
+            4,
+        ),
     ]
 }
 
@@ -498,6 +544,7 @@ fn context_universe() -> Vec<Context> {
         vec![Val::I128(2), Val::Address(b("to")), Val::I128(4)],
     ));
     out.push(call("vault", "deposit", vec![Val::I128(1)]));
+    out.push(call("vault", "withdraw", Vec::new()));
     out.push(create("token"));
     out
 }
@@ -537,15 +584,21 @@ fn batch_universe() -> Vec<(Vec<Context>, Vec<u32>)> {
 }
 
 /// `authorize` agrees with the plain reading on every rule set of up to two
-/// rules from a universe of capped and uncapped rules, every batch of up to
-/// two contexts with its choices, two authenticated lists and two ledgers,
-/// from empty records and from records already holding a spend; and an
-/// accepted authorization's batch is allowed by `allows_all`.
+/// rules from a universe of capped and uncapped rules and an expiring wildcard
+/// issued under generation 3, every batch of up to two contexts with its
+/// choices, three authenticated lists, two ledgers and two generations, from
+/// empty records and from records already holding a spend; and an accepted
+/// authorization's batch is allowed by `allows_all`.
 #[test]
 fn authorize_agrees_with_the_reference_reading() {
-    let auths = [Vec::new(), vec![delegated("alice")]];
+    let auths = [
+        Vec::new(),
+        vec![delegated("alice")],
+        vec![delegated("alice"), delegated("bob")],
+    ];
     let mut checked = 0usize;
     let mut accepted = 0usize;
+    let mut refused: Vec<String> = Vec::new();
     for rs in rule_set_universe() {
         let starts = [
             empty(rs.len()),
@@ -557,27 +610,43 @@ fn authorize_agrees_with_the_reference_reading() {
             for (batch, choices) in batch_universe() {
                 for auth in &auths {
                     for now in [1, 7] {
-                        let got = outcome(&rs, records, &batch, &choices, auth, now);
-                        let expected = reference(&rs, records, &batch, &choices, auth, now);
-                        assert_eq!(
-                            got, expected,
-                            "case {checked}: choices {choices:?} ledger {now}"
-                        );
-                        if got.is_ok() {
-                            assert!(allows_all(&rs, &batch, auth));
-                            for (c, &j) in batch.iter().zip(&choices) {
-                                assert!(rule_allows(&rs[j as usize], c, auth));
+                        for generation in [0, 3] {
+                            let got =
+                                outcome_in(&rs, records, &batch, &choices, auth, now, generation);
+                            let expected =
+                                reference(&rs, records, &batch, &choices, auth, now, generation);
+                            assert_eq!(
+                                got, expected,
+                                "case {checked}: choices {choices:?} ledger {now} generation {generation}"
+                            );
+                            if got.is_ok() {
+                                assert!(allows_all(&rs, &batch, auth));
+                                for (c, &j) in batch.iter().zip(&choices) {
+                                    assert!(rule_allows(&rs[j as usize], c, auth));
+                                }
+                                accepted += 1;
+                            } else if let Err(e) = &got
+                                && !refused.contains(e)
+                            {
+                                refused.push(e.clone());
                             }
-                            accepted += 1;
+                            checked += 1;
                         }
-                        checked += 1;
                     }
                 }
             }
         }
     }
-    assert_eq!(checked, 28_024);
-    assert!(accepted > 2_000);
+    assert_eq!(checked, 146_544);
+    assert!(accepted > 3_000);
+    for e in [
+        "expired",
+        "stale_generation",
+        "unauthorized_signer",
+        "not_allowed",
+    ] {
+        assert!(refused.iter().any(|r| r == e), "no case refused with {e}");
+    }
 }
 
 /// One authorization of a run: a batch, its choices and its ledger.
@@ -602,7 +671,7 @@ fn run(rs: &[Rule], calls: &[&Call]) -> (Vec<Outcome>, Vec<SpendRecord>, bool) {
     let mut outcomes = Vec::new();
     let mut all = true;
     for (batch, choices, now) in calls {
-        match authorize(rs, &records, batch, choices, &[], *now) {
+        match authorize(rs, &records, batch, choices, &[], *now, 0) {
             Ok(out) => {
                 outcomes.push(Ok(out.iter().map(rec_of).collect()));
                 records = out;
@@ -635,7 +704,7 @@ fn charged(rs: &[Rule], calls: &[&Call], j: usize) -> Vec<(u32, i128)> {
     let mut records = empty(rs.len());
     let mut out = Vec::new();
     for (batch, choices, now) in calls {
-        if let Ok(next) = authorize(rs, &records, batch, choices, &[], *now) {
+        if let Ok(next) = authorize(rs, &records, batch, choices, &[], *now, 0) {
             records = next;
             for (c, &k) in batch.iter().zip(choices) {
                 if k as usize == j
@@ -667,9 +736,9 @@ fn every_short_run_stays_within_every_window() {
         let mut records = empty(rs.len());
         for (batch, choices, now) in &calls {
             let got = outcome(&rs, &records, batch, choices, &[], *now);
-            let expected = reference(&rs, &records, batch, choices, &[], *now);
+            let expected = reference(&rs, &records, batch, choices, &[], *now, 0);
             assert_eq!(got, expected);
-            if let Ok(next) = authorize(&rs, &records, batch, choices, &[], *now) {
+            if let Ok(next) = authorize(&rs, &records, batch, choices, &[], *now, 0) {
                 records = next;
             }
         }
@@ -773,6 +842,14 @@ fn every_step_is_trace_inclusion() {
     let lowered = lower_cap_limit(&root, 1, 4).ok().unwrap();
     let chain = drop_rule(&lowered, 0).ok().unwrap();
     assert!(trace_included(&chain, &root, |j| j + 1, &pool));
+    // Giving a rule a last ledger, then moving it earlier, are steps.
+    let bounded = lower_valid_until(&root, 1, 7).ok().unwrap();
+    assert!(trace_included(&bounded, &root, id, &pool));
+    let earlier = lower_valid_until(&bounded, 1, 4).ok().unwrap();
+    assert!(trace_included(&earlier, &bounded, id, &pool));
+    assert!(trace_included(&earlier, &root, id, &pool));
+    // Moving a last ledger later is not a step, and is not trace inclusion.
+    assert!(!trace_included(&bounded, &earlier, id, &pool));
     // Raising a limit is not a step, and is not trace inclusion.
     let mut raised: Vec<Rule> = root.iter().map(copy_rule).collect();
     raised[1].cap = Some(cap(11, 5, 2));
@@ -786,14 +863,14 @@ fn caps_hold_across_contexts_that_choose_different_rules() {
         capped(rule("token", &["transfer"], Vec::new()), cap(10, 5, 2)),
         capped(rule("token", &["transfer"], Vec::new()), cap(10, 5, 2)),
     ];
-    let first = authorize(&rs, &empty(2), &[transfer(10)], &[0], &[], 1)
+    let first = authorize(&rs, &empty(2), &[transfer(10)], &[0], &[], 1, 0)
         .ok()
         .unwrap();
     assert!(matches!(
-        authorize(&rs, &first, &[transfer(1)], &[0], &[], 2),
+        authorize(&rs, &first, &[transfer(1)], &[0], &[], 2, 0),
         Err(Refusal::Cap(CapError::LimitExceeded))
     ));
-    let second = authorize(&rs, &first, &[transfer(10)], &[1], &[], 2)
+    let second = authorize(&rs, &first, &[transfer(10)], &[1], &[], 2, 0)
         .ok()
         .unwrap();
     assert_eq!(rec_of(&second[0]), (vec![(1, 10)], 10));
@@ -805,7 +882,7 @@ fn a_rule_without_a_cap_keeps_its_record() {
     let rs = sample();
     let records = vec![empty_record(), record_of(&(vec![(3, 7)], 7))];
     let deposit = call("vault", "deposit", Vec::new());
-    let out = authorize(&rs, &records, &[deposit], &[1], &[delegated("alice")], 9)
+    let out = authorize(&rs, &records, &[deposit], &[1], &[delegated("alice")], 9, 0)
         .ok()
         .unwrap();
     assert_eq!(rec_of(&out[1]), (vec![(3, 7)], 7));
@@ -828,4 +905,212 @@ fn a_cap_reads_only_its_own_amount_argument() {
     );
     let unused: Cap = cap(1, 1, 0);
     assert!(cap_valid(&unused));
+}
+
+/// The wildcard vault rule for alice, valid until ledger 10, issued under
+/// generation 3.
+fn grant() -> Rule {
+    valid_until(
+        issued(
+            wildcard(
+                signed_rule("vault", &[], Vec::new(), vec![delegated("alice")], 1),
+                &[],
+            ),
+            3,
+        ),
+        10,
+    )
+}
+
+/// Expiry mirrors OpenZeppelin's `valid_until < e.ledger().sequence()`: the
+/// rule authorizes at its last ledger and refuses one ledger later.
+#[test]
+fn a_rule_expires_after_its_last_ledger() {
+    let rs = vec![grant()];
+    let auth = [delegated("alice")];
+    let withdraw = || call("vault", "withdraw", Vec::new());
+    for now in [0, 9, 10] {
+        assert!(outcome_in(&rs, &empty(1), &[withdraw()], &[0], &auth, now, 3).is_ok());
+    }
+    for now in [11, u32::MAX] {
+        assert_eq!(
+            outcome_in(&rs, &empty(1), &[withdraw()], &[0], &auth, now, 3),
+            Err("expired".into())
+        );
+    }
+    // `allows` reads no time.
+    assert!(allows(&rs, &withdraw(), &auth));
+    // A rule without a last ledger never expires.
+    let open = vec![signed_rule(
+        "vault",
+        &["withdraw"],
+        Vec::new(),
+        vec![delegated("alice")],
+        1,
+    )];
+    assert!(outcome_in(&open, &empty(1), &[withdraw()], &[0], &auth, u32::MAX, 3).is_ok());
+}
+
+/// Once the current generation is not the one a rule was issued under, the
+/// rule authorizes nothing; a rule without a generation is unaffected.
+#[test]
+fn a_rule_of_another_generation_authorizes_nothing() {
+    let admin = signed_rule(
+        "vault",
+        &["withdraw"],
+        Vec::new(),
+        vec![delegated("alice")],
+        1,
+    );
+    let rs = vec![grant(), admin];
+    let auth = [delegated("alice")];
+    let withdraw = || call("vault", "withdraw", Vec::new());
+    assert!(outcome_in(&rs, &empty(2), &[withdraw()], &[0], &auth, 1, 3).is_ok());
+    for generation in [0, 2, 4, u64::MAX] {
+        assert_eq!(
+            outcome_in(&rs, &empty(2), &[withdraw()], &[0], &auth, 1, generation),
+            Err("stale_generation".into())
+        );
+        assert!(outcome_in(&rs, &empty(2), &[withdraw()], &[1], &auth, 1, generation).is_ok());
+    }
+    // `allows` reads no generation.
+    assert!(allows(&[grant()], &withdraw(), &auth));
+}
+
+/// OpenZeppelin refuses an authorization in which a signer belongs to no
+/// chosen rule (`UnauthorizedSigner`), even when every chosen rule's
+/// threshold is met; a signer of any chosen rule is allowed.
+#[test]
+fn an_authenticated_signer_in_no_chosen_rule_is_refused() {
+    let rs = vec![
+        signed_rule(
+            "token",
+            &["transfer"],
+            Vec::new(),
+            vec![delegated("alice")],
+            1,
+        ),
+        signed_rule("vault", &["deposit"], Vec::new(), vec![delegated("bob")], 1),
+    ];
+    let deposit = || call("vault", "deposit", Vec::new());
+    assert!(
+        outcome(
+            &rs,
+            &empty(2),
+            &[transfer(1)],
+            &[0],
+            &[delegated("alice")],
+            1
+        )
+        .is_ok()
+    );
+    assert_eq!(
+        outcome(
+            &rs,
+            &empty(2),
+            &[transfer(1)],
+            &[0],
+            &[delegated("alice"), delegated("bob")],
+            1
+        ),
+        Err("unauthorized_signer".into())
+    );
+    // Bob is a signer of a chosen rule once the deposit chooses his.
+    assert!(
+        outcome(
+            &rs,
+            &empty(2),
+            &[transfer(1), deposit()],
+            &[0, 1],
+            &[delegated("alice"), delegated("bob")],
+            1
+        )
+        .is_ok()
+    );
+    // Signers compare exactly: an external signer with alice's bytes is not alice.
+    assert_eq!(
+        outcome(
+            &rs,
+            &empty(2),
+            &[transfer(1)],
+            &[0],
+            &[delegated("alice"), external("alice", "")],
+            1
+        ),
+        Err("unauthorized_signer".into())
+    );
+    // An empty batch chooses no rule, so it accepts only no signers.
+    assert!(outcome(&rs, &empty(2), &[], &[], &[], 1).is_ok());
+    assert_eq!(
+        outcome(&rs, &empty(2), &[], &[], &[delegated("alice")], 1),
+        Err("unauthorized_signer".into())
+    );
+    // `allows` does not refuse a further signer.
+    assert!(allows(
+        &rs,
+        &transfer(1),
+        &[delegated("alice"), delegated("bob")]
+    ));
+}
+
+/// Expiry, then generation, then the rule's verdict, for each context in
+/// order; the signer check after every context; every charge after that.
+#[test]
+fn expiry_generation_and_signer_refusals_take_their_place_in_order() {
+    let stale_and_expired = valid_until(issued(rule("vault", &["deposit"], Vec::new()), 1), 0);
+    let rs = vec![
+        stale_and_expired,
+        capped(rule("token", &["transfer"], Vec::new()), cap(10, 5, 2)),
+    ];
+    let deposit = || call("vault", "deposit", Vec::new());
+    assert_eq!(
+        outcome_in(&rs, &empty(2), &[deposit()], &[0], &[], 5, 2),
+        Err("expired".into())
+    );
+    assert_eq!(
+        outcome_in(&rs, &empty(2), &[deposit()], &[0], &[], 0, 2),
+        Err("stale_generation".into())
+    );
+    // The first failing context decides.
+    assert_eq!(
+        outcome_in(
+            &rs,
+            &empty(2),
+            &[transfer(1), deposit()],
+            &[1, 0],
+            &[],
+            5,
+            1
+        ),
+        Err("expired".into())
+    );
+    assert_eq!(
+        outcome_in(
+            &rs,
+            &empty(2),
+            &[deposit(), transfer(1)],
+            &[0, 0],
+            &[],
+            0,
+            1
+        ),
+        Err("not_allowed".into())
+    );
+    // The signer check comes before any charge.
+    assert_eq!(
+        outcome_in(
+            &rs,
+            &empty(2),
+            &[transfer(11)],
+            &[1],
+            &[delegated("x")],
+            0,
+            1
+        ),
+        Err("unauthorized_signer".into())
+    );
+    assert_eq!(
+        outcome_in(&rs, &empty(2), &[transfer(11)], &[1], &[], 0, 1),
+        Err("cap limit_exceeded".into())
+    );
 }

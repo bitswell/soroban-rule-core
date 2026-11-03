@@ -1,31 +1,37 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "authorize-own-records",
   "description": "Two capped rules for the same call keep their own records, and a rule without a cap keeps its record as it was.",
   "rules": [
     {
       "contract": "746f6b656e",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [],
       "signers": [],
       "threshold": 0,
-      "cap": {"limit": "100", "period": 10, "amount_arg": 2}
+      "cap": {"limit": "100", "period": 10, "amount_arg": 2},
+      "valid_until": null,
+      "generation": null
     },
     {
       "contract": "746f6b656e",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [],
       "signers": [],
       "threshold": 0,
-      "cap": {"limit": "50", "period": 10, "amount_arg": 2}
+      "cap": {"limit": "50", "period": 10, "amount_arg": 2},
+      "valid_until": null,
+      "generation": null
     },
     {
       "contract": "7661756c74",
-      "functions": ["6465706f736974"],
+      "functions": {"only": ["6465706f736974"]},
       "conds": [],
       "signers": [{"delegated": {"address": "616c696365"}}],
       "threshold": 1,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     }
   ],
   "start": [
@@ -54,6 +60,7 @@
       "choices": [0, 1],
       "authenticated": [],
       "now": 1,
+      "generation": "0",
       "expected": {
         "ok": [
           {"history": [{"ledger": 1, "amount": "100"}], "total": "100"},
@@ -75,6 +82,7 @@
       "choices": [0],
       "authenticated": [],
       "now": 2,
+      "generation": "0",
       "expected": {"error": "cap_limit_exceeded"}
     },
     {
@@ -90,6 +98,7 @@
       "choices": [1],
       "authenticated": [],
       "now": 2,
+      "generation": "0",
       "expected": {"error": "cap_limit_exceeded"}
     },
     {
@@ -97,6 +106,7 @@
       "choices": [2],
       "authenticated": [{"delegated": {"address": "616c696365"}}],
       "now": 9,
+      "generation": "0",
       "expected": {
         "ok": [
           {"history": [{"ledger": 1, "amount": "100"}], "total": "100"},

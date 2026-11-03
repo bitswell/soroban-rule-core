@@ -11,9 +11,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use rule_eval::{
-    AttenuationError, Cap, Cond, Context, Rule, Signer, Val, add_cap, add_cond, allows, allows_all,
-    drop_rule, lengthen_cap_period, lower_cap_limit, raise_threshold, remove_functions,
-    remove_signers, signer_eq, val_eq,
+    AttenuationError, Cap, Cond, Context, Functions, Rule, Signer, Val, add_cap, add_cond, allows,
+    allows_all, drop_rule, lengthen_cap_period, lower_cap_limit, lower_valid_until,
+    raise_threshold, remove_functions, remove_signers, restrict_functions, signer_eq, val_eq,
 };
 use serde::Deserialize;
 
@@ -22,7 +22,7 @@ pub mod budget;
 pub mod caps;
 
 /// The vector format version this runner reads.
-pub const FORMAT: u32 = 3;
+pub const FORMAT: u32 = 4;
 
 /// One vector file.
 #[derive(Deserialize)]
@@ -78,18 +78,30 @@ pub enum JsonError {
     InvalidCap,
     LimitRaised,
     PeriodShortened,
+    ValidUntilRaised,
 }
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct JsonRule {
     pub contract: String,
-    pub functions: Vec<String>,
+    pub functions: JsonFunctions,
     pub conds: Vec<JsonCond>,
     pub signers: Vec<JsonSigner>,
     pub threshold: u32,
     /// The rule's cap, or `null` when it has none.
     pub cap: Option<JsonCap>,
+    /// The rule's last ledger, or `null` when it has none.
+    pub valid_until: Option<u32>,
+    /// The generation the rule was issued under, a decimal `u64`, or `null`.
+    pub generation: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub enum JsonFunctions {
+    Only(Vec<String>),
+    AnyExcept(Vec<String>),
 }
 
 #[derive(Deserialize)]
@@ -132,6 +144,14 @@ pub enum JsonCond {
         index: u32,
         bound: String,
     },
+    ArgIn {
+        index: u32,
+        values: Vec<JsonVal>,
+    },
+    ArgStrPrefix {
+        index: u32,
+        prefix: String,
+    },
 }
 
 #[derive(Deserialize)]
@@ -143,6 +163,7 @@ pub enum JsonVal {
     Bytes(String),
     Address(String),
     Symbol(String),
+    String(String),
     Other(String),
 }
 
@@ -157,6 +178,10 @@ pub enum JsonStep {
         cond: JsonCond,
     },
     RemoveFunctions {
+        index: u32,
+        functions: Vec<String>,
+    },
+    RestrictFunctions {
         index: u32,
         functions: Vec<String>,
     },
@@ -180,6 +205,10 @@ pub enum JsonStep {
         index: u32,
         period: u32,
     },
+    LowerValidUntil {
+        index: u32,
+        valid_until: u32,
+    },
 }
 
 /// An attenuation step in `rule-eval`'s types.
@@ -187,11 +216,13 @@ pub enum Step {
     DropRule(u32),
     AddCond(u32, Cond),
     RemoveFunctions(u32, Vec<Vec<u8>>),
+    RestrictFunctions(u32, Vec<Vec<u8>>),
     RemoveSigners(u32, Vec<Signer>),
     RaiseThreshold(u32, u32),
     AddCap(u32, Cap),
     LowerCapLimit(u32, i128),
     LengthenCapPeriod(u32, u32),
+    LowerValidUntil(u32, u32),
 }
 
 // ---------------------------------------------------------------------------
@@ -279,6 +310,7 @@ pub fn decode_val(v: &JsonVal) -> Result<Val, String> {
         JsonVal::Bytes(x) => Val::Bytes(decode_hex(x)?),
         JsonVal::Address(x) => Val::Address(decode_hex(x)?),
         JsonVal::Symbol(x) => Val::Symbol(decode_hex(x)?),
+        JsonVal::String(x) => Val::String(decode_hex(x)?),
         JsonVal::Other(x) => Val::Other(decode_hex(x)?),
     })
 }
@@ -312,6 +344,21 @@ pub fn decode_cond(c: &JsonCond) -> Result<Cond, String> {
         JsonCond::ArgI128AtMost { index, bound } => {
             Cond::ArgI128AtMost(*index, decode_decimal(bound)?)
         }
+        JsonCond::ArgIn { index, values } => Cond::ArgIn(
+            *index,
+            values.iter().map(decode_val).collect::<Result<_, _>>()?,
+        ),
+        JsonCond::ArgStrPrefix { index, prefix } => Cond::ArgStrPrefix(*index, decode_hex(prefix)?),
+    })
+}
+
+/// # Errors
+///
+/// If a function name is not lowercase hex.
+pub fn decode_functions(f: &JsonFunctions) -> Result<Functions, String> {
+    Ok(match f {
+        JsonFunctions::Only(listed) => Functions::Only(decode_hex_list(listed)?),
+        JsonFunctions::AnyExcept(removed) => Functions::AnyExcept(decode_hex_list(removed)?),
     })
 }
 
@@ -354,11 +401,13 @@ pub fn decode_rules(rules: &[JsonRule]) -> Result<Vec<Rule>, String> {
         .map(|r| {
             Ok(Rule {
                 contract: decode_hex(&r.contract)?,
-                functions: decode_hex_list(&r.functions)?,
+                functions: decode_functions(&r.functions)?,
                 conds: r.conds.iter().map(decode_cond).collect::<Result<_, _>>()?,
                 signers: decode_signers(&r.signers)?,
                 threshold: r.threshold,
                 cap: r.cap.as_ref().map(decode_cap).transpose()?,
+                valid_until: r.valid_until,
+                generation: r.generation.as_deref().map(decode_decimal).transpose()?,
             })
         })
         .collect()
@@ -378,6 +427,9 @@ pub fn decode_step(s: &JsonStep) -> Result<Step, String> {
         JsonStep::RemoveFunctions { index, functions } => {
             Step::RemoveFunctions(*index, decode_hex_list(functions)?)
         }
+        JsonStep::RestrictFunctions { index, functions } => {
+            Step::RestrictFunctions(*index, decode_hex_list(functions)?)
+        }
         JsonStep::RemoveSigners { index, signers } => {
             Step::RemoveSigners(*index, decode_signers(signers)?)
         }
@@ -387,6 +439,9 @@ pub fn decode_step(s: &JsonStep) -> Result<Step, String> {
             Step::LowerCapLimit(*index, decode_decimal(limit)?)
         }
         JsonStep::LengthenCapPeriod { index, period } => Step::LengthenCapPeriod(*index, *period),
+        JsonStep::LowerValidUntil { index, valid_until } => {
+            Step::LowerValidUntil(*index, *valid_until)
+        }
     })
 }
 
@@ -406,11 +461,13 @@ pub fn attenuate_all(rules: Vec<Rule>, steps: &[Step]) -> Result<Vec<Rule>, Atte
             Step::DropRule(i) => drop_rule(&current, *i)?,
             Step::AddCond(i, cond) => add_cond(&current, *i, cond)?,
             Step::RemoveFunctions(i, fs) => remove_functions(&current, *i, fs)?,
+            Step::RestrictFunctions(i, fs) => restrict_functions(&current, *i, fs)?,
             Step::RemoveSigners(i, ss) => remove_signers(&current, *i, ss)?,
             Step::RaiseThreshold(i, k) => raise_threshold(&current, *i, *k)?,
             Step::AddCap(i, c) => add_cap(&current, *i, c)?,
             Step::LowerCapLimit(i, limit) => lower_cap_limit(&current, *i, *limit)?,
             Step::LengthenCapPeriod(i, period) => lengthen_cap_period(&current, *i, *period)?,
+            Step::LowerValidUntil(i, last) => lower_valid_until(&current, *i, *last)?,
         };
     }
     Ok(current)
@@ -420,6 +477,18 @@ fn cond_eq(p: &Cond, q: &Cond) -> bool {
     match (p, q) {
         (Cond::ArgEq(i, v), Cond::ArgEq(j, w)) => i == j && val_eq(v, w),
         (Cond::ArgI128AtMost(i, n), Cond::ArgI128AtMost(j, m)) => i == j && n == m,
+        (Cond::ArgIn(i, vs), Cond::ArgIn(j, ws)) => {
+            i == j && vs.len() == ws.len() && vs.iter().zip(ws).all(|(v, w)| val_eq(v, w))
+        }
+        (Cond::ArgStrPrefix(i, p), Cond::ArgStrPrefix(j, q)) => i == j && p == q,
+        _ => false,
+    }
+}
+
+fn functions_eq(p: &Functions, q: &Functions) -> bool {
+    match (p, q) {
+        (Functions::Only(x), Functions::Only(y))
+        | (Functions::AnyExcept(x), Functions::AnyExcept(y)) => x == y,
         _ => false,
     }
 }
@@ -445,18 +514,20 @@ pub fn error_of(e: &AttenuationError) -> JsonError {
         AttenuationError::InvalidCap => JsonError::InvalidCap,
         AttenuationError::LimitRaised => JsonError::LimitRaised,
         AttenuationError::PeriodShortened => JsonError::PeriodShortened,
+        AttenuationError::ValidUntilRaised => JsonError::ValidUntilRaised,
     }
 }
 
-/// Structural equality: same contract, same function list in the same order,
-/// same conditions in the same order, same signers in the same order, same
-/// threshold, same cap.
+/// Structural equality: same contract, same functions (the same kind, the
+/// same names in the same order), same conditions in the same order, same
+/// signers in the same order, same threshold, same cap, same last ledger, same
+/// generation.
 #[must_use]
 pub fn rules_eq(xs: &[Rule], ys: &[Rule]) -> bool {
     xs.len() == ys.len()
         && xs.iter().zip(ys).all(|(x, y)| {
             x.contract == y.contract
-                && x.functions == y.functions
+                && functions_eq(&x.functions, &y.functions)
                 && x.conds.len() == y.conds.len()
                 && x.conds.iter().zip(&y.conds).all(|(p, q)| cond_eq(p, q))
                 && x.signers.len() == y.signers.len()
@@ -466,6 +537,8 @@ pub fn rules_eq(xs: &[Rule], ys: &[Rule]) -> bool {
                     .all(|(p, q)| signer_eq(p, q))
                 && x.threshold == y.threshold
                 && cap_eq(x.cap.as_ref(), y.cap.as_ref())
+                && x.valid_until == y.valid_until
+                && x.generation == y.generation
         })
 }
 

@@ -1,44 +1,42 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "authorize-random-26",
   "description": "Randomized authorization trace 26 of seed 20261102.",
   "rules": [
     {
       "contract": "6332",
-      "functions": ["66"],
-      "conds": [
-        {"arg_eq": {"index": 0, "value": {"other": "00ff"}}},
-        {"arg_i128_at_most": {"index": 2147483648, "bound": "100"}}
-      ],
-      "signers": [
-        {"external": {"verifier": "76", "key": "6b32"}},
-        {"external": {"verifier": "76", "key": "6b"}},
-        {"external": {"verifier": "76", "key": "6b"}}
-      ],
+      "functions": {"only": ["666f6f", ""]},
+      "conds": [],
+      "signers": [{"delegated": {"address": "6162"}}],
       "threshold": 0,
-      "cap": null
+      "cap": {"limit": "10", "period": 4294967295, "amount_arg": 1},
+      "valid_until": null,
+      "generation": null
     },
     {
-      "contract": "63",
-      "functions": ["666f", "666f6f"],
-      "conds": [],
-      "signers": [
-        {"delegated": {"address": "61"}},
-        {"external": {"verifier": "76", "key": "6b32"}},
-        {"delegated": {"address": "6162"}}
-      ],
+      "contract": "6332",
+      "functions": {"only": ["66"]},
+      "conds": [{"arg_in": {"index": 1, "values": [{"string": "616263"}]}}],
+      "signers": [{"delegated": {"address": "6162"}}],
       "threshold": 0,
-      "cap": null
+      "cap": {"limit": "170141183460469231731687303715884105727", "period": 2, "amount_arg": 1},
+      "valid_until": null,
+      "generation": null
     }
   ],
   "start": [{"history": [], "total": "0"}, {"history": [], "total": "0"}],
   "authorizations": [
     {
-      "batch": [],
-      "choices": [],
-      "authenticated": [],
-      "now": 10,
-      "expected": {"ok": [{"history": [], "total": "0"}, {"history": [], "total": "0"}]}
+      "batch": [
+        {"call": {"contract": "6332", "function": "66", "args": [{"bytes": "61"}, {"i128": "-1"}]}},
+        {"call": {"contract": "6332", "function": "", "args": [{"bool": true}, {"i128": "3"}]}},
+        {"call": {"contract": "6332", "function": "", "args": [{"bool": false}, {"i128": "10"}]}}
+      ],
+      "choices": [0, 0],
+      "authenticated": [{"delegated": {"address": "6162"}}],
+      "now": 17,
+      "generation": "1",
+      "expected": {"error": "choices_mismatch"}
     }
   ]
 }

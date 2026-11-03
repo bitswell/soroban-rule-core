@@ -1,134 +1,47 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "authorize-random-23",
   "description": "Randomized authorization trace 23 of seed 20261102.",
   "rules": [
     {
       "contract": "6331",
-      "functions": ["66"],
-      "conds": [{"arg_i128_at_most": {"index": 1, "bound": "100"}}],
+      "functions": {"only": ["", "66"]},
+      "conds": [],
       "signers": [],
-      "threshold": 1,
-      "cap": null
+      "threshold": 0,
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     },
     {
       "contract": "6331",
-      "functions": ["666f"],
-      "conds": [
-        {"arg_eq": {"index": 0, "value": {"u64": "18446744073709551615"}}},
-        {"arg_eq": {"index": 3, "value": {"bytes": "61"}}}
-      ],
+      "functions": {"only": ["66", ""]},
+      "conds": [],
       "signers": [{"external": {"verifier": "76", "key": "6b"}}],
       "threshold": 0,
-      "cap": {"limit": "5", "period": 2, "amount_arg": 2}
+      "cap": {"limit": "5", "period": 0, "amount_arg": 3},
+      "valid_until": null,
+      "generation": null
     }
   ],
   "start": [{"history": [], "total": "0"}, {"history": [], "total": "0"}],
   "authorizations": [
     {
       "batch": [
+        {"call": {"contract": "6331", "function": "66", "args": []}},
         {
           "call": {
             "contract": "6331",
-            "function": "666f",
-            "args": [
-              {"i128": "0"},
-              {"i128": "170141183460469231731687303715884105727"},
-              {"i128": "0"}
-            ]
-          }
-        }
-      ],
-      "choices": [1],
-      "authenticated": [{"external": {"verifier": "76", "key": "6b"}}],
-      "now": 109,
-      "expected": {"error": "not_allowed"}
-    },
-    {
-      "batch": [
-        {
-          "call": {
-            "contract": "6331",
-            "function": "",
-            "args": [
-              {"i128": "170141183460469231731687303715884105726"},
-              {"i128": "-170141183460469231731687303715884105727"}
-            ]
+            "function": "66",
+            "args": [{"i128": "-170141183460469231731687303715884105727"}, {"i128": "0"}]
           }
         }
       ],
       "choices": [0],
-      "authenticated": [
-        {"external": {"verifier": "76", "key": "6b"}},
-        {"delegated": {"address": "61"}},
-        {"external": {"verifier": "76", "key": "6b32"}}
-      ],
-      "now": 108,
-      "expected": {"error": "not_allowed"}
-    },
-    {
-      "batch": [
-        {
-          "call": {
-            "contract": "6331",
-            "function": "666f",
-            "args": [
-              {"u64": "18446744073709551615"},
-              {"symbol": "61"},
-              {"i128": "1"},
-              {"bytes": "61"}
-            ]
-          }
-        },
-        {
-          "call": {
-            "contract": "6331",
-            "function": "66",
-            "args": [{"u64": "18446744073709551615"}, {"u64": "1"}, {"i128": "5"}, {"bytes": "61"}]
-          }
-        }
-      ],
-      "choices": [1, 1],
-      "authenticated": [{"delegated": {"address": "6162"}}],
-      "now": 108,
-      "expected": {"error": "not_allowed"}
-    },
-    {
-      "batch": [
-        {"call": {"contract": "6331", "function": "66", "args": [{"bool": true}, {"i128": "-1"}]}},
-        {
-          "call": {
-            "contract": "6331",
-            "function": "66",
-            "args": [{"i128": "170141183460469231731687303715884105727"}, {"i128": "0"}]
-          }
-        },
-        {"call": {"contract": "6331", "function": "66", "args": [{"i128": "0"}, {"i128": "7"}]}}
-      ],
-      "choices": [0, 0, 0],
-      "authenticated": [{"external": {"verifier": "76", "key": "6b"}}],
-      "now": 110,
-      "expected": {"error": "not_allowed"}
-    },
-    {
-      "batch": [
-        {
-          "call": {
-            "contract": "6331",
-            "function": "666f",
-            "args": [{"u64": "18446744073709551615"}, {"other": ""}, {"i128": "2"}, {"bytes": "61"}]
-          }
-        }
-      ],
-      "choices": [1],
       "authenticated": [],
-      "now": 117,
-      "expected": {
-        "ok": [
-          {"history": [], "total": "0"},
-          {"history": [{"ledger": 117, "amount": "2"}], "total": "2"}
-        ]
-      }
+      "now": 10,
+      "generation": "2",
+      "expected": {"error": "choices_mismatch"}
     }
   ]
 }

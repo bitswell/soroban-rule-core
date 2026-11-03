@@ -13,7 +13,16 @@ One authorization:
 
 * `authorize_allows_all`: an `authorize` that returned `Ok` means the
   extracted `allows_all` accepts the same contexts under the same signers; the
-  stateful check is sound with respect to the cap-free view.
+  stateful check is sound with respect to the view without caps, time or
+  generation.
+* `authorize_valid_until`: it chose no rule whose last ledger is before `now`.
+* `authorize_generation`, `authorize_not_chosen_of_stale`,
+  `authorize_contexts_nil_of_stale`: it chose no rule issued under a generation
+  other than `generation`, so a rule issued under `g` authorizes nothing once
+  the generation is not `g`, and a rule set issued under `g` accepts only an
+  empty batch.
+* `authorize_signers`: every authenticated signer is a signer of a chosen
+  rule.
 
 Runs (`runAuthorizations`, which keeps the records after a refusal as a
 contract shell does when it stores what `authorize` returns only on `Ok`):
@@ -38,11 +47,19 @@ runs):
 
 * `traceNarrower_of_denote`: the model's trace inclusion on the denotations
   gives it on the extracted `authorize`;
-* `StepAlong.traceNarrower`: each of the eight extracted steps, along the
+* `StepAlong.traceNarrower`: each of the ten extracted steps, along the
   renumbering it induces (`drop_rule` at `index` moves every rule after
-  `index` down by one; every other step keeps each index);
+  `index` down by one; every other step keeps each index), through the chain
+  step it denotes (`StepAlong.denote_step`);
 * `DerivesAlong.traceNarrower`: every chain of extracted steps, along the
   composed renumbering.
+
+Generations:
+
+* `StepAlong.generation`, `DerivesAlong.generation`,
+  `DerivesAlong.generation_eq`: no extracted step changes a rule's
+  generation, so a rule set derived from a root issued under `g` is issued
+  under `g`.
 
 A renumbered choice is a `u32`, so a renumbered run exists only when every
 renumbered index fits one; for a rule set of more than `2^32` rules, a run
@@ -62,11 +79,12 @@ authenticated signers. -/
 theorem authorize_allows_all {rules : Slice rule_eval.rule.Rule}
     {records : Slice rule_eval.cap.SpendRecord} {contexts : Slice rule_eval.context.Context}
     {choices : Slice Std.U32} {authenticated : Slice rule_eval.signer.Signer} {now : Std.U32}
-    {out : alloc.vec.Vec rule_eval.cap.SpendRecord}
-    (h : rule_eval.authorize.authorize rules records contexts choices authenticated now =
-      ok (.Ok out)) :
+    {generation : Std.U64} {out : alloc.vec.Vec rule_eval.cap.SpendRecord}
+    (h : rule_eval.authorize.authorize rules records contexts choices authenticated now
+      generation = ok (.Ok out)) :
     rule_eval.rule_set.allows_all rules contexts authenticated = ok true := by
   obtain ⟨res, hres, hd⟩ := authorize_eq rules records contexts choices authenticated now
+    generation
   obtain rfl := Result.ok_injective (h.symm.trans hres)
   rw [allows_all_eq]
   simp only [denoteAuthorized] at hd
@@ -80,10 +98,11 @@ structure AuthCall where
   choices : Slice Std.U32
   authenticated : Slice rule_eval.signer.Signer
   now : Std.U32
+  generation : Std.U64
 
 /-- An authorization's arguments, as the chain vocabulary's authorization. -/
 def AuthCall.denote (a : AuthCall) : Chain.Authorization :=
-  denoteAuthorization a.contexts a.choices a.authenticated a.now
+  denoteAuthorization a.contexts a.choices a.authenticated a.now a.generation
 
 /-- A run of the extracted `authorize` from `records`: each authorization's
 records, or the same records when it is refused. -/
@@ -93,7 +112,7 @@ def runAuthorizations (rules : Slice rule_eval.rule.Rule)
   | [] => ok records
   | a :: auths => do
     let res ← rule_eval.authorize.authorize rules (alloc.vec.Vec.deref records) a.contexts
-      a.choices a.authenticated a.now
+      a.choices a.authenticated a.now a.generation
     match res with
     | .Ok records' => runAuthorizations rules records' auths
     | .Err _ => runAuthorizations rules records auths
@@ -107,7 +126,7 @@ def authorizeAll (rules : Slice rule_eval.rule.Rule)
   | [] => ok (.Ok records)
   | a :: auths => do
     let res ← rule_eval.authorize.authorize rules (alloc.vec.Vec.deref records) a.contexts
-      a.choices a.authenticated a.now
+      a.choices a.authenticated a.now a.generation
     match res with
     | .Ok records' => authorizeAll rules records' auths
     | .Err e => ok (.Err e)
@@ -145,7 +164,7 @@ theorem runAuthorizations_eq (rules : Slice rule_eval.rule.Rule) :
   | [], records => ⟨records, rfl, rfl⟩
   | a :: auths, records => by
     obtain ⟨res, hres, hd⟩ := authorize_eq rules (alloc.vec.Vec.deref records) a.contexts
-      a.choices a.authenticated a.now
+      a.choices a.authenticated a.now a.generation
     simp only [vec_deref_val] at hd
     simp only [runAuthorizations, hres, bind_ok, List.map_cons, RuleSet.run_cons, RuleSet.step]
     have hm : (denoteRules rules.val).denote.authorize (records.val.map denoteRecord)
@@ -160,7 +179,7 @@ theorem runAuthorizations_of_err {rules : Slice rule_eval.rule.Rule}
     {records : alloc.vec.Vec rule_eval.cap.SpendRecord} {a : AuthCall} {auths : List AuthCall}
     {e : rule_eval.authorize.Refusal}
     (h : rule_eval.authorize.authorize rules (alloc.vec.Vec.deref records) a.contexts a.choices
-      a.authenticated a.now = ok (.Err e)) :
+      a.authenticated a.now a.generation = ok (.Err e)) :
     runAuthorizations rules records (a :: auths) = runAuthorizations rules records auths := by
   simp [runAuthorizations, h]
 
@@ -175,7 +194,7 @@ theorem authorizeAll_eq (rules : Slice rule_eval.rule.Rule) :
   | [], records => ⟨.Ok records, rfl, rfl⟩
   | a :: auths, records => by
     obtain ⟨res, hres, hd⟩ := authorize_eq rules (alloc.vec.Vec.deref records) a.contexts
-      a.choices a.authenticated a.now
+      a.choices a.authenticated a.now a.generation
     simp only [vec_deref_val] at hd
     simp only [authorizeAll, hres, bind_ok, List.map_cons, RuleSet.authorizeAll,
       List.foldlM_cons]
@@ -289,7 +308,7 @@ theorem runAuthorizations_length_le (rules : Slice rule_eval.rule.Rule) {j : Nat
 /-- `b` is `a` with each choice `j` renumbered to `f j`. -/
 def Renumbered (f : Nat → Nat) (a b : AuthCall) : Prop :=
   b.contexts = a.contexts ∧ b.authenticated = a.authenticated ∧ b.now = a.now ∧
-    b.choices.val.map (·.val) = a.choices.val.map fun x => f x.val
+    b.generation = a.generation ∧ b.choices.val.map (·.val) = a.choices.val.map fun x => f x.val
 
 /-- `rules'` is narrower than `rules` as trace inclusion along `f` on the
 extracted `authorize`: every run of authorizations `rules'` accepts from its
@@ -301,9 +320,9 @@ def TraceNarrower (rules' rules : Slice rule_eval.rule.Rule) (f : Nat → Nat) :
 
 theorem renumbered_denote {f : Nat → Nat} {a b : AuthCall} (h : Renumbered f a b) :
     a.denote.denote.renumber f = b.denote.denote := by
-  obtain ⟨hc, ha, hn, hch⟩ := h
+  obtain ⟨hc, ha, hn, hg, hch⟩ := h
   simp only [AuthCall.denote, denoteAuthorization, Chain.Authorization.denote,
-    Authorization.renumber, hc, ha, hn, List.map_map, Function.comp_def, denoteU32_toNat]
+    Authorization.renumber, hc, ha, hn, hg, List.map_map, Function.comp_def, denoteU32_toNat]
   congr 1
   exact hch.symm
 
@@ -340,6 +359,10 @@ inductive StepAlong (rs : Slice rule_eval.rule.Rule) :
       {out : alloc.vec.Vec rule_eval.rule.Rule} :
       rule_eval.attenuate.remove_functions rs index functions = ok (.Ok out) →
         StepAlong rs (alloc.vec.Vec.deref out) fun j => j
+  | restrictFunctions (index : Std.U32) (functions : Slice (alloc.vec.Vec Std.U8))
+      {out : alloc.vec.Vec rule_eval.rule.Rule} :
+      rule_eval.attenuate.restrict_functions rs index functions = ok (.Ok out) →
+        StepAlong rs (alloc.vec.Vec.deref out) fun j => j
   | removeSigners (index : Std.U32) (signers : Slice rule_eval.signer.Signer)
       {out : alloc.vec.Vec rule_eval.rule.Rule} :
       rule_eval.attenuate.remove_signers rs index signers = ok (.Ok out) →
@@ -357,6 +380,9 @@ inductive StepAlong (rs : Slice rule_eval.rule.Rule) :
   | lengthenCapPeriod (index period : Std.U32) {out : alloc.vec.Vec rule_eval.rule.Rule} :
       rule_eval.attenuate.lengthen_cap_period rs index period = ok (.Ok out) →
         StepAlong rs (alloc.vec.Vec.deref out) fun j => j
+  | lowerValidUntil (index valid_until : Std.U32) {out : alloc.vec.Vec rule_eval.rule.Rule} :
+      rule_eval.attenuate.lower_valid_until rs index valid_until = ok (.Ok out) →
+        StepAlong rs (alloc.vec.Vec.deref out) fun j => j
 
 /-- `DerivesAlong root rs f`: `rs` is reachable from `root` by zero or more
 extracted attenuation steps, and `f` is the composed renumbering: the rule at
@@ -367,56 +393,67 @@ inductive DerivesAlong (root : Slice rule_eval.rule.Rule) :
   | step {rs rs' : Slice rule_eval.rule.Rule} {f g : Nat → Nat} :
       DerivesAlong root rs f → StepAlong rs rs' g → DerivesAlong root rs' fun j => f (g j)
 
-/-- The model's trace inclusion of one extracted step, on the denotations. -/
-theorem StepAlong.denote_traceNarrower {rs rs' : Slice rule_eval.rule.Rule} {f : Nat → Nat} :
-    StepAlong rs rs' f → (denoteRules rs'.val).TraceNarrower (denoteRules rs.val) f
+/-- Each extracted step is the chain step it denotes, on the denotations, and
+its renumbering is that step's. -/
+theorem StepAlong.denote_step {rs rs' : Slice rule_eval.rule.Rule} {f : Nat → Nat} :
+    StepAlong rs rs' f → ∃ a : Chain.Attenuation,
+      (denoteRules rs.val).attenuate a = .ok (denoteRules rs'.val) ∧ a.denote.source = f
   | .dropRule index h => by
     obtain ⟨res, hres, hd⟩ := drop_rule_eq rs index
     obtain rfl := Result.ok_injective (h.symm.trans hres)
     rw [vec_deref_val]
-    exact Chain.RuleSet.attenuate_traceNarrower (a := .dropRule (denoteU32 index)) hd.symm
+    exact ⟨.dropRule (denoteU32 index), hd.symm, rfl⟩
   | .addCond index cond h => by
     obtain ⟨res, hres, hd⟩ := add_cond_eq rs index cond (add_cond_room h)
     obtain rfl := Result.ok_injective (h.symm.trans hres)
     rw [vec_deref_val]
-    exact Chain.RuleSet.attenuate_traceNarrower (a := .addCond (denoteU32 index) (denoteCond cond))
-      hd.symm
+    exact ⟨.addCond (denoteU32 index) (denoteCond cond), hd.symm, rfl⟩
   | .removeFunctions index functions h => by
-    obtain ⟨res, hres, hd⟩ := remove_functions_eq rs index functions
+    obtain ⟨res, hres, hd⟩ := remove_functions_eq rs index functions (remove_functions_room h)
     obtain rfl := Result.ok_injective (h.symm.trans hres)
     rw [vec_deref_val]
-    exact Chain.RuleSet.attenuate_traceNarrower
-      (a := .removeFunctions (denoteU32 index) (functions.val.map denoteBytes)) hd.symm
+    exact ⟨.removeFunctions (denoteU32 index) (functions.val.map denoteBytes), hd.symm, rfl⟩
+  | .restrictFunctions index functions h => by
+    obtain ⟨res, hres, hd⟩ := restrict_functions_eq rs index functions
+    obtain rfl := Result.ok_injective (h.symm.trans hres)
+    rw [vec_deref_val]
+    exact ⟨.restrictFunctions (denoteU32 index) (functions.val.map denoteBytes), hd.symm, rfl⟩
   | .removeSigners index signers h => by
     obtain ⟨res, hres, hd⟩ := remove_signers_eq rs index signers
     obtain rfl := Result.ok_injective (h.symm.trans hres)
     rw [vec_deref_val]
-    exact Chain.RuleSet.attenuate_traceNarrower
-      (a := .removeSigners (denoteU32 index) (denoteSigners signers.val)) hd.symm
+    exact ⟨.removeSigners (denoteU32 index) (denoteSigners signers.val), hd.symm, rfl⟩
   | .raiseThreshold index threshold h => by
     obtain ⟨res, hres, hd⟩ := raise_threshold_eq rs index threshold
     obtain rfl := Result.ok_injective (h.symm.trans hres)
     rw [vec_deref_val]
-    exact Chain.RuleSet.attenuate_traceNarrower
-      (a := .raiseThreshold (denoteU32 index) (denoteU32 threshold)) hd.symm
+    exact ⟨.raiseThreshold (denoteU32 index) (denoteU32 threshold), hd.symm, rfl⟩
   | .addCap index new_cap h => by
     obtain ⟨res, hres, hd⟩ := add_cap_eq rs index new_cap
     obtain rfl := Result.ok_injective (h.symm.trans hres)
     rw [vec_deref_val]
-    exact Chain.RuleSet.attenuate_traceNarrower (a := .addCap (denoteU32 index) (denoteCap new_cap))
-      hd.symm
+    exact ⟨.addCap (denoteU32 index) (denoteCap new_cap), hd.symm, rfl⟩
   | .lowerCapLimit index limit h => by
     obtain ⟨res, hres, hd⟩ := lower_cap_limit_eq rs index limit
     obtain rfl := Result.ok_injective (h.symm.trans hres)
     rw [vec_deref_val]
-    exact Chain.RuleSet.attenuate_traceNarrower (a := .lowerCapLimit (denoteU32 index) limit.bv)
-      hd.symm
+    exact ⟨.lowerCapLimit (denoteU32 index) limit.bv, hd.symm, rfl⟩
   | .lengthenCapPeriod index period h => by
     obtain ⟨res, hres, hd⟩ := lengthen_cap_period_eq rs index period
     obtain rfl := Result.ok_injective (h.symm.trans hres)
     rw [vec_deref_val]
-    exact Chain.RuleSet.attenuate_traceNarrower
-      (a := .lengthenCapPeriod (denoteU32 index) (denoteU32 period)) hd.symm
+    exact ⟨.lengthenCapPeriod (denoteU32 index) (denoteU32 period), hd.symm, rfl⟩
+  | .lowerValidUntil index valid_until h => by
+    obtain ⟨res, hres, hd⟩ := lower_valid_until_eq rs index valid_until
+    obtain rfl := Result.ok_injective (h.symm.trans hres)
+    rw [vec_deref_val]
+    exact ⟨.lowerValidUntil (denoteU32 index) (denoteU32 valid_until), hd.symm, rfl⟩
+
+/-- The model's trace inclusion of one extracted step, on the denotations. -/
+theorem StepAlong.denote_traceNarrower {rs rs' : Slice rule_eval.rule.Rule} {f : Nat → Nat}
+    (h : StepAlong rs rs' f) : (denoteRules rs'.val).TraceNarrower (denoteRules rs.val) f := by
+  obtain ⟨a, ha, rfl⟩ := h.denote_step
+  exact Chain.RuleSet.attenuate_traceNarrower ha
 
 /-- Each extracted step is narrowing as trace inclusion, along the renumbering
 it induces. -/
@@ -445,10 +482,170 @@ theorem DerivesAlong.derives {root rs : Slice rule_eval.rule.Rule} {f : Nat → 
     | dropRule index h => exact .dropRule index h
     | addCond index cond h => exact .addCond index cond h
     | removeFunctions index functions h => exact .removeFunctions index functions h
+    | restrictFunctions index functions h => exact .restrictFunctions index functions h
     | removeSigners index signers h => exact .removeSigners index signers h
     | raiseThreshold index threshold h => exact .raiseThreshold index threshold h
     | addCap index new_cap h => exact .addCap index new_cap h
     | lowerCapLimit index limit h => exact .lowerCapLimit index limit h
     | lengthenCapPeriod index period h => exact .lengthenCapPeriod index period h
+    | lowerValidUntil index valid_until h => exact .lowerValidUntil index valid_until h
+
+/-! ## Generations -/
+
+/-- No extracted step changes a rule's generation: the rule at index `j` after
+a step carries the generation of the rule at index `f j` before it. -/
+theorem StepAlong.generation {rs rs' : Slice rule_eval.rule.Rule} {f : Nat → Nat}
+    (h : StepAlong rs rs' f) {j : Nat} {r' : rule_eval.rule.Rule} (hj : rs'.val[j]? = some r') :
+    ∃ r, rs.val[f j]? = some r ∧ r'.generation = r.generation := by
+  obtain ⟨a, ha, rfl⟩ := h.denote_step
+  obtain ⟨r, hr, hg⟩ := Chain.RuleSet.attenuate_generation ha (j := j) (r' := denoteRule r')
+    (by simp [denoteRules, hj])
+  simp only [denoteRules, List.getElem?_map] at hr
+  cases hr₀ : rs.val[a.denote.source j]? with
+  | none => rw [hr₀] at hr; cases hr
+  | some r₀ =>
+    rw [hr₀] at hr
+    simp only [Option.map_some, Option.some.injEq] at hr
+    subst hr
+    refine ⟨r₀, rfl, ?_⟩
+    simp only [denoteRule] at hg
+    exact Option.map_injective denoteU64_injective hg
+
+/-- Along a chain of extracted steps, the rule at index `j` carries the
+generation of the root rule at index `f j`. -/
+theorem DerivesAlong.generation {root rs : Slice rule_eval.rule.Rule} {f : Nat → Nat}
+    (h : DerivesAlong root rs f) :
+    ∀ {j : Nat} {r' : rule_eval.rule.Rule}, rs.val[j]? = some r' →
+      ∃ r, root.val[f j]? = some r ∧ r'.generation = r.generation := by
+  induction h with
+  | refl => exact fun hj => ⟨_, hj, rfl⟩
+  | step _ hs ih =>
+    intro j r' hj
+    obtain ⟨r₁, hr₁, hg₁⟩ := hs.generation hj
+    obtain ⟨r, hr, hg⟩ := ih hr₁
+    exact ⟨r, hr, hg₁.trans hg⟩
+
+/-- A rule set derived by extracted steps from a root every rule of which was
+issued under `g` has every rule issued under `g`. -/
+theorem DerivesAlong.generation_eq {root rs : Slice rule_eval.rule.Rule} {f : Nat → Nat}
+    (h : DerivesAlong root rs f) {g : Std.U64} (hall : ∀ r ∈ root.val, r.generation = some g) :
+    ∀ r ∈ rs.val, r.generation = some g := by
+  intro r' hr'
+  obtain ⟨j, hj, hjr⟩ := List.getElem_of_mem hr'
+  obtain ⟨r, hr, hg⟩ := h.generation (List.getElem?_eq_some_iff.mpr ⟨hj, hjr⟩)
+  rw [hg]
+  exact hall r (List.mem_of_getElem? hr)
+
+/-! ## Expiry, generation and signers of one authorization -/
+
+theorem denoteRules_get (rules : Slice rule_eval.rule.Rule) (k : Std.U32) :
+    (denoteRules rules.val)[(denoteU32 k).toNat]? = rules.val[k.val]?.map denoteRule := by
+  simp [denoteRules, List.getElem?_map]
+
+/-- Expiry: an `authorize` that returned `Ok` chose no rule whose last ledger is
+before `now`. -/
+theorem authorize_valid_until {rules : Slice rule_eval.rule.Rule}
+    {records : Slice rule_eval.cap.SpendRecord} {contexts : Slice rule_eval.context.Context}
+    {choices : Slice Std.U32} {authenticated : Slice rule_eval.signer.Signer} {now : Std.U32}
+    {generation : Std.U64} {out : alloc.vec.Vec rule_eval.cap.SpendRecord}
+    (h : rule_eval.authorize.authorize rules records contexts choices authenticated now
+      generation = ok (.Ok out))
+    {k : Std.U32} (hk : k ∈ choices.val) {r : rule_eval.rule.Rule}
+    (hr : rules.val[k.val]? = some r) {last : Std.U32} (hl : r.valid_until = some last) :
+    now.val ≤ last.val := by
+  obtain ⟨res, hres, hd⟩ := authorize_eq rules records contexts choices authenticated now
+    generation
+  obtain rfl := Result.ok_injective (h.symm.trans hres)
+  simp only [denoteAuthorized] at hd
+  have := Chain.RuleSet.authorize_validUntil hd.symm (j := denoteU32 k)
+    (by simpa [denoteAuthorization] using List.mem_map_of_mem (f := denoteU32) hk)
+    (r := denoteRule r) (by rw [denoteRules_get, hr]; rfl) (last := denoteU32 last)
+    (by simp [denoteRule, hl])
+  simpa [denoteAuthorization, UInt32.le_iff_toNat_le] using this
+
+/-- Generation: an `authorize` that returned `Ok` chose no rule issued under a
+generation other than `generation`. -/
+theorem authorize_generation {rules : Slice rule_eval.rule.Rule}
+    {records : Slice rule_eval.cap.SpendRecord} {contexts : Slice rule_eval.context.Context}
+    {choices : Slice Std.U32} {authenticated : Slice rule_eval.signer.Signer} {now : Std.U32}
+    {generation : Std.U64} {out : alloc.vec.Vec rule_eval.cap.SpendRecord}
+    (h : rule_eval.authorize.authorize rules records contexts choices authenticated now
+      generation = ok (.Ok out))
+    {k : Std.U32} (hk : k ∈ choices.val) {r : rule_eval.rule.Rule}
+    (hr : rules.val[k.val]? = some r) {g : Std.U64} (hg : r.generation = some g) :
+    g = generation := by
+  obtain ⟨res, hres, hd⟩ := authorize_eq rules records contexts choices authenticated now
+    generation
+  obtain rfl := Result.ok_injective (h.symm.trans hres)
+  simp only [denoteAuthorized] at hd
+  have := Chain.RuleSet.authorize_generation hd.symm (j := denoteU32 k)
+    (by simpa [denoteAuthorization] using List.mem_map_of_mem (f := denoteU32) hk)
+    (r := denoteRule r) (by rw [denoteRules_get, hr]; rfl) (g := denoteU64 g)
+    (by simp [denoteRule, hg])
+  exact denoteU64_injective (by simpa [denoteAuthorization] using this)
+
+/-- Once the current generation is not `g`, a rule issued under `g` authorizes
+nothing: no `authorize` that returned `Ok` chose it. -/
+theorem authorize_not_chosen_of_stale {rules : Slice rule_eval.rule.Rule}
+    {records : Slice rule_eval.cap.SpendRecord} {contexts : Slice rule_eval.context.Context}
+    {choices : Slice Std.U32} {authenticated : Slice rule_eval.signer.Signer} {now : Std.U32}
+    {generation : Std.U64} {out : alloc.vec.Vec rule_eval.cap.SpendRecord}
+    (h : rule_eval.authorize.authorize rules records contexts choices authenticated now
+      generation = ok (.Ok out))
+    {k : Std.U32} {r : rule_eval.rule.Rule} (hr : rules.val[k.val]? = some r) {g : Std.U64}
+    (hg : r.generation = some g) (hne : g ≠ generation) : k ∉ choices.val :=
+  fun hk => hne (authorize_generation h hk hr hg)
+
+/-- A rule set every rule of which was issued under `g` accepts, once the
+current generation is not `g`, only an authorization with no contexts. -/
+theorem authorize_contexts_nil_of_stale {rules : Slice rule_eval.rule.Rule}
+    {records : Slice rule_eval.cap.SpendRecord} {contexts : Slice rule_eval.context.Context}
+    {choices : Slice Std.U32} {authenticated : Slice rule_eval.signer.Signer} {now : Std.U32}
+    {generation : Std.U64} {out : alloc.vec.Vec rule_eval.cap.SpendRecord}
+    (h : rule_eval.authorize.authorize rules records contexts choices authenticated now
+      generation = ok (.Ok out))
+    {g : Std.U64} (hall : ∀ r ∈ rules.val, r.generation = some g) (hne : g ≠ generation) :
+    contexts.val = [] := by
+  obtain ⟨res, hres, hd⟩ := authorize_eq rules records contexts choices authenticated now
+    generation
+  obtain rfl := Result.ok_injective (h.symm.trans hres)
+  simp only [denoteAuthorized] at hd
+  have := Chain.RuleSet.authorize_contexts_nil_of_stale hd.symm (g := denoteU64 g)
+    (by
+      intro r hr
+      obtain ⟨r₀, hr₀, rfl⟩ := List.mem_map.mp hr
+      simp [denoteRule, hall r₀ hr₀])
+    (fun he => hne (denoteU64_injective he))
+  simpa [denoteAuthorization] using this
+
+/-- Signers: every signer an `authorize` that returned `Ok` authenticated is,
+by `signer_in`, a signer of some rule it chose. -/
+theorem authorize_signers {rules : Slice rule_eval.rule.Rule}
+    {records : Slice rule_eval.cap.SpendRecord} {contexts : Slice rule_eval.context.Context}
+    {choices : Slice Std.U32} {authenticated : Slice rule_eval.signer.Signer} {now : Std.U32}
+    {generation : Std.U64} {out : alloc.vec.Vec rule_eval.cap.SpendRecord}
+    (h : rule_eval.authorize.authorize rules records contexts choices authenticated now
+      generation = ok (.Ok out)) :
+    ∀ s ∈ authenticated.val, ∃ k ∈ choices.val, ∃ r, rules.val[k.val]? = some r ∧
+      rule_eval.signer.signer_in s (alloc.vec.Vec.deref r.signers) = ok true := by
+  obtain ⟨res, hres, hd⟩ := authorize_eq rules records contexts choices authenticated now
+    generation
+  obtain rfl := Result.ok_injective (h.symm.trans hres)
+  simp only [denoteAuthorized] at hd
+  intro s hs
+  obtain ⟨j, hj, r', hr', hsr⟩ := Chain.RuleSet.authorize_signers hd.symm (denoteSigner s)
+    (by simpa [denoteAuthorization, denoteSigners] using List.mem_map_of_mem (f := denoteSigner) hs)
+  simp only [denoteAuthorization, List.mem_map] at hj
+  obtain ⟨k, hk, rfl⟩ := hj
+  rw [denoteRules_get] at hr'
+  cases hr₀ : rules.val[k.val]? with
+  | none => rw [hr₀] at hr'; cases hr'
+  | some r₀ =>
+    rw [hr₀] at hr'
+    simp only [Option.map_some, Option.some.injEq] at hr'
+    subst hr'
+    refine ⟨k, hk, r₀, hr₀, ?_⟩
+    rw [signer_in_eq, vec_deref_val]
+    exact congrArg ok (decide_eq_true hsr)
 
 end RuleCore.Extracted

@@ -1,23 +1,24 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "authorize-random-47",
   "description": "Randomized authorization trace 47 of seed 20261102.",
   "rules": [
     {
       "contract": "63",
-      "functions": ["666f6f", "67"],
+      "functions": {"only": ["67"]},
       "conds": [
-        {"arg_eq": {"index": 2, "value": {"bytes": "62"}}},
         {
-          "arg_i128_at_most": {
-            "index": 2147483648,
-            "bound": "170141183460469231731687303715884105727"
+          "arg_in": {
+            "index": 2,
+            "values": [{"string": "62"}, {"u64": "18446744073709551615"}, {"other": "6162"}]
           }
         }
       ],
-      "signers": [{"external": {"verifier": "76", "key": "6b"}}],
+      "signers": [{"delegated": {"address": "61"}}],
       "threshold": 0,
-      "cap": null
+      "cap": {"limit": "0", "period": 2, "amount_arg": 2},
+      "valid_until": null,
+      "generation": "1"
     }
   ],
   "start": [{"history": [], "total": "0"}],
@@ -28,28 +29,38 @@
           "call": {
             "contract": "63",
             "function": "67",
-            "args": [{"symbol": "00ff"}, {"u64": "7"}, {"bytes": "62"}]
+            "args": [{"other": ""}, {"u64": "1"}, {"i128": "1"}, {"address": "6162"}]
           }
         },
         {
           "call": {
             "contract": "63",
             "function": "67",
-            "args": [{"bytes": "62"}, {"other": ""}, {"bytes": "62"}]
-          }
-        },
-        {
-          "call": {
-            "contract": "63",
-            "function": "666f6f",
-            "args": [{"bytes": "6162"}, {"symbol": "61"}, {"bytes": "62"}]
+            "args": [{"bool": false}, {"bool": false}, {"i128": "1"}]
           }
         }
       ],
       "choices": [0, 0],
-      "authenticated": [{"delegated": {"address": "61"}}, {"delegated": {"address": "61"}}],
-      "now": 9,
-      "expected": {"error": "choices_mismatch"}
+      "authenticated": [{"delegated": {"address": "61"}}],
+      "now": 104,
+      "generation": "1",
+      "expected": {"error": "not_allowed"}
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "63",
+            "function": "67",
+            "args": [{"bool": false}, {"bytes": "61"}, {"i128": "0"}, {"address": "616263"}]
+          }
+        }
+      ],
+      "choices": [0],
+      "authenticated": [{"delegated": {"address": "61"}}],
+      "now": 104,
+      "generation": "1",
+      "expected": {"error": "not_allowed"}
     }
   ]
 }

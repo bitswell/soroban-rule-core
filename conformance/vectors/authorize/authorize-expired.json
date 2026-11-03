@@ -1,0 +1,70 @@
+{
+  "format": 2,
+  "name": "authorize-expired",
+  "description": "A rule authorizes up to and at its last ledger and is refused with expired after it, as OpenZeppelin refuses valid_until < ledger; a rule without a last ledger is never refused for time.",
+  "rules": [
+    {
+      "contract": "7661756c74",
+      "functions": {"any_except": []},
+      "conds": [],
+      "signers": [{"delegated": {"address": "616c696365"}}],
+      "threshold": 1,
+      "cap": null,
+      "valid_until": 10,
+      "generation": "3"
+    },
+    {
+      "contract": "7661756c74",
+      "functions": {"only": ["7769746864726177"]},
+      "conds": [],
+      "signers": [{"delegated": {"address": "616c696365"}}],
+      "threshold": 1,
+      "cap": null,
+      "valid_until": null,
+      "generation": null
+    }
+  ],
+  "start": [{"history": [], "total": "0"}, {"history": [], "total": "0"}],
+  "authorizations": [
+    {
+      "batch": [{"call": {"contract": "7661756c74", "function": "7769746864726177", "args": []}}],
+      "choices": [0],
+      "authenticated": [{"delegated": {"address": "616c696365"}}],
+      "now": 0,
+      "generation": "3",
+      "expected": {"ok": [{"history": [], "total": "0"}, {"history": [], "total": "0"}]}
+    },
+    {
+      "batch": [{"call": {"contract": "7661756c74", "function": "7769746864726177", "args": []}}],
+      "choices": [0],
+      "authenticated": [{"delegated": {"address": "616c696365"}}],
+      "now": 10,
+      "generation": "3",
+      "expected": {"ok": [{"history": [], "total": "0"}, {"history": [], "total": "0"}]}
+    },
+    {
+      "batch": [{"call": {"contract": "7661756c74", "function": "7769746864726177", "args": []}}],
+      "choices": [0],
+      "authenticated": [{"delegated": {"address": "616c696365"}}],
+      "now": 11,
+      "generation": "3",
+      "expected": {"error": "expired"}
+    },
+    {
+      "batch": [{"call": {"contract": "7661756c74", "function": "7769746864726177", "args": []}}],
+      "choices": [0],
+      "authenticated": [{"delegated": {"address": "616c696365"}}],
+      "now": 4294967295,
+      "generation": "3",
+      "expected": {"error": "expired"}
+    },
+    {
+      "batch": [{"call": {"contract": "7661756c74", "function": "7769746864726177", "args": []}}],
+      "choices": [1],
+      "authenticated": [{"delegated": {"address": "616c696365"}}],
+      "now": 4294967295,
+      "generation": "3",
+      "expected": {"ok": [{"history": [], "total": "0"}, {"history": [], "total": "0"}]}
+    }
+  ]
+}

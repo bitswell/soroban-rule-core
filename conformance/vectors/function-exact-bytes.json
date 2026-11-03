@@ -1,15 +1,17 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "function-exact-bytes",
   "description": "Function names compare exactly: a prefix, an extension, another case and the empty name are refused.",
   "rules": [
     {
       "contract": "746f6b656e",
-      "functions": ["7472616e73666572", "617070726f7665"],
+      "functions": {"only": ["7472616e73666572", "617070726f7665"]},
       "conds": [],
       "signers": [],
       "threshold": 0,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     }
   ],
   "batch": [

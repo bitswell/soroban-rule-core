@@ -114,6 +114,7 @@ def encodeVal : Val → Json
   | .bytes v => tagged "bytes" (.str (hex v))
   | .address v => tagged "address" (.str (hex v))
   | .symbol v => tagged "symbol" (.str (hex v))
+  | .string v => tagged "string" (.str (hex v))
   | .other v => tagged "other" (.str (hex v))
 
 def encodeContext : Context → Json
@@ -131,6 +132,10 @@ def encodeCond : Cond → Json
   | .argEq i val => tagged "arg_eq" (.obj [("index", encodeIndex i), ("value", encodeVal val)])
   | .argI128AtMost i n =>
     tagged "arg_i128_at_most" (.obj [("index", encodeIndex i), ("bound", .str (toString n.toInt))])
+  | .argIn i vals =>
+    tagged "arg_in" (.obj [("index", encodeIndex i), ("values", .arr (vals.map encodeVal))])
+  | .argStrPrefix i pre =>
+    tagged "arg_str_prefix" (.obj [("index", encodeIndex i), ("prefix", .str (hex pre))])
 
 def encodeSigner : Signer → Json
   | .delegated address => tagged "delegated" (.obj [("address", .str (hex address))])
@@ -152,15 +157,25 @@ def encodeCap (k : Cap) : Json :=
   .obj [("limit", encodeLimit k.limit), ("period", .num k.period.toNat),
     ("amount_arg", encodeIndex k.amountArg)]
 
+def encodeFunctions : Functions → Json
+  | .only listed => tagged "only" (encodeBytesList listed)
+  | .anyExcept removed => tagged "any_except" (encodeBytesList removed)
+
 def encodeRule (r : Rule) : Json :=
   .obj [
     ("contract", .str (hex r.contract)),
-    ("functions", encodeBytesList r.functions),
+    ("functions", encodeFunctions r.functions),
     ("conds", .arr (r.conds.map encodeCond)),
     ("signers", encodeSigners r.signers),
     ("threshold", encodeThreshold r.threshold),
     ("cap", match r.cap with
       | some k => encodeCap k
+      | none => .null),
+    ("valid_until", match r.validUntil with
+      | some v => .num v.toNat
+      | none => .null),
+    ("generation", match r.generation with
+      | some g => .str (toString g.toNat)
       | none => .null)]
 
 def encodeRuleSet (rs : RuleSet) : Json :=
@@ -171,6 +186,8 @@ def encodeStep : Attenuation → Json
   | .addCond i cond => tagged "add_cond" (.obj [("index", encodeIndex i), ("cond", encodeCond cond)])
   | .removeFunctions i fs =>
     tagged "remove_functions" (.obj [("index", encodeIndex i), ("functions", encodeBytesList fs)])
+  | .restrictFunctions i fs =>
+    tagged "restrict_functions" (.obj [("index", encodeIndex i), ("functions", encodeBytesList fs)])
   | .removeSigners i ss =>
     tagged "remove_signers" (.obj [("index", encodeIndex i), ("signers", encodeSigners ss)])
   | .raiseThreshold i k =>
@@ -180,6 +197,8 @@ def encodeStep : Attenuation → Json
     tagged "lower_cap_limit" (.obj [("index", encodeIndex i), ("limit", encodeLimit limit)])
   | .lengthenCapPeriod i period =>
     tagged "lengthen_cap_period" (.obj [("index", encodeIndex i), ("period", .num period.toNat)])
+  | .lowerValidUntil i v =>
+    tagged "lower_valid_until" (.obj [("index", encodeIndex i), ("valid_until", .num v.toNat)])
 
 def encodeError : AttenuationError → Json
   | .noSuchRule => .str "no_such_rule"
@@ -189,5 +208,6 @@ def encodeError : AttenuationError → Json
   | .invalidCap => .str "invalid_cap"
   | .limitRaised => .str "limit_raised"
   | .periodShortened => .str "period_shortened"
+  | .validUntilRaised => .str "valid_until_raised"
 
 end Conformance

@@ -1,39 +1,37 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "authorize-random-28",
   "description": "Randomized authorization trace 28 of seed 20261102.",
   "rules": [
     {
       "contract": "633130",
-      "functions": ["666f6f"],
-      "conds": [
-        {"arg_i128_at_most": {"index": 0, "bound": "-170141183460469231731687303715884105728"}},
-        {
-          "arg_i128_at_most": {
-            "index": 2147483648,
-            "bound": "170141183460469231731687303715884105726"
-          }
-        }
-      ],
-      "signers": [{"external": {"verifier": "61", "key": ""}}],
-      "threshold": 2,
-      "cap": {"limit": "10", "period": 2, "amount_arg": 4294967295}
+      "functions": {"only": ["67", "666f", ""]},
+      "conds": [],
+      "signers": [{"external": {"verifier": "76", "key": "6b32"}}, {"delegated": {"address": "62"}}],
+      "threshold": 0,
+      "cap": null,
+      "valid_until": 4,
+      "generation": "18446744073709551615"
     },
     {
-      "contract": "",
-      "functions": ["67", "666f", "66"],
+      "contract": "6332",
+      "functions": {"only": ["67"]},
       "conds": [],
       "signers": [],
       "threshold": 0,
-      "cap": {"limit": "10", "period": 3, "amount_arg": 4294967295}
+      "cap": {"limit": "10", "period": 4294967295, "amount_arg": 2},
+      "valid_until": null,
+      "generation": null
     },
     {
-      "contract": "6331",
-      "functions": [""],
-      "conds": [{"arg_eq": {"index": 2, "value": {"other": "00ff"}}}],
+      "contract": "6332",
+      "functions": {"only": ["666f6f", "666f6f", "66"]},
+      "conds": [],
       "signers": [],
       "threshold": 0,
-      "cap": {"limit": "1", "period": 3, "amount_arg": 4294967295}
+      "cap": {"limit": "10", "period": 2, "amount_arg": 4294967295},
+      "valid_until": null,
+      "generation": null
     }
   ],
   "start": [
@@ -44,105 +42,14 @@
   "authorizations": [
     {
       "batch": [
-        {"call": {"contract": "", "function": "666f6f", "args": []}},
-        {
-          "call": {
-            "contract": "633130",
-            "function": "666f6f",
-            "args": [{"i128": "-170141183460469231731687303715884105728"}]
-          }
-        }
+        {"call": {"contract": "6332", "function": "66", "args": []}},
+        {"call": {"contract": "633130", "function": "666f", "args": []}}
       ],
-      "choices": [1, 0],
-      "authenticated": [
-        {"external": {"verifier": "61", "key": ""}},
-        {"delegated": {"address": "61"}},
-        {"delegated": {"address": "62"}}
-      ],
-      "now": 8,
-      "expected": {"error": "not_allowed"}
-    },
-    {
-      "batch": [{"call": {"contract": "633130", "function": "666f6f", "args": [{"other": "00ff"}]}}],
-      "choices": [0],
-      "authenticated": [{"external": {"verifier": "61", "key": ""}}],
-      "now": 8,
-      "expected": {"error": "not_allowed"}
-    },
-    {
-      "batch": [],
-      "choices": [],
-      "authenticated": [{"external": {"verifier": "61", "key": ""}}],
-      "now": 19,
-      "expected": {
-        "ok": [
-          {"history": [], "total": "0"},
-          {"history": [], "total": "0"},
-          {"history": [], "total": "0"}
-        ]
-      }
-    },
-    {
-      "batch": [
-        {
-          "call": {
-            "contract": "633130",
-            "function": "666f6f",
-            "args": [{"i128": "-170141183460469231731687303715884105728"}]
-          }
-        }
-      ],
-      "choices": [0],
+      "choices": [2, 0],
       "authenticated": [],
-      "now": 28,
-      "expected": {"error": "not_allowed"}
-    },
-    {
-      "batch": [
-        {
-          "call": {
-            "contract": "633130",
-            "function": "666f6f",
-            "args": [{"i128": "-170141183460469231731687303715884105728"}]
-          }
-        }
-      ],
-      "choices": [0],
-      "authenticated": [
-        {"external": {"verifier": "61", "key": ""}},
-        {"external": {"verifier": "61", "key": ""}},
-        {"delegated": {"address": "61"}}
-      ],
-      "now": 28,
-      "expected": {"error": "not_allowed"}
-    },
-    {
-      "batch": [
-        {
-          "call": {
-            "contract": "633130",
-            "function": "666f6f",
-            "args": [{"i128": "-170141183460469231731687303715884105728"}]
-          }
-        }
-      ],
-      "choices": [0],
-      "authenticated": [{"delegated": {"address": "62"}}],
-      "now": 30,
-      "expected": {"error": "not_allowed"}
-    },
-    {
-      "batch": [],
-      "choices": [],
-      "authenticated": [{"external": {"verifier": "61", "key": ""}}],
-      "now": 35,
-      "expected": {
-        "ok": [
-          {"history": [], "total": "0"},
-          {"history": [], "total": "0"},
-          {"history": [], "total": "0"}
-        ]
-      }
+      "now": 5,
+      "generation": "1",
+      "expected": {"error": "expired"}
     }
   ]
 }

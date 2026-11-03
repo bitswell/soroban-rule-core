@@ -1,15 +1,17 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "authorize-empty-batch",
   "description": "An empty batch is accepted and changes nothing, whatever the records; on the empty rule set too.",
   "rules": [
     {
       "contract": "746f6b656e",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [],
       "signers": [],
       "threshold": 0,
-      "cap": {"limit": "100", "period": 10, "amount_arg": 2}
+      "cap": {"limit": "100", "period": 10, "amount_arg": 2},
+      "valid_until": null,
+      "generation": null
     }
   ],
   "start": [{"history": [{"ledger": 5, "amount": "100"}], "total": "100"}],
@@ -19,6 +21,7 @@
       "choices": [],
       "authenticated": [],
       "now": 0,
+      "generation": "0",
       "expected": {"ok": [{"history": [{"ledger": 5, "amount": "100"}], "total": "100"}]}
     },
     {
@@ -26,6 +29,7 @@
       "choices": [],
       "authenticated": [],
       "now": 6,
+      "generation": "0",
       "expected": {"ok": [{"history": [{"ledger": 5, "amount": "100"}], "total": "100"}]}
     }
   ]

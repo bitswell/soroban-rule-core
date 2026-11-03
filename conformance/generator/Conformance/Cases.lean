@@ -24,7 +24,7 @@ def create (wasmHash : String) : Context :=
 
 /-- A rule with no signer requirement. -/
 def rule (contract : String) (functions : List String) (conds : List Cond) : Rule :=
-  { contract := s contract, functions := functions.map s, conds := conds, signers := [],
+  { contract := s contract, functions := .only (functions.map s), conds := conds, signers := [],
     threshold := 0 }
 
 /-- A rule on `contract`'s `transfer` that needs `threshold` of `signers`. -/
@@ -519,7 +519,7 @@ def missingSigners : Case where
 def signersBatch (name what : String) (auth : List Signer) : Case where
   name := s!"signers-batch-{name}"
   description := s!"One authenticated list covers the whole batch: a batch needing alice for token and bob for the vault, with {what}."
-  rules := [signedRule token [sAlice] 1, { signedRule "vault" [sBob] 1 with functions := [s "deposit"] }]
+  rules := [signedRule token [sAlice] 1, { signedRule "vault" [sBob] 1 with functions := .only [s "deposit"] }]
   batch := [call token "transfer" [alice, bob, .i128 5], call "vault" "deposit" []]
   authenticated := auth
 
@@ -676,6 +676,144 @@ def capChains : Case where
     [.addCond 1 (.argI128AtMost 2 (BitVec.ofInt 128 10)), .lengthenCapPeriod 1 12,
       .removeFunctions 1 [s "approve"]]]
 
+/-! ## Wildcards, expiry and generations -/
+
+/-- A rule matching every function of `contract` but `except`. -/
+def wildcard (contract : String) (except : List String) (conds : List Cond) : Rule :=
+  { rule contract [] conds with functions := .anyExcept (except.map s) }
+
+def wildcardFunctions : Case where
+  name := "wildcard-functions"
+  description := "A wildcard rule allows every function of its contract, the empty name and names it was never told about included, except the ones it excludes, compared exactly; never another contract or a creation."
+  rules := [wildcard token [] [], wildcard "vault" ["withdraw", ""] []]
+  batch := [
+    call token "transfer" [],
+    call token "" [],
+    call token "anything_at_all" [.u64 42],
+    call "tokens" "transfer" [],
+    call "vault" "deposit" [],
+    call "vault" "withdraw" [],
+    call "vault" "withdraw_all" [],
+    call "vault" "" [],
+    create token]
+
+def ruleTimeIgnored : Case where
+  name := "allows-reads-no-time-or-generation"
+  description := "allows and allows_all read neither a rule's last ledger nor its generation: rules valid until ledger 0 and issued under generation 2^64 - 1 allow as they would without them."
+  rules := [
+    { rule token ["transfer"] [] with validUntil := some 0, generation := some u64Max },
+    { rule "vault" ["deposit"] [] with validUntil := some u32Max }]
+  batch := [call token "transfer" [], call "vault" "deposit" [], call "vault" "withdraw" []]
+
+def strPkg : Bytes := s "pkg_"
+
+def argIn : Case where
+  name := "arg-in"
+  description := "argIn holds when the argument equals one of its values, compared as argEq compares: each listed value, an unlisted one, the same bytes under another constructor, a missing argument, and an empty list that allows nothing."
+  rules := [
+    rule token ["transfer"] [.argIn 0 [.string (s "ok"), .u64 7, .symbol (s "sym")]],
+    rule "vault" ["deposit"] [.argIn 0 []]]
+  batch := [
+    call token "transfer" [.string (s "ok")],
+    call token "transfer" [.u64 7],
+    call token "transfer" [.symbol (s "sym")],
+    call token "transfer" [.string (s "no")],
+    call token "transfer" [.symbol (s "ok")],
+    call token "transfer" [.string (s "sym")],
+    call token "transfer" [.i128 7],
+    call token "transfer" [],
+    call "vault" "deposit" [.u64 7]]
+
+def argStrPrefix : Case where
+  name := "arg-str-prefix"
+  description := "argStrPrefix holds only for a string argument whose bytes start with the prefix: the prefix itself, a longer string, a shorter one, another case, the prefix inside, and a symbol, bytes or other value with the same bytes; the empty prefix holds on every string."
+  rules := [
+    rule token ["publish"] [.argStrPrefix 1 strPkg],
+    rule "vault" ["deposit"] [.argStrPrefix 0 []]]
+  batch := [
+    call token "publish" [.bool true, .string (s "pkg_a")],
+    call token "publish" [.bool true, .string strPkg],
+    call token "publish" [.bool true, .string (s "pkg")],
+    call token "publish" [.bool true, .string (s "Pkg_a")],
+    call token "publish" [.bool true, .string (s "xpkg_a")],
+    call token "publish" [.bool true, .symbol (s "pkg_a")],
+    call token "publish" [.bool true, .bytes (s "pkg_a")],
+    call token "publish" [.bool true, .other (s "pkg_a")],
+    call token "publish" [.string (s "pkg_a")],
+    call "vault" "deposit" [.string []],
+    call "vault" "deposit" [.symbol []]]
+
+def argEqString : Case where
+  name := "arg-eq-string"
+  description := "argEq on a string: the same bytes, a prefix, an extension, and the same bytes as a symbol, bytes or other value."
+  rules := [rule token ["transfer"] [.argEq 0 (.string (s "abc"))]]
+  batch := [
+    call token "transfer" [.string (s "abc")],
+    call token "transfer" [.string (s "ab")],
+    call token "transfer" [.string (s "abcd")],
+    call token "transfer" [.symbol (s "abc")],
+    call token "transfer" [.bytes (s "abc")],
+    call token "transfer" [.other (s "abc")]]
+
+/-- A wildcard token rule excluding `burn`, a vault rule listing two
+functions, and a capped token rule, for the function and validity steps. -/
+def m4Rules : RuleSet := [
+  wildcard token ["burn"] [],
+  rule "vault" ["deposit", "withdraw"] [],
+  { rule token ["transfer"] [] with validUntil := some 10, cap := some ⟨100, 10, 2⟩ }]
+
+def m4Batch : List Context := [
+  call token "transfer" [alice, bob, .i128 5],
+  call token "burn" [],
+  call token "approve" [],
+  call "vault" "deposit" [],
+  call "vault" "withdraw" []]
+
+def removeFunctionsWildcard : Case where
+  name := "attenuate-remove-functions-wildcard"
+  description := "removeFunctions on a wildcard adds the removed names to the ones it excludes, repeats and names it already excludes included; on a list it removes them."
+  rules := m4Rules
+  batch := m4Batch
+  attenuations := [
+    [.removeFunctions 0 [s "approve"]],
+    [.removeFunctions 0 [s "burn", s "approve", s "approve"]],
+    [.removeFunctions 0 []],
+    [.removeFunctions 0 [s "transfer"], .removeFunctions 0 [s "approve"]],
+    [.removeFunctions 1 [s "deposit"]]]
+
+def restrictFunctions : Case where
+  name := "attenuate-restrict-functions"
+  description := "restrictFunctions turns a wildcard into the list of named functions it does not exclude, and keeps a list's functions that are also named, in the list's order; refused at the length, 2^31 and 2^32 - 1."
+  rules := m4Rules
+  batch := m4Batch
+  attenuations := [
+    [.restrictFunctions 0 [s "transfer", s "approve"]],
+    [.restrictFunctions 0 [s "burn", s "transfer"]],
+    [.restrictFunctions 0 []],
+    [.restrictFunctions 1 [s "withdraw", s "deposit", s "mint"]],
+    [.restrictFunctions 1 [s "Deposit", s "depo"]],
+    [.removeFunctions 0 [s "approve"], .restrictFunctions 0 [s "approve", s "transfer"]],
+    [.restrictFunctions 3 [s "transfer"]],
+    [.restrictFunctions u32Half [s "transfer"]],
+    [.restrictFunctions u32Max [s "transfer"]]]
+
+def lowerValidUntil : Case where
+  name := "attenuate-lower-valid-until"
+  description := "lowerValidUntil gives a rule without a last ledger one, and moves one earlier or keeps it; refused with valid_until_raised past the current one, and with no_such_rule out of range first. allows reads no last ledger, so the verdicts stay as they were."
+  rules := m4Rules
+  batch := m4Batch
+  attenuations := [
+    [.lowerValidUntil 0 5],
+    [.lowerValidUntil 0 u32Max],
+    [.lowerValidUntil 2 10],
+    [.lowerValidUntil 2 0],
+    [.lowerValidUntil 2 11],
+    [.lowerValidUntil 2 u32Max],
+    [.lowerValidUntil 0 7, .lowerValidUntil 0 8],
+    [.lowerValidUntil 0 7, .lowerValidUntil 0 6],
+    [.lowerValidUntil 3 0],
+    [.lowerValidUntil u32Max 0]]
+
 def all : List Case := [
   argEqI128, argEqU64, argEqBool, argEqBytes, argEqAddress, argEqSymbol, argEqOther,
   argEqEmptyPayload, argEqRawBytes, argI128AtMost, argI128AtMostExtremes, missingArguments,
@@ -688,6 +826,8 @@ def all : List Case := [
   thresholdNone, thresholdOne, thresholdTwo, thresholdAll, ruleSignerRepeats, authenticatedRepeats,
   delegatedVersusExternal, externalVersusDelegated, missingSigners, batchOneMissing,
   batchAllPresent, removeSigners, raiseThreshold, signerChains,
-  capsLeaveVerdicts, addCap, lowerCapLimit, lengthenCapPeriod, capChains]
+  capsLeaveVerdicts, addCap, lowerCapLimit, lengthenCapPeriod, capChains,
+  wildcardFunctions, ruleTimeIgnored, argIn, argStrPrefix, argEqString, removeFunctionsWildcard,
+  restrictFunctions, lowerValidUntil]
 
 end Conformance.Cases

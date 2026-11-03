@@ -1,5 +1,5 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "empty-rule-set",
   "description": "The empty rule set refuses every call.",
   "rules": [],

@@ -25,6 +25,11 @@ A rule may carry a spending cap (`RuleCap`): the cap's parameters and the
 amount a context spends, read from the context. `Rule.allows` does not read
 the cap; `RuleSet.authorize` (`RuleCore.Model.Authorize`) charges it.
 
+A rule may carry a last ledger (`validUntil`) and the generation it was issued
+under (`generation`). `Rule.allows` reads neither: it is the view without time
+or generation. `RuleSet.authorize` refuses a rule after its last ledger
+(`Rule.expired`) and outside its generation (`Rule.stale`).
+
 A rule allows a context when its scope matches, every condition holds and its
 signer requirement holds. A rule set allows a context when some rule allows
 it, and allows a batch (every context of a Soroban authorization tree) when it
@@ -50,6 +55,20 @@ structure Rule (Ctx Sig : Type) where
   signers : List Sig          -- the signers that count towards the threshold
   threshold : Nat             -- how many distinct signers must be authenticated
   cap : Option (RuleCap Ctx) := none  -- the rule's spending cap, if it has one
+  validUntil : Option Nat := none     -- the last ledger it authorizes in, if any
+  generation : Option Nat := none     -- the generation it was issued under, if any
+
+/-- Rule `r` has expired at ledger `now`: it has a last ledger before `now`. -/
+def Rule.expired (r : Rule Ctx Sig) (now : Nat) : Bool :=
+  match r.validUntil with
+  | some last => decide (last < now)
+  | none => false
+
+/-- Rule `r` was issued under a generation other than `gen`. -/
+def Rule.stale (r : Rule Ctx Sig) (gen : Nat) : Bool :=
+  match r.generation with
+  | some issued => decide (issued ≠ gen)
+  | none => false
 
 def RuleSet (Ctx Sig : Type) := List (Rule Ctx Sig)
 

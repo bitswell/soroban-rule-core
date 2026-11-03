@@ -1,15 +1,17 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "authorize-history-full",
   "description": "A record holding 1000 entries refuses a spend under the limit with cap_history_full until eviction makes room.",
   "rules": [
     {
       "contract": "746f6b656e",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [],
       "signers": [],
       "threshold": 0,
-      "cap": {"limit": "10000", "period": 10, "amount_arg": 2}
+      "cap": {"limit": "10000", "period": 10, "amount_arg": 2},
+      "valid_until": null,
+      "generation": null
     }
   ],
   "start": [
@@ -1033,6 +1035,7 @@
       "choices": [0],
       "authenticated": [],
       "now": 6,
+      "generation": "0",
       "expected": {"error": "cap_history_full"}
     },
     {
@@ -1048,6 +1051,7 @@
       "choices": [0],
       "authenticated": [],
       "now": 15,
+      "generation": "0",
       "expected": {"ok": [{"history": [{"ledger": 15, "amount": "1"}], "total": "1"}]}
     }
   ]

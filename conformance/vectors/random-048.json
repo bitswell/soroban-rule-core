@@ -1,30 +1,25 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "random-048",
   "description": "Randomized case 48 of seed 20261102.",
   "rules": [],
-  "batch": [
-    {
-      "call": {
-        "contract": "6331",
-        "function": "67",
-        "args": [{"i128": "-170141183460469231731687303715884105728"}]
-      }
-    }
-  ],
+  "batch": [{"call": {"contract": "6331", "function": "666f", "args": []}}],
   "authenticated": [],
   "expected": {"allows": [false], "allows_all": false},
   "attenuations": [
     {
-      "steps": [{"lower_cap_limit": {"index": 0, "limit": "1"}}],
+      "steps": [{"lengthen_cap_period": {"index": 0, "period": 10}}],
       "expected": {"error": "no_such_rule"}
     },
     {
-      "steps": [{"lower_cap_limit": {"index": 0, "limit": "0"}}, {"drop_rule": {"index": 0}}],
+      "steps": [{"add_cap": {"index": 0, "cap": {"limit": "0", "period": 10, "amount_arg": 1}}}],
       "expected": {"error": "no_such_rule"}
     },
     {
-      "steps": [{"lengthen_cap_period": {"index": 0, "period": 9}}],
+      "steps": [
+        {"restrict_functions": {"index": 0, "functions": ["66"]}},
+        {"lower_valid_until": {"index": 0, "valid_until": 0}}
+      ],
       "expected": {"error": "no_such_rule"}
     }
   ]

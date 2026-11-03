@@ -5,8 +5,8 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use rule_eval_conformance::{
-    JsonCond, JsonContext, JsonError, JsonRule, JsonSigner, JsonStep, JsonVal, Outcome, Vector,
-    check, decode_hex, load_dir,
+    JsonCond, JsonContext, JsonError, JsonFunctions, JsonRule, JsonSigner, JsonStep, JsonVal,
+    Outcome, Vector, check, decode_hex, load_dir,
 };
 
 /// `conformance/vectors`, or the directory `CONFORMANCE_VECTORS` names.
@@ -42,6 +42,20 @@ fn note_cond(seen: &mut BTreeSet<&'static str>, c: &JsonCond) {
         }
         JsonCond::ArgI128AtMost { .. } => {
             seen.insert("cond arg_i128_at_most");
+        }
+        JsonCond::ArgIn { values, .. } => {
+            seen.insert(if values.is_empty() {
+                "cond arg_in with no values"
+            } else {
+                "cond arg_in"
+            });
+        }
+        JsonCond::ArgStrPrefix { prefix, .. } => {
+            seen.insert(if prefix.is_empty() {
+                "cond arg_str_prefix with the empty prefix"
+            } else {
+                "cond arg_str_prefix"
+            });
         }
     }
 }
@@ -83,8 +97,26 @@ fn distinct_signers(r: &JsonRule) -> usize {
 }
 
 fn note_rule(seen: &mut BTreeSet<&'static str>, r: &JsonRule) {
-    if r.functions.is_empty() {
-        seen.insert("empty function list");
+    match &r.functions {
+        JsonFunctions::Only(listed) if listed.is_empty() => {
+            seen.insert("empty function list");
+        }
+        JsonFunctions::Only(_) => {
+            seen.insert("function list");
+        }
+        JsonFunctions::AnyExcept(removed) => {
+            seen.insert(if removed.is_empty() {
+                "wildcard"
+            } else {
+                "wildcard with exclusions"
+            });
+        }
+    }
+    if r.valid_until.is_some() {
+        seen.insert("rule with a last ledger");
+    }
+    if r.generation.is_some() {
+        seen.insert("rule with a generation");
     }
     seen.insert(if r.cap.is_some() {
         "rule with a cap"
@@ -149,6 +181,7 @@ fn vectors_cover_every_kind() {
                             JsonVal::Bytes(_) => "val bytes",
                             JsonVal::Address(_) => "val address",
                             JsonVal::Symbol(_) => "val symbol",
+                            JsonVal::String(_) => "val string",
                             JsonVal::Other(_) => "val other",
                         });
                     }
@@ -167,6 +200,8 @@ fn vectors_cover_every_kind() {
                         seen.insert("step add_cond")
                     }
                     JsonStep::RemoveFunctions { .. } => seen.insert("step remove_functions"),
+                    JsonStep::RestrictFunctions { .. } => seen.insert("step restrict_functions"),
+                    JsonStep::LowerValidUntil { .. } => seen.insert("step lower_valid_until"),
                     JsonStep::RemoveSigners { signers, .. } => {
                         note_signers(&mut seen, signers);
                         seen.insert("step remove_signers")
@@ -180,6 +215,8 @@ fn vectors_cover_every_kind() {
                     JsonStep::DropRule { index }
                     | JsonStep::AddCond { index, .. }
                     | JsonStep::RemoveFunctions { index, .. }
+                    | JsonStep::RestrictFunctions { index, .. }
+                    | JsonStep::LowerValidUntil { index, .. }
                     | JsonStep::RemoveSigners { index, .. }
                     | JsonStep::RaiseThreshold { index, .. }
                     | JsonStep::AddCap { index, .. }
@@ -207,6 +244,7 @@ fn vectors_cover_every_kind() {
                 Outcome::Error(JsonError::InvalidCap) => "outcome invalid_cap",
                 Outcome::Error(JsonError::LimitRaised) => "outcome limit_raised",
                 Outcome::Error(JsonError::PeriodShortened) => "outcome period_shortened",
+                Outcome::Error(JsonError::ValidUntilRaised) => "outcome valid_until_raised",
             });
         }
     }
@@ -218,6 +256,11 @@ fn vectors_cover_every_kind() {
         "empty rule set",
         "several rules",
         "empty function list",
+        "function list",
+        "wildcard",
+        "wildcard with exclusions",
+        "rule with a last ledger",
+        "rule with a generation",
         "rule with a cap",
         "rule without a cap",
         "create",
@@ -227,9 +270,14 @@ fn vectors_cover_every_kind() {
         "val bytes",
         "val address",
         "val symbol",
+        "val string",
         "val other",
         "cond arg_eq",
         "cond arg_i128_at_most",
+        "cond arg_in",
+        "cond arg_in with no values",
+        "cond arg_str_prefix",
+        "cond arg_str_prefix with the empty prefix",
         "arg index u32::MAX",
         "signer delegated",
         "signer external",
@@ -244,11 +292,13 @@ fn vectors_cover_every_kind() {
         "step drop_rule",
         "step add_cond",
         "step remove_functions",
+        "step restrict_functions",
         "step remove_signers",
         "step raise_threshold",
         "step add_cap",
         "step lower_cap_limit",
         "step lengthen_cap_period",
+        "step lower_valid_until",
         "step chain",
         "rule index u32::MAX",
         "outcome ok",
@@ -259,6 +309,7 @@ fn vectors_cover_every_kind() {
         "outcome invalid_cap",
         "outcome limit_raised",
         "outcome period_shortened",
+        "outcome valid_until_raised",
     ];
     let missing: Vec<&str> = want.into_iter().filter(|k| !seen.contains(k)).collect();
     assert!(missing.is_empty(), "no vector covers: {missing:?}");

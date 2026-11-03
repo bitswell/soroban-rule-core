@@ -1,5 +1,5 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "attenuate-empty-rule-set",
   "description": "Every attenuation step on the empty rule set is refused.",
   "rules": [],

@@ -2,7 +2,7 @@
 //! by the integration tests.
 #![allow(dead_code)]
 
-use rule_eval::{Cap, Cond, Context, Rule, Signer, Val};
+use rule_eval::{Cap, Cond, Context, Functions, Rule, Signer, Val};
 
 pub fn b(s: &str) -> Vec<u8> {
     s.as_bytes().to_vec()
@@ -34,11 +34,60 @@ pub fn signed_rule(
 ) -> Rule {
     Rule {
         contract: b(contract),
-        functions: functions.iter().map(|f| b(f)).collect(),
+        functions: Functions::Only(functions.iter().map(|f| b(f)).collect()),
         conds,
         signers,
         threshold,
         cap: None,
+        valid_until: None,
+        generation: None,
+    }
+}
+
+/// `r` matching every function of its contract except `except`.
+pub fn wildcard(r: Rule, except: &[&str]) -> Rule {
+    Rule {
+        functions: Functions::AnyExcept(except.iter().map(|f| b(f)).collect()),
+        ..r
+    }
+}
+
+/// `r` with last ledger `last`.
+pub fn valid_until(r: Rule, last: u32) -> Rule {
+    Rule {
+        valid_until: Some(last),
+        ..r
+    }
+}
+
+/// `r` issued under generation `g`.
+pub fn issued(r: Rule, g: u64) -> Rule {
+    Rule {
+        generation: Some(g),
+        ..r
+    }
+}
+
+pub fn only(fs: &[&str]) -> Functions {
+    Functions::Only(fs.iter().map(|f| b(f)).collect())
+}
+
+pub fn any_except(fs: &[&str]) -> Functions {
+    Functions::AnyExcept(fs.iter().map(|f| b(f)).collect())
+}
+
+pub fn functions_eq(x: &Functions, y: &Functions) -> bool {
+    match (x, y) {
+        (Functions::AnyExcept(p), Functions::AnyExcept(q))
+        | (Functions::Only(p), Functions::Only(q)) => p == q,
+        _ => false,
+    }
+}
+
+pub fn copy_functions(fs: &Functions) -> Functions {
+    match fs {
+        Functions::AnyExcept(p) => Functions::AnyExcept(p.clone()),
+        Functions::Only(p) => Functions::Only(p.clone()),
     }
 }
 
@@ -80,7 +129,7 @@ pub fn external(verifier: &str, key: &str) -> Signer {
 /// Structural equality on rules, for checking what an attenuation step built.
 pub fn rule_eq(x: &Rule, y: &Rule) -> bool {
     x.contract == y.contract
-        && x.functions == y.functions
+        && functions_eq(&x.functions, &y.functions)
         && x.conds.len() == y.conds.len()
         && x.conds.iter().zip(&y.conds).all(|(p, q)| cond_eq(p, q))
         && x.signers.len() == y.signers.len()
@@ -90,6 +139,8 @@ pub fn rule_eq(x: &Rule, y: &Rule) -> bool {
             .all(|(p, q)| ref_signer_eq(p, q))
         && x.threshold == y.threshold
         && cap_eq(&x.cap, &y.cap)
+        && x.valid_until == y.valid_until
+        && x.generation == y.generation
 }
 
 pub fn rules_eq(xs: &[Rule], ys: &[Rule]) -> bool {
@@ -100,6 +151,12 @@ pub fn cond_eq(p: &Cond, q: &Cond) -> bool {
     match (p, q) {
         (Cond::ArgEq(i, v), Cond::ArgEq(j, w)) => i == j && rule_eval::val_eq(v, w),
         (Cond::ArgI128AtMost(i, n), Cond::ArgI128AtMost(j, m)) => i == j && n == m,
+        (Cond::ArgIn(i, vs), Cond::ArgIn(j, ws)) => {
+            i == j
+                && vs.len() == ws.len()
+                && vs.iter().zip(ws).all(|(v, w)| rule_eval::val_eq(v, w))
+        }
+        (Cond::ArgStrPrefix(i, p), Cond::ArgStrPrefix(j, q)) => i == j && p == q,
         _ => false,
     }
 }
@@ -143,10 +200,11 @@ pub fn authenticated_lists() -> Vec<Vec<Signer>> {
 pub const CONTRACTS: [&str; 2] = ["c1", "c2"];
 pub const FUNCTIONS: [&str; 2] = ["f", "g"];
 
-pub const VALS: usize = 9;
+pub const VALS: usize = 11;
 
 /// The `k`-th value of a universe holding every constructor, two values of
-/// one constructor, and byte payloads equal across constructors.
+/// one constructor, byte payloads equal across constructors, and a string that
+/// extends another.
 pub fn val(k: usize) -> Val {
     match k {
         0 => Val::I128(5),
@@ -158,11 +216,16 @@ pub fn val(k: usize) -> Val {
         6 => Val::Symbol(b("c1")),
         7 => Val::Other(b("c1")),
         8 => Val::I128(-3),
+        9 => Val::String(b("c1")),
+        10 => Val::String(b("c12")),
         _ => unreachable!(),
     }
 }
 
-pub const CONDS: usize = 5;
+pub const CONDS: usize = 7;
+
+/// How many conditions of the universe are combined in pairs.
+pub const PAIRED_CONDS: usize = 5;
 
 /// The `k`-th condition of a universe touching argument 0 and argument 1.
 pub fn cond(k: usize) -> Cond {
@@ -172,6 +235,8 @@ pub fn cond(k: usize) -> Cond {
         2 => Cond::ArgEq(1, Val::Address(b("c1"))),
         3 => Cond::ArgEq(0, Val::Bytes(b("c1"))),
         4 => Cond::ArgI128AtMost(1, 0),
+        5 => Cond::ArgIn(0, vec![Val::I128(9), Val::Symbol(b("c1"))]),
+        6 => Cond::ArgStrPrefix(0, b("c1")),
         _ => unreachable!(),
     }
 }
@@ -211,37 +276,55 @@ pub fn contexts() -> Vec<Context> {
 #[derive(Clone, Copy, Debug)]
 pub struct RuleSpec {
     pub contract: usize,
-    /// Bit `k` set: `FUNCTIONS[k]` is in the function list.
+    /// Bit `k` set: `FUNCTIONS[k]` is in the function list, or, for a
+    /// wildcard, excluded from it.
     pub functions: u8,
+    /// The rule matches every function except the ones `functions` names.
+    pub wildcard: bool,
     /// Indices into the condition universe.
     pub conds: [Option<usize>; 2],
 }
 
 impl RuleSpec {
     pub fn build(self) -> Rule {
+        let listed: Vec<Vec<u8>> = (0..FUNCTIONS.len())
+            .filter(|k| self.functions & (1 << k) != 0)
+            .map(|k| b(FUNCTIONS[k]))
+            .collect();
         Rule {
             contract: b(CONTRACTS[self.contract]),
-            functions: (0..FUNCTIONS.len())
-                .filter(|k| self.functions & (1 << k) != 0)
-                .map(|k| b(FUNCTIONS[k]))
-                .collect(),
+            functions: if self.wildcard {
+                Functions::AnyExcept(listed)
+            } else {
+                Functions::Only(listed)
+            },
             conds: self.conds.iter().flatten().map(|&k| cond(k)).collect(),
             signers: Vec::new(),
             threshold: 0,
             cap: None,
+            valid_until: None,
+            generation: None,
         }
     }
 }
 
 /// Every rule with a universe contract, any subset of the universe functions,
-/// and up to two conditions.
+/// and no condition, one condition, or two of the first `PAIRED_CONDS`; and
+/// every wildcard excluding any subset of the universe functions, with no
+/// condition or one of the conditions after them.
 pub fn rule_specs() -> Vec<RuleSpec> {
     let mut cond_choices = vec![[None, None]];
     for p in 0..CONDS {
         cond_choices.push([Some(p), None]);
-        for q in p + 1..CONDS {
+    }
+    for p in 0..PAIRED_CONDS {
+        for q in p + 1..PAIRED_CONDS {
             cond_choices.push([Some(p), Some(q)]);
         }
+    }
+    let mut wildcard_conds = vec![[None, None]];
+    for p in PAIRED_CONDS..CONDS {
+        wildcard_conds.push([Some(p), None]);
     }
     let mut out = Vec::new();
     for contract in 0..CONTRACTS.len() {
@@ -250,6 +333,15 @@ pub fn rule_specs() -> Vec<RuleSpec> {
                 out.push(RuleSpec {
                     contract,
                     functions,
+                    wildcard: false,
+                    conds: *conds,
+                });
+            }
+            for conds in &wildcard_conds {
+                out.push(RuleSpec {
+                    contract,
+                    functions,
+                    wildcard: true,
                     conds: *conds,
                 });
             }
@@ -298,6 +390,7 @@ pub fn ref_val_eq(a: &Val, x: &Val) -> bool {
         (Val::Bytes(p), Val::Bytes(q))
         | (Val::Address(p), Val::Address(q))
         | (Val::Symbol(p), Val::Symbol(q))
+        | (Val::String(p), Val::String(q))
         | (Val::Other(p), Val::Other(q)) => p == q,
         _ => false,
     }
@@ -307,6 +400,19 @@ pub fn ref_cond_holds(c: &Cond, args: &[Val]) -> bool {
     match c {
         Cond::ArgEq(i, v) => args.get(*i as usize).is_some_and(|a| ref_val_eq(a, v)),
         Cond::ArgI128AtMost(i, n) => matches!(args.get(*i as usize), Some(Val::I128(v)) if v <= n),
+        Cond::ArgIn(i, vs) => args
+            .get(*i as usize)
+            .is_some_and(|a| vs.iter().any(|v| ref_val_eq(a, v))),
+        Cond::ArgStrPrefix(i, p) => {
+            matches!(args.get(*i as usize), Some(Val::String(s)) if s.starts_with(p))
+        }
+    }
+}
+
+pub fn ref_functions_match(fs: &Functions, function: &Vec<u8>) -> bool {
+    match fs {
+        Functions::AnyExcept(removed) => !removed.contains(function),
+        Functions::Only(listed) => listed.contains(function),
     }
 }
 
@@ -342,7 +448,7 @@ pub fn ref_rule_allows(r: &Rule, c: &Context, authenticated: &[Signer]) -> bool 
             args,
         } => {
             *contract == r.contract
-                && r.functions.contains(function)
+                && ref_functions_match(&r.functions, function)
                 && r.conds.iter().all(|k| ref_cond_holds(k, args))
                 && ref_signers_met(&r.signers, r.threshold, authenticated)
         }
@@ -365,6 +471,7 @@ pub fn copy_val(v: &Val) -> Val {
         Val::Bytes(x) => Val::Bytes(x.clone()),
         Val::Address(x) => Val::Address(x.clone()),
         Val::Symbol(x) => Val::Symbol(x.clone()),
+        Val::String(x) => Val::String(x.clone()),
         Val::Other(x) => Val::Other(x.clone()),
     }
 }
@@ -390,6 +497,8 @@ pub fn copy_cond(c: &Cond) -> Cond {
     match c {
         Cond::ArgEq(i, v) => Cond::ArgEq(*i, copy_val(v)),
         Cond::ArgI128AtMost(i, n) => Cond::ArgI128AtMost(*i, *n),
+        Cond::ArgIn(i, vs) => Cond::ArgIn(*i, vs.iter().map(copy_val).collect()),
+        Cond::ArgStrPrefix(i, p) => Cond::ArgStrPrefix(*i, p.clone()),
     }
 }
 
@@ -403,11 +512,13 @@ pub fn copy_signer(s: &Signer) -> Signer {
 pub fn copy_rule(r: &Rule) -> Rule {
     Rule {
         contract: r.contract.clone(),
-        functions: r.functions.clone(),
+        functions: copy_functions(&r.functions),
         conds: r.conds.iter().map(copy_cond).collect(),
         signers: r.signers.iter().map(copy_signer).collect(),
         threshold: r.threshold,
         cap: copy_cap(&r.cap),
+        valid_until: r.valid_until,
+        generation: r.generation,
     }
 }
 
@@ -430,7 +541,37 @@ pub fn ref_add_cond(rs: &[Rule], i: usize, c: &Cond) -> Vec<Rule> {
 
 pub fn ref_remove_functions(rs: &[Rule], i: usize, fs: &[Vec<u8>]) -> Vec<Rule> {
     let mut out: Vec<Rule> = rs.iter().map(copy_rule).collect();
-    out[i].functions.retain(|f| !fs.contains(f));
+    out[i].functions = match &out[i].functions {
+        Functions::AnyExcept(removed) => {
+            Functions::AnyExcept(removed.iter().chain(fs).cloned().collect())
+        }
+        Functions::Only(listed) => {
+            Functions::Only(listed.iter().filter(|f| !fs.contains(f)).cloned().collect())
+        }
+    };
+    out
+}
+
+pub fn ref_restrict_functions(rs: &[Rule], i: usize, fs: &[Vec<u8>]) -> Vec<Rule> {
+    let mut out: Vec<Rule> = rs.iter().map(copy_rule).collect();
+    out[i].functions = match &out[i].functions {
+        Functions::AnyExcept(removed) => Functions::Only(
+            fs.iter()
+                .filter(|f| !removed.contains(f))
+                .cloned()
+                .collect(),
+        ),
+        Functions::Only(listed) => {
+            Functions::Only(listed.iter().filter(|f| fs.contains(f)).cloned().collect())
+        }
+    };
+    out
+}
+
+/// For a last ledger no later than the rule's own, if it has one.
+pub fn ref_lower_valid_until(rs: &[Rule], i: usize, last: u32) -> Vec<Rule> {
+    let mut out: Vec<Rule> = rs.iter().map(copy_rule).collect();
+    out[i].valid_until = Some(last);
     out
 }
 

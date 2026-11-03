@@ -1,5 +1,5 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "random-068",
   "description": "Randomized case 68 of seed 20261102.",
   "rules": [],
@@ -12,13 +12,13 @@
       "expected": {"error": "no_such_rule"}
     },
     {
-      "steps": [{"add_cap": {"index": 0, "cap": {"limit": "100", "period": 1, "amount_arg": 1}}}],
+      "steps": [{"lower_valid_until": {"index": 0, "valid_until": 4}}],
       "expected": {"error": "no_such_rule"}
     },
     {
       "steps": [
-        {"remove_functions": {"index": 0, "functions": ["666f6f"]}},
-        {"lower_cap_limit": {"index": 0, "limit": "10"}}
+        {"raise_threshold": {"index": 0, "threshold": 1}},
+        {"remove_signers": {"index": 0, "signers": []}}
       ],
       "expected": {"error": "no_such_rule"}
     }

@@ -1,5 +1,5 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "random-057",
   "description": "Randomized case 57 of seed 20261102.",
   "rules": [],
@@ -9,17 +9,27 @@
   "attenuations": [
     {
       "steps": [
-        {"raise_threshold": {"index": 0, "threshold": 1}},
-        {"add_cap": {"index": 0, "cap": {"limit": "0", "period": 4294967295, "amount_arg": 3}}}
+        {"remove_functions": {"index": 0, "functions": ["67", "67"]}},
+        {"lower_valid_until": {"index": 0, "valid_until": 0}}
       ],
       "expected": {"error": "no_such_rule"}
     },
     {
-      "steps": [{"lengthen_cap_period": {"index": 0, "period": 10}}],
+      "steps": [
+        {
+          "remove_signers": {
+            "index": 0,
+            "signers": [
+              {"delegated": {"address": "62"}},
+              {"external": {"verifier": "76", "key": "6b32"}}
+            ]
+          }
+        }
+      ],
       "expected": {"error": "no_such_rule"}
     },
     {
-      "steps": [{"drop_rule": {"index": 0}}, {"drop_rule": {"index": 0}}],
+      "steps": [{"lower_cap_limit": {"index": 0, "limit": "10"}}],
       "expected": {"error": "no_such_rule"}
     }
   ]

@@ -8,11 +8,22 @@ import RuleCore.Theorems.Cap
 One authorization (`RuleSet.authorize`):
 
 * `RuleSet.authorize_eq_ok_iff`: what an accepted authorization is, pass by
-  pass;
+  pass (`RuleSet.checkChoice_ok_iff`, `RuleSet.checkSigners_ok_iff`,
+  `RuleSet.signerChosen_iff`);
 * `RuleSet.authorize_chosen`: every context is allowed by the rule chosen for
   it, under the authorization's signers;
 * `RuleSet.authorize_allowsAll`: so the rule set allows the whole batch under
   them; the stateful check is sound with respect to `allowsAll`;
+* `RuleSet.authorize_current`, `RuleSet.authorize_validUntil`: every chosen
+  rule is current, so none has a last ledger before the authorization's
+  (`Rule.expired_eq_false_iff`);
+* `RuleSet.authorize_generation`, `RuleSet.authorize_not_chosen_of_stale`,
+  `RuleSet.authorize_contexts_nil_of_stale`: no chosen rule carries a
+  generation other than the current one (`Rule.stale_eq_false_iff`), so once
+  the current generation is not `g`, a rule issued under `g` authorizes
+  nothing, and a rule set issued under `g` accepts only an empty batch;
+* `RuleSet.authorize_signers`: every authenticated signer is a signer of some
+  chosen rule;
 * `RuleSet.authorize_length`: the records keep one record per rule;
 * `RuleSet.step_of_error`: a refused authorization leaves the records as they
   were, the charges of its earlier contexts included.
@@ -43,10 +54,11 @@ From empty records (`RuleSet.emptyRecords`), carrying the cap theorems of
 Narrowing as trace inclusion (`RuleSet.TraceNarrower`):
 
 * `RuleSet.Refines.traceNarrower`: a rule set whose every rule, renumbered by
-  a one-to-one `f`, allows no more than its counterpart and carries a cap at
-  least as narrow (`RuleSet.Refines`) accepts no run the other does not;
+  a one-to-one `f`, allows no more than its counterpart, carries a cap at
+  least as narrow, is current no more often and lists no other signer
+  (`RuleSet.Refines`) accepts no run the other does not;
 * `RuleSet.attenuate_refines`, `RuleSet.attenuateAll_refines`: each of the
-  eight steps, and every list of them, refines along `Attenuation.source` and
+  nine steps, and every list of them, refines along `Attenuation.source` and
   `Attenuation.chainSource`;
 * `RuleSet.attenuate_traceNarrower`, `RuleSet.attenuateAll_traceNarrower`: so
   each step, and every chain of steps, is narrowing as trace inclusion, each
@@ -57,6 +69,15 @@ Narrowing as trace inclusion (`RuleSet.TraceNarrower`):
   is reflexive and composes, with the renumberings composed;
 * `RuleSet.attenuate_capsValid`, `RuleSet.attenuateAll_capsValid`: the steps
   keep every cap valid.
+
+Generations:
+
+* `RuleSet.attenuate_generation`, `RuleSet.attenuateAll_generation`: no step
+  changes a rule's generation, so each rule at the end of a list of steps
+  carries the generation of the root rule it comes from;
+* `RuleSet.attenuateAll_generation_eq`: a rule set derived from a root issued
+  under `g` is issued under `g`, so once the current generation is not `g` it
+  accepts only an empty batch (`RuleSet.authorize_contexts_nil_of_stale`).
 
 None of these assumes anything about the ledgers the authorizations are made
 at, except `period_le_limit`, which takes the stated rule that ledgers start
@@ -115,34 +136,70 @@ section
 
 variable [DecidableEq Sig]
 
-theorem RuleSet.checkChoice_ok_iff (rs : RuleSet Ctx Sig) (auth : List Sig) (x : Ctx × Nat) :
-    rs.checkChoice auth x = .ok () ↔ ∃ r, rs.rules[x.2]? = some r ∧ r.allows x.1 auth = true := by
+theorem RuleSet.checkChoice_ok_iff (rs : RuleSet Ctx Sig) (auth : List Sig) (now gen : Nat)
+    (x : Ctx × Nat) :
+    rs.checkChoice auth now gen x = .ok () ↔
+      ∃ r, rs.rules[x.2]? = some r ∧ r.expired now = false ∧ r.stale gen = false ∧
+        r.allows x.1 auth = true := by
   unfold RuleSet.checkChoice
   split <;> rename_i h
-  · split <;> rename_i ha
-    · simp [h, ha]
-    · simp [h, ha]
+  · split <;> rename_i he
+    · simp [h, he]
+    · split <;> rename_i hs
+      · simp [h, he, hs]
+      · split <;> rename_i ha
+        · simp [h, he, hs, ha]
+        · simp [h, he, hs, ha]
   · simp [h]
 
+theorem RuleSet.signerChosen_iff (rs : RuleSet Ctx Sig) (choices : List Nat) (s : Sig) :
+    rs.signerChosen choices s = true ↔
+      ∃ j ∈ choices, ∃ r, rs.rules[j]? = some r ∧ s ∈ r.signers := by
+  unfold RuleSet.signerChosen
+  rw [List.any_eq_true]
+  constructor
+  · rintro ⟨j, hj, h⟩
+    cases hr : rs.rules[j]? with
+    | none => simp [hr] at h
+    | some r => exact ⟨j, hj, r, hr, by simpa [hr] using h⟩
+  · rintro ⟨j, hj, r, hr, hs⟩
+    exact ⟨j, hj, by simp [hr, hs]⟩
+
+theorem RuleSet.checkSigners_ok_iff (rs : RuleSet Ctx Sig) (auth : List Sig) (choices : List Nat) :
+    rs.checkSigners auth choices = .ok () ↔ ∀ s ∈ auth, rs.signerChosen choices s = true := by
+  unfold RuleSet.checkSigners
+  split <;> rename_i h
+  · simp only [true_iff]
+    exact List.all_eq_true.mp h
+  · simp only [reduceCtorEq, false_iff]
+    intro hall
+    exact h (List.all_eq_true.mpr hall)
+
 /-- An accepted authorization, pass by pass: its choices and records have the
-right lengths, every chosen rule exists and allows its context, and the
-charges in context order build the new records. -/
+right lengths, every chosen rule exists, is current and allows its context,
+every authenticated signer is a signer of a chosen rule, and the charges in
+context order build the new records. -/
 theorem RuleSet.authorize_eq_ok_iff (rs : RuleSet Ctx Sig) (records records' : List Cap.Record)
     (a : Authorization Ctx Sig) :
     rs.authorize records a = .ok records' ↔
       a.choices.length = a.contexts.length ∧ records.length = rs.rules.length ∧
-        (∀ x ∈ a.chosen, rs.checkChoice a.auth x = .ok ()) ∧
+        (∀ x ∈ a.chosen, rs.checkChoice a.auth a.now a.generation x = .ok ()) ∧
+        rs.checkSigners a.auth a.choices = .ok () ∧
         a.chosen.foldlM (rs.charge a.now) records = .ok records' := by
   unfold RuleSet.authorize
   by_cases hc : a.choices.length = a.contexts.length
   · by_cases hr : records.length = rs.rules.length
     · simp only [hc, hr, ne_eq, not_true_eq_false, ↓reduceIte, true_and]
       rw [← forM_except_ok_iff]
-      cases hf : a.chosen.forM (rs.checkChoice a.auth) with
+      cases hf : a.chosen.forM (rs.checkChoice a.auth a.now a.generation) with
       | error e => simp [bind, Except.bind]
       | ok u =>
         cases u
-        simp [bind, Except.bind]
+        cases hs : rs.checkSigners a.auth a.choices with
+        | error e => simp [bind, Except.bind]
+        | ok u =>
+          cases u
+          simp [bind, Except.bind]
     · simp [hc, hr]
   · simp [hc]
 
@@ -151,21 +208,125 @@ for it, under the authorization's signers. -/
 theorem RuleSet.authorize_chosen {rs : RuleSet Ctx Sig} {records records' : List Cap.Record}
     {a : Authorization Ctx Sig} (h : rs.authorize records a = .ok records') :
     ∀ x ∈ a.chosen, ∃ r, rs.rules[x.2]? = some r ∧ r.allows x.1 a.auth = true := by
-  obtain ⟨-, -, hk, -⟩ := (rs.authorize_eq_ok_iff records records' a).mp h
-  exact fun x hx => (rs.checkChoice_ok_iff a.auth x).mp (hk x hx)
+  obtain ⟨-, -, hk, -, -⟩ := (rs.authorize_eq_ok_iff records records' a).mp h
+  intro x hx
+  obtain ⟨r, hr, -, -, ha⟩ := (rs.checkChoice_ok_iff a.auth a.now a.generation x).mp (hk x hx)
+  exact ⟨r, hr, ha⟩
 
 /-- Soundness of the stateful check: a rule set that accepts an authorization
 allows its whole batch under its signers. -/
 theorem RuleSet.authorize_allowsAll {rs : RuleSet Ctx Sig} {records records' : List Cap.Record}
     {a : Authorization Ctx Sig} (h : rs.authorize records a = .ok records') :
     rs.allowsAll a.contexts a.auth = true := by
-  obtain ⟨hc, -, -, -⟩ := (rs.authorize_eq_ok_iff records records' a).mp h
+  obtain ⟨hc, -, -, -, -⟩ := (rs.authorize_eq_ok_iff records records' a).mp h
   rw [RuleSet.allowsAll_iff]
   intro c hcm
   rw [← Authorization.map_fst_chosen hc, List.mem_map] at hcm
   obtain ⟨x, hx, rfl⟩ := hcm
   obtain ⟨r, hr, ha⟩ := RuleSet.authorize_chosen h x hx
   exact (RuleSet.allows_iff rs x.1 a.auth).mpr ⟨r, List.mem_of_getElem? hr, ha⟩
+
+/-- Every rule an accepted authorization chooses is current: it has not
+expired at the authorization's ledger, and it is not stale in its
+generation. -/
+theorem RuleSet.authorize_current {rs : RuleSet Ctx Sig} {records records' : List Cap.Record}
+    {a : Authorization Ctx Sig} (h : rs.authorize records a = .ok records') :
+    ∀ x ∈ a.chosen, ∃ r, rs.rules[x.2]? = some r ∧ r.expired a.now = false ∧
+      r.stale a.generation = false := by
+  obtain ⟨-, -, hk, -, -⟩ := (rs.authorize_eq_ok_iff records records' a).mp h
+  intro x hx
+  obtain ⟨r, hr, he, hs, -⟩ := (rs.checkChoice_ok_iff a.auth a.now a.generation x).mp (hk x hx)
+  exact ⟨r, hr, he, hs⟩
+
+omit [DecidableEq Sig] in
+theorem Rule.expired_eq_false_iff (r : Rule Ctx Sig) (now : Nat) :
+    r.expired now = false ↔ ∀ last, r.validUntil = some last → now ≤ last := by
+  unfold Rule.expired
+  split <;> rename_i h <;> simp [h]
+
+omit [DecidableEq Sig] in
+theorem Rule.stale_eq_false_iff (r : Rule Ctx Sig) (gen : Nat) :
+    r.stale gen = false ↔ ∀ g, r.generation = some g → g = gen := by
+  unfold Rule.stale
+  split <;> rename_i h <;> simp [h]
+
+omit [DecidableEq Sig] in
+/-- The choices of an authorization whose choices match its contexts are the
+second components of its chosen pairs. -/
+theorem Authorization.map_snd_chosen {a : Authorization Ctx Sig}
+    (h : a.choices.length = a.contexts.length) : a.chosen.map Prod.snd = a.choices :=
+  List.map_snd_zip (Nat.le_of_eq h)
+
+/-- Expiry: an accepted authorization chooses no rule whose last ledger is
+before the authorization's ledger. -/
+theorem RuleSet.authorize_validUntil {rs : RuleSet Ctx Sig} {records records' : List Cap.Record}
+    {a : Authorization Ctx Sig} (h : rs.authorize records a = .ok records') {j : Nat}
+    (hj : j ∈ a.choices) {r : Rule Ctx Sig} (hr : rs.rules[j]? = some r) {last : Nat}
+    (hl : r.validUntil = some last) : a.now ≤ last := by
+  obtain ⟨hc, -, -, -, -⟩ := (rs.authorize_eq_ok_iff records records' a).mp h
+  rw [← Authorization.map_snd_chosen hc, List.mem_map] at hj
+  obtain ⟨x, hx, rfl⟩ := hj
+  obtain ⟨r', hr', he, -⟩ := RuleSet.authorize_current h x hx
+  rw [hr] at hr'
+  cases hr'
+  exact (Rule.expired_eq_false_iff r a.now).mp he last hl
+
+/-- Generation: an accepted authorization chooses no rule issued under a
+generation other than the current one. -/
+theorem RuleSet.authorize_generation {rs : RuleSet Ctx Sig} {records records' : List Cap.Record}
+    {a : Authorization Ctx Sig} (h : rs.authorize records a = .ok records') {j : Nat}
+    (hj : j ∈ a.choices) {r : Rule Ctx Sig} (hr : rs.rules[j]? = some r) {g : Nat}
+    (hg : r.generation = some g) : g = a.generation := by
+  obtain ⟨hc, -, -, -, -⟩ := (rs.authorize_eq_ok_iff records records' a).mp h
+  rw [← Authorization.map_snd_chosen hc, List.mem_map] at hj
+  obtain ⟨x, hx, rfl⟩ := hj
+  obtain ⟨r', hr', -, hs⟩ := RuleSet.authorize_current h x hx
+  rw [hr] at hr'
+  cases hr'
+  exact (Rule.stale_eq_false_iff r a.generation).mp hs g hg
+
+/-- Once the current generation is not `g`, a rule issued under `g`
+authorizes nothing: no accepted authorization chooses it. -/
+theorem RuleSet.authorize_not_chosen_of_stale {rs : RuleSet Ctx Sig}
+    {records records' : List Cap.Record} {a : Authorization Ctx Sig}
+    (h : rs.authorize records a = .ok records') {j : Nat} {r : Rule Ctx Sig}
+    (hr : rs.rules[j]? = some r) {g : Nat} (hg : r.generation = some g)
+    (hne : g ≠ a.generation) : j ∉ a.choices :=
+  fun hj => hne (RuleSet.authorize_generation h hj hr hg)
+
+/-- A rule set every rule of which was issued under `g` accepts, once the
+current generation is not `g`, only an authorization with no contexts. -/
+theorem RuleSet.authorize_contexts_nil_of_stale {rs : RuleSet Ctx Sig}
+    {records records' : List Cap.Record} {a : Authorization Ctx Sig}
+    (h : rs.authorize records a = .ok records') {g : Nat}
+    (hall : ∀ r ∈ rs.rules, r.generation = some g) (hne : g ≠ a.generation) :
+    a.contexts = [] := by
+  obtain ⟨hc, -, -, -, -⟩ := (rs.authorize_eq_ok_iff records records' a).mp h
+  cases hcs : a.contexts with
+  | nil => rfl
+  | cons c cs =>
+    exfalso
+    have hx : (c, a.choices[0]'(by rw [hc, hcs]; simp)) ∈ a.chosen := by
+      have hl : 0 < a.chosen.length := by
+        rw [Authorization.length_chosen hc, hcs]
+        simp
+      have h0 : a.chosen[0]'hl = (c, a.choices[0]'(by rw [hc, hcs]; simp)) := by
+        simp [Authorization.chosen, hcs]
+      rw [← h0]
+      exact List.getElem_mem hl
+    obtain ⟨r, hr, -, hs⟩ := RuleSet.authorize_current h _ hx
+    have := (Rule.stale_eq_false_iff r a.generation).mp hs g
+      (hall r (List.mem_of_getElem? hr))
+    exact hne this
+
+/-- Signers: every signer an accepted authorization authenticated is a signer
+of some rule it chose. -/
+theorem RuleSet.authorize_signers {rs : RuleSet Ctx Sig} {records records' : List Cap.Record}
+    {a : Authorization Ctx Sig} (h : rs.authorize records a = .ok records') :
+    ∀ s ∈ a.auth, ∃ j ∈ a.choices, ∃ r, rs.rules[j]? = some r ∧ s ∈ r.signers := by
+  obtain ⟨-, -, -, hs, -⟩ := (rs.authorize_eq_ok_iff records records' a).mp h
+  intro s hsm
+  exact (rs.signerChosen_iff a.choices s).mp ((rs.checkSigners_ok_iff a.auth a.choices).mp hs s hsm)
 
 end
 
@@ -210,7 +371,7 @@ variable [DecidableEq Sig]
 theorem RuleSet.authorize_length {rs : RuleSet Ctx Sig} {records records' : List Cap.Record}
     {a : Authorization Ctx Sig} (h : rs.authorize records a = .ok records') :
     records'.length = rs.rules.length := by
-  obtain ⟨-, hr, -, hf⟩ := (rs.authorize_eq_ok_iff records records' a).mp h
+  obtain ⟨-, hr, -, -, hf⟩ := (rs.authorize_eq_ok_iff records records' a).mp h
   rw [RuleSet.foldlM_charge_length _ _ _ hf, hr]
 
 /-- A refused authorization leaves the records as they were. -/
@@ -425,7 +586,7 @@ theorem RuleSet.run_get {j : Nat} {r : Rule Ctx Sig} {k : RuleCap Ctx}
       exact RuleSet.run_get hr hk as records rec hlen hrec
     | ok records' =>
       simp only [RuleSet.step, ha]
-      obtain ⟨-, -, -, hf⟩ := (rs.authorize_eq_ok_iff records records' a).mp ha
+      obtain ⟨-, -, -, -, hf⟩ := (rs.authorize_eq_ok_iff records records' a).mp ha
       obtain ⟨rec₁, hrec₁, hrun⟩ := RuleSet.foldlM_charge_get hr hk _ _ _ rec hrec hf
       rw [RuleSet.run_get hr hk as records' rec₁ (RuleSet.authorize_length ha) hrec₁,
         Authorization.charges_eq, Cap.run_append, Cap.run_of_runAll hrun]
@@ -443,7 +604,7 @@ theorem RuleSet.runAll_charged {j : Nat} {r : Rule Ctx Sig} {k : RuleCap Ctx}
     cases ha : rs.authorize records a with
     | error e => exact RuleSet.runAll_charged hr hk as records rec hlen hrec
     | ok records' =>
-      obtain ⟨-, -, -, hf⟩ := (rs.authorize_eq_ok_iff records records' a).mp ha
+      obtain ⟨-, -, -, -, hf⟩ := (rs.authorize_eq_ok_iff records records' a).mp ha
       obtain ⟨rec₁, hrec₁, hrun⟩ := RuleSet.foldlM_charge_get hr hk _ _ _ rec hrec hf
       obtain ⟨rec', hrun'⟩ :=
         RuleSet.runAll_charged hr hk as records' rec₁ (RuleSet.authorize_length ha) hrec₁
@@ -475,7 +636,7 @@ theorem RuleSet.run_get_of_cap_none {j : Nat} {r : Rule Ctx Sig}
     | error e => simp only [RuleSet.step, ha]
     | ok records' =>
       simp only [RuleSet.step, ha]
-      obtain ⟨-, -, -, hf⟩ := (rs.authorize_eq_ok_iff records records' a).mp ha
+      obtain ⟨-, -, -, -, hf⟩ := (rs.authorize_eq_ok_iff records records' a).mp ha
       exact RuleSet.foldlM_charge_get_of_cap_none hr hk _ _ _ hf
 
 /-- Every call a run charges is made at the ledger of one of its
@@ -605,18 +766,37 @@ section
 
 variable [DecidableEq Sig]
 
+/-- Rule `r` is current at ledger `now` in generation `gen`: it has not
+expired and it is not stale. -/
+def Rule.Current (r : Rule Ctx Sig) (now gen : Nat) : Prop :=
+  r.expired now = false ∧ r.stale gen = false
+
 /-- `r'` refines `r`: it allows no context, under any signers, that `r` does
-not, and carries a cap at least as narrow. -/
+not, carries a cap at least as narrow, is current at no ledger and in no
+generation where `r` is not, and lists no signer that `r` does not. -/
 def Rule.Refines (r' r : Rule Ctx Sig) : Prop :=
   (∀ c auth, r'.allows c auth = true → r.allows c auth = true) ∧
-    RuleCap.NarrowerOpt r'.cap r.cap
+    RuleCap.NarrowerOpt r'.cap r.cap ∧
+    (∀ now gen, r'.Current now gen → r.Current now gen) ∧
+    ∀ s ∈ r'.signers, s ∈ r.signers
 
 theorem Rule.Refines.refl (r : Rule Ctx Sig) : r.Refines r :=
-  ⟨fun _ _ h => h, RuleCap.NarrowerOpt.refl r.cap⟩
+  ⟨fun _ _ h => h, RuleCap.NarrowerOpt.refl r.cap, fun _ _ h => h, fun _ h => h⟩
 
 theorem Rule.Refines.trans {r'' r' r : Rule Ctx Sig} (h₁ : r''.Refines r') (h₂ : r'.Refines r) :
     r''.Refines r :=
-  ⟨fun c auth h => h₂.1 c auth (h₁.1 c auth h), h₁.2.trans h₂.2⟩
+  ⟨fun c auth h => h₂.1 c auth (h₁.1 c auth h), h₁.2.1.trans h₂.2.1,
+    fun now gen h => h₂.2.2.1 now gen (h₁.2.2.1 now gen h),
+    fun s h => h₂.2.2.2 s (h₁.2.2.2 s h)⟩
+
+/-- A rule with the same verdicts, cap, last ledger, generation and signers
+refines the other. -/
+theorem Rule.Refines.of_eq {r' r : Rule Ctx Sig}
+    (ha : ∀ c auth, r'.allows c auth = true → r.allows c auth = true) (hc : r'.cap = r.cap)
+    (hv : r'.validUntil = r.validUntil) (hg : r'.generation = r.generation)
+    (hs : r'.signers = r.signers) : r'.Refines r := by
+  refine ⟨ha, hc ▸ RuleCap.NarrowerOpt.refl r'.cap, fun now gen h => ?_, fun s h => hs ▸ h⟩
+  simpa [Rule.Current, Rule.expired, Rule.stale, hv, hg] using h
 
 /-- `rs'` refines `rs` along `f`: `f` sends the rules of `rs'` one to one to
 rules of `rs`, and each rule refines its image. -/
@@ -690,7 +870,7 @@ theorem RuleSet.Refines.charge {rs' rs : RuleSet Ctx Sig} {f : Nat → Nat}
     cases hq : r'.cap with
     | none =>
       have hp : r.cap = none := by
-        have := hRr.2
+        have := hRr.2.1
         rw [hq] at this
         cases hc : r.cap with
         | none => rfl
@@ -719,7 +899,7 @@ theorem RuleSet.Refines.charge {rs' rs : RuleSet Ctx Sig} {f : Nat → Nat}
         · obtain ⟨a, b, ha, hb, hva, hvb, hs⟩ := hrel.rel j r₁' r₁ q₁ p₁ hj hj' hq₁ hp₁
           exact ⟨a, b, by rw [List.getElem?_set_ne (Ne.symm hjx)]; exact ha, hb, hva, hvb, hs⟩
       | some p =>
-        have hnar := hRr.2
+        have hnar := hRr.2.1
         rw [hq, hp] at hnar
         obtain ⟨hamt, hqp⟩ := hnar
         obtain ⟨rq₀, rp, hrq₀, hrp, hvq, hvp, hs⟩ := hrel.rel x.2 r' r q p hr' hr hq hp
@@ -779,16 +959,27 @@ theorem RuleSet.Refines.authorize {rs' rs : RuleSet Ctx Sig} {f : Nat → Nat}
     (hrel : RuleSet.RecordsRel rs' rs f recs' recs) (h : rs'.authorize recs' a = .ok recs'') :
     ∃ recsN, rs.authorize recs (a.renumber f) = .ok recsN ∧
       RuleSet.RecordsRel rs' rs f recs'' recsN := by
-  obtain ⟨hc, -, hk, hf⟩ := (rs'.authorize_eq_ok_iff recs' recs'' a).mp h
+  obtain ⟨hc, -, hk, hsg, hf⟩ := (rs'.authorize_eq_ok_iff recs' recs'' a).mp h
   obtain ⟨recsN, hN, hrelN⟩ := hR.foldlM_charge _ _ _ _ hrel hf
-  refine ⟨recsN, (rs.authorize_eq_ok_iff recs recsN _).mpr ⟨?_, hrel.wideLen, ?_, ?_⟩, hrelN⟩
+  refine ⟨recsN, (rs.authorize_eq_ok_iff recs recsN _).mpr ⟨?_, hrel.wideLen, ?_, ?_, ?_⟩,
+    hrelN⟩
   · simpa [Authorization.renumber] using hc
   · rw [Authorization.chosen_renumber]
     intro y hy
     obtain ⟨x, hx, rfl⟩ := List.mem_map.mp hy
-    obtain ⟨r', hr', ha⟩ := (rs'.checkChoice_ok_iff a.auth x).mp (hk x hx)
+    obtain ⟨r', hr', he, hs, ha⟩ :=
+      (rs'.checkChoice_ok_iff a.auth a.now a.generation x).mp (hk x hx)
     obtain ⟨r, hr, hRr⟩ := hR.2 x.2 r' hr'
-    exact (rs.checkChoice_ok_iff a.auth _).mpr ⟨r, hr, hRr.1 x.1 a.auth ha⟩
+    obtain ⟨he', hs'⟩ := hRr.2.2.1 a.now a.generation ⟨he, hs⟩
+    exact (rs.checkChoice_ok_iff a.auth a.now a.generation _).mpr
+      ⟨r, hr, he', hs', hRr.1 x.1 a.auth ha⟩
+  · rw [RuleSet.checkSigners_ok_iff]
+    intro s hsm
+    obtain ⟨j, hj, r', hr', hsr⟩ :=
+      (rs'.signerChosen_iff a.choices s).mp ((rs'.checkSigners_ok_iff a.auth a.choices).mp hsg s hsm)
+    obtain ⟨r, hr, hRr⟩ := hR.2 j r' hr'
+    exact (rs.signerChosen_iff _ s).mpr
+      ⟨f j, List.mem_map_of_mem hj, r, hr, hRr.2.2.2 s hsr⟩
   · rw [Authorization.chosen_renumber]
     exact hN
 
@@ -846,15 +1037,16 @@ theorem RuleSet.TraceNarrower.trans {rs'' rs' rs : RuleSet Ctx Sig} {g f : Nat �
 /-! ### Each step refines -/
 
 theorem Rule.refines_addCond (r : Rule Ctx Sig) (p : Ctx → Bool) : (r.addCond p).Refines r :=
-  ⟨fun _ _ h => Rule.allows_of_allows_addCond h, RuleCap.NarrowerOpt.refl r.cap⟩
+  Rule.Refines.of_eq (fun _ _ h => Rule.allows_of_allows_addCond h) rfl rfl rfl rfl
 
 theorem Rule.refines_restrictScope (r : Rule Ctx Sig) (s : Ctx → Bool) :
     (r.restrictScope s).Refines r :=
-  ⟨fun _ _ h => Rule.allows_of_allows_restrictScope h, RuleCap.NarrowerOpt.refl r.cap⟩
+  Rule.Refines.of_eq (fun _ _ h => Rule.allows_of_allows_restrictScope h) rfl rfl rfl rfl
 
 theorem Rule.refines_removeSigners (r : Rule Ctx Sig) (ss : List Sig) :
     (r.removeSigners ss).Refines r :=
-  ⟨fun _ _ h => Rule.allows_of_allows_removeSigners h, RuleCap.NarrowerOpt.refl r.cap⟩
+  ⟨fun _ _ h => Rule.allows_of_allows_removeSigners h, RuleCap.NarrowerOpt.refl r.cap,
+    fun _ _ h => h, fun _ h => (List.mem_filter.mp h).1⟩
 
 theorem RuleSet.modifyRule_refines {rs rs' : RuleSet Ctx Sig} {i : Nat}
     {f : Rule Ctx Sig → Rule Ctx Sig} (hf : ∀ r, (f r).Refines r)
@@ -891,9 +1083,9 @@ theorem RuleSet.raiseThreshold_refines {rs rs' : RuleSet Ctx Sig} {i k : Nat}
     · cases h
     · rename_i hk
       cases h
-      exact RuleSet.Refines.set hr
-        ⟨fun _ _ hc => Rule.allows_of_allows_threshold_le (Nat.le_of_not_lt hk) hc,
-          RuleCap.NarrowerOpt.refl r.cap⟩
+      exact RuleSet.Refines.set hr (Rule.Refines.of_eq
+        (fun _ _ hc => Rule.allows_of_allows_threshold_le (Nat.le_of_not_lt hk) hc)
+        rfl rfl rfl rfl)
   · cases h
 
 theorem RuleSet.addCap_refines {rs rs' : RuleSet Ctx Sig} {i : Nat} {k : RuleCap Ctx}
@@ -906,7 +1098,8 @@ theorem RuleSet.addCap_refines {rs rs' : RuleSet Ctx Sig} {i : Nat} {k : RuleCap
     · rename_i hc
       split at h
       · cases h
-        exact RuleSet.Refines.set hr ⟨fun _ _ hc => hc, by simp [RuleCap.NarrowerOpt, hc]⟩
+        exact RuleSet.Refines.set hr ⟨fun _ _ hc => hc, by simp [RuleCap.NarrowerOpt, hc],
+          fun _ _ h => h, fun _ h => h⟩
       · cases h
   · cases h
 
@@ -923,7 +1116,7 @@ theorem RuleSet.lowerCapLimit_refines {rs rs' : RuleSet Ctx Sig} {i : Nat} {limi
         split at h
         · cases h
         · cases h
-          refine RuleSet.Refines.set hr ⟨fun _ _ hc => hc, ?_⟩
+          refine RuleSet.Refines.set hr ⟨fun _ _ hc => hc, ?_, fun _ _ h => h, fun _ h => h⟩
           show RuleCap.NarrowerOpt (some (k.withLimit limit)) r.cap
           rw [hc]
           exact ⟨rfl, Int.not_lt.mp hl, Nat.le_refl _⟩
@@ -941,14 +1134,40 @@ theorem RuleSet.lengthenCapPeriod_refines {rs rs' : RuleSet Ctx Sig} {i period :
       · cases h
       · rename_i hp
         cases h
-        refine RuleSet.Refines.set hr ⟨fun _ _ hc => hc, ?_⟩
+        refine RuleSet.Refines.set hr ⟨fun _ _ hc => hc, ?_, fun _ _ h => h, fun _ h => h⟩
         show RuleCap.NarrowerOpt (some (k.withPeriod period)) r.cap
         rw [hc]
         exact ⟨rfl, Int.le_refl _, Nat.le_of_not_lt hp⟩
     · cases h
   · cases h
 
-/-- Each of the eight steps refines along the renumbering it induces. -/
+theorem RuleSet.lowerValidUntil_refines {rs rs' : RuleSet Ctx Sig} {i v : Nat}
+    (h : rs.lowerValidUntil i v = .ok rs') : rs'.Refines rs fun j => j := by
+  have hcur : ∀ (r : Rule Ctx Sig), (∀ last, r.validUntil = some last → v ≤ last) →
+      ({ r with validUntil := some v } : Rule Ctx Sig).Refines r := fun r hv =>
+    ⟨fun _ _ hc => hc, RuleCap.NarrowerOpt.refl r.cap, fun now gen ⟨he, hs⟩ => by
+      refine ⟨(Rule.expired_eq_false_iff r now).mpr fun last hl => ?_, hs⟩
+      have := (Rule.expired_eq_false_iff _ now).mp he v rfl
+      exact Nat.le_trans this (hv last hl), fun _ h => h⟩
+  unfold RuleSet.lowerValidUntil at h
+  split at h
+  · rename_i r hr
+    split at h
+    · rename_i last hl
+      split at h
+      · cases h
+      · rename_i hlt
+        cases h
+        exact RuleSet.Refines.set hr (hcur r fun l hl' => by
+          rw [hl] at hl'
+          cases hl'
+          exact Nat.le_of_not_lt hlt)
+    · rename_i hl
+      cases h
+      exact RuleSet.Refines.set hr (hcur r fun l hl' => by rw [hl] at hl'; cases hl')
+  · cases h
+
+/-- Each of the nine steps refines along the renumbering it induces. -/
 theorem RuleSet.attenuate_refines {rs rs' : RuleSet Ctx Sig} {a : Attenuation Ctx Sig}
     (h : rs.attenuate a = .ok rs') : rs'.Refines rs a.source := by
   cases a with
@@ -960,6 +1179,7 @@ theorem RuleSet.attenuate_refines {rs rs' : RuleSet Ctx Sig} {a : Attenuation Ct
   | addCap i k => exact RuleSet.addCap_refines h
   | lowerCapLimit i limit => exact RuleSet.lowerCapLimit_refines h
   | lengthenCapPeriod i period => exact RuleSet.lengthenCapPeriod_refines h
+  | lowerValidUntil i v => exact RuleSet.lowerValidUntil_refines h
 
 /-- Every list of steps refines along the renumbering it induces. -/
 theorem RuleSet.attenuateAll_refines :
@@ -1006,6 +1226,135 @@ omit [DecidableEq Sig] in
 theorem Attenuation.source_dropRule (i j : Nat) :
     (Attenuation.dropRule (Ctx := Ctx) (Sig := Sig) i).source j = if j < i then j else j + 1 :=
   rfl
+
+/-! ### Steps keep generations -/
+
+/-- Each rule after a step carries the generation of the rule it comes from:
+no step changes a rule's generation. -/
+theorem RuleSet.attenuate_generation {rs rs' : RuleSet Ctx Sig} {a : Attenuation Ctx Sig}
+    (h : rs.attenuate a = .ok rs') {j : Nat} {r' : Rule Ctx Sig} (hj : rs'.rules[j]? = some r') :
+    ∃ r, rs.rules[a.source j]? = some r ∧ r'.generation = r.generation := by
+  have hset : ∀ {i : Nat} {r : Rule Ctx Sig} {r₁ : Rule Ctx Sig},
+      rs' = RuleSet.ofRules (rs.rules.set i r₁) → rs.rules[i]? = some r →
+      r₁.generation = r.generation → ∃ r, rs.rules[j]? = some r ∧ r'.generation = r.generation := by
+    intro i r r₁ he hr hg
+    subst he
+    simp only [RuleSet.rules_ofRules] at hj
+    by_cases hij : i = j
+    · subst hij
+      rw [List.getElem?_set_self (List.getElem?_eq_some_iff.mp hr).1, Option.some.injEq] at hj
+      subst hj
+      exact ⟨r, hr, hg⟩
+    · rw [List.getElem?_set_ne hij] at hj
+      exact ⟨r', hj, rfl⟩
+  have hmod : ∀ {i : Nat} {f : Rule Ctx Sig → Rule Ctx Sig}, (∀ r, (f r).generation = r.generation) →
+      rs.modifyRule i f = .ok rs' → ∃ r, rs.rules[j]? = some r ∧ r'.generation = r.generation := by
+    intro i f hf hm
+    unfold RuleSet.modifyRule at hm
+    split at hm
+    · rename_i r hr
+      cases hm
+      exact hset rfl hr (hf r)
+    · cases hm
+  cases a with
+  | dropRule i =>
+    simp only [RuleSet.attenuate, RuleSet.dropRule] at h
+    split at h
+    · cases h
+      simp only [RuleSet.rules_ofRules, List.getElem?_eraseIdx] at hj
+      simp only [Attenuation.source]
+      by_cases hji : j < i
+      · simp only [hji, ↓reduceIte] at hj ⊢
+        exact ⟨r', hj, rfl⟩
+      · simp only [hji, ↓reduceIte] at hj ⊢
+        exact ⟨r', hj, rfl⟩
+    · cases h
+  | addCond i p => exact hmod (f := (·.addCond p)) (fun _ => rfl) h
+  | restrictScope i s => exact hmod (f := (·.restrictScope s)) (fun _ => rfl) h
+  | removeSigners i ss => exact hmod (f := (·.removeSigners ss)) (fun _ => rfl) h
+  | raiseThreshold i k =>
+    simp only [RuleSet.attenuate, RuleSet.raiseThreshold] at h
+    split at h
+    · rename_i r hr
+      split at h
+      · cases h
+      · exact hset (Except.ok.inj h).symm hr rfl
+    · cases h
+  | addCap i k =>
+    simp only [RuleSet.attenuate, RuleSet.addCap] at h
+    split at h
+    · rename_i r hr
+      split at h
+      · cases h
+      · split at h
+        · exact hset (Except.ok.inj h).symm hr rfl
+        · cases h
+    · cases h
+  | lowerCapLimit i limit =>
+    simp only [RuleSet.attenuate, RuleSet.lowerCapLimit] at h
+    split at h
+    · rename_i r hr
+      split at h
+      · split at h
+        · cases h
+        · split at h
+          · cases h
+          · exact hset (Except.ok.inj h).symm hr rfl
+      · cases h
+    · cases h
+  | lengthenCapPeriod i period =>
+    simp only [RuleSet.attenuate, RuleSet.lengthenCapPeriod] at h
+    split at h
+    · rename_i r hr
+      split at h
+      · split at h
+        · cases h
+        · exact hset (Except.ok.inj h).symm hr rfl
+      · cases h
+    · cases h
+  | lowerValidUntil i v =>
+    simp only [RuleSet.attenuate, RuleSet.lowerValidUntil] at h
+    split at h
+    · rename_i r hr
+      split at h
+      · split at h
+        · cases h
+        · exact hset (Except.ok.inj h).symm hr rfl
+      · exact hset (Except.ok.inj h).symm hr rfl
+    · cases h
+
+/-- Each rule at the end of a list of steps carries the generation of the root
+rule it comes from. -/
+theorem RuleSet.attenuateAll_generation :
+    ∀ {steps : List (Attenuation Ctx Sig)} {root rs : RuleSet Ctx Sig},
+      root.attenuateAll steps = .ok rs → ∀ {j : Nat} {r' : Rule Ctx Sig}, rs.rules[j]? = some r' →
+        ∃ r, root.rules[Attenuation.chainSource steps j]? = some r ∧ r'.generation = r.generation
+  | [], root, rs, h, j, r', hj => by
+    simp only [RuleSet.attenuateAll, List.foldlM_nil] at h
+    cases h
+    exact ⟨r', hj, rfl⟩
+  | a :: steps, root, rs, h, j, r', hj => by
+    simp only [RuleSet.attenuateAll] at h
+    rw [foldlM_except_cons] at h
+    cases ha : root.attenuate a with
+    | error e => rw [ha] at h; cases h
+    | ok rs₁ =>
+      rw [ha] at h
+      obtain ⟨r₁, hr₁, hg₁⟩ := RuleSet.attenuateAll_generation (root := rs₁) h hj
+      obtain ⟨r, hr, hg⟩ := RuleSet.attenuate_generation ha hr₁
+      exact ⟨r, hr, hg₁.trans hg⟩
+
+/-- A rule set derived by any list of steps from a root every rule of which was
+issued under `g` has every rule issued under `g`. -/
+theorem RuleSet.attenuateAll_generation_eq {root rs : RuleSet Ctx Sig}
+    {steps : List (Attenuation Ctx Sig)} (h : root.attenuateAll steps = .ok rs) {g : Nat}
+    (hall : ∀ r ∈ root.rules, r.generation = some g) : ∀ r ∈ rs.rules, r.generation = some g := by
+  intro r' hr'
+  obtain ⟨j, hj, hjr⟩ := List.getElem_of_mem hr'
+  obtain ⟨r, hr, hg⟩ := RuleSet.attenuateAll_generation h
+    (List.getElem?_eq_some_iff.mpr ⟨hj, hjr⟩)
+  rw [hg]
+  exact hall r (List.mem_of_getElem? hr)
 
 /-! ### Steps keep caps valid -/
 
@@ -1100,6 +1449,20 @@ theorem RuleSet.attenuate_capsValid {rs rs' : RuleSet Ctx Sig} {a : Attenuation 
           simp only [Cap.Params.valid, Bool.and_eq_true, decide_eq_true_eq] at hk ⊢
           exact ⟨hk.1, by simp only [RuleCap.withPeriod]; omega⟩
       · cases h
+    · cases h
+  | lowerValidUntil i v =>
+    simp only [RuleSet.attenuate, RuleSet.lowerValidUntil] at h
+    split at h
+    · rename_i r hr
+      have hk : ∀ k, ({ r with validUntil := some v } : Rule Ctx Sig).cap = some k →
+          k.params.valid = true := fun k hk => hv r (List.mem_of_getElem? hr) k hk
+      split at h
+      · split at h
+        · cases h
+        · cases h
+          exact RuleSet.capsValid_set hv hk
+      · cases h
+        exact RuleSet.capsValid_set hv hk
     · cases h
 
 /-- Every list of steps keeps every cap valid. -/

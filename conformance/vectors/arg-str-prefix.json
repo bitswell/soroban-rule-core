@@ -1,0 +1,100 @@
+{
+  "format": 4,
+  "name": "arg-str-prefix",
+  "description": "argStrPrefix holds only for a string argument whose bytes start with the prefix: the prefix itself, a longer string, a shorter one, another case, the prefix inside, and a symbol, bytes or other value with the same bytes; the empty prefix holds on every string.",
+  "rules": [
+    {
+      "contract": "746f6b656e",
+      "functions": {"only": ["7075626c697368"]},
+      "conds": [{"arg_str_prefix": {"index": 1, "prefix": "706b675f"}}],
+      "signers": [],
+      "threshold": 0,
+      "cap": null,
+      "valid_until": null,
+      "generation": null
+    },
+    {
+      "contract": "7661756c74",
+      "functions": {"only": ["6465706f736974"]},
+      "conds": [{"arg_str_prefix": {"index": 0, "prefix": ""}}],
+      "signers": [],
+      "threshold": 0,
+      "cap": null,
+      "valid_until": null,
+      "generation": null
+    }
+  ],
+  "batch": [
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7075626c697368",
+        "args": [{"bool": true}, {"string": "706b675f61"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7075626c697368",
+        "args": [{"bool": true}, {"string": "706b675f"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7075626c697368",
+        "args": [{"bool": true}, {"string": "706b67"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7075626c697368",
+        "args": [{"bool": true}, {"string": "506b675f61"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7075626c697368",
+        "args": [{"bool": true}, {"string": "78706b675f61"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7075626c697368",
+        "args": [{"bool": true}, {"symbol": "706b675f61"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7075626c697368",
+        "args": [{"bool": true}, {"bytes": "706b675f61"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7075626c697368",
+        "args": [{"bool": true}, {"other": "706b675f61"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7075626c697368",
+        "args": [{"string": "706b675f61"}]
+      }
+    },
+    {"call": {"contract": "7661756c74", "function": "6465706f736974", "args": [{"string": ""}]}},
+    {"call": {"contract": "7661756c74", "function": "6465706f736974", "args": [{"symbol": ""}]}}
+  ],
+  "authenticated": [],
+  "expected": {
+    "allows": [true, true, false, false, false, false, false, false, false, true, false],
+    "allows_all": false
+  },
+  "attenuations": []
+}

@@ -1,11 +1,11 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "signers-repeated-in-rule",
   "description": "A signer listed twice in a rule counts once: [alice, alice, bob] has two distinct signers, so threshold 3 is never met.",
   "rules": [
     {
       "contract": "74776f",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [],
       "signers": [
         {"delegated": {"address": "616c696365"}},
@@ -13,11 +13,13 @@
         {"delegated": {"address": "626f62"}}
       ],
       "threshold": 2,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     },
     {
       "contract": "7468726565",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [],
       "signers": [
         {"delegated": {"address": "616c696365"}},
@@ -25,18 +27,22 @@
         {"delegated": {"address": "626f62"}}
       ],
       "threshold": 3,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     },
     {
       "contract": "6f6e65",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [],
       "signers": [
         {"delegated": {"address": "616c696365"}},
         {"delegated": {"address": "616c696365"}}
       ],
       "threshold": 1,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     }
   ],
   "batch": [

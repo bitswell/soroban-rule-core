@@ -40,13 +40,18 @@ Contract creation:
 
 Arguments:
 
-* `Cond.argEq_holds_iff`, `Cond.argI128AtMost_holds_iff`: what each condition
-  means.
+* `Cond.argEq_holds_iff`, `Cond.argI128AtMost_holds_iff`,
+  `Cond.argIn_holds_iff`, `Cond.argStrPrefix_holds_iff`: what each condition
+  means; `Cond.argIn_holds_iff_argEq`: `argIn` compares as `argEq` does.
 * `Cond.holds_false_of_length_le`: a condition on a missing argument is false.
-* `Val.ne_of_kind_ne`: values of different constructors are never equal.
-* `Cond.argEq_kind`: `argEq` holds only for an argument of the same constructor.
-* `Cond.argEq_false_of_kind_ne`, `Cond.argEq_bytes_false_of_other`: an argument
-  of another constructor fails `argEq`, whatever its payload.
+* `Val.ne_of_kind_ne`, `Val.string_ne_symbol`: values of different
+  constructors are never equal; a string is never a symbol.
+* `Cond.argEq_kind`, `Cond.argStrPrefix_kind`: `argEq` holds only for an
+  argument of the same constructor, and `argStrPrefix` only for a string.
+* `Cond.argEq_false_of_kind_ne`, `Cond.argEq_bytes_false_of_other`,
+  `Cond.argEq_string_false_of_symbol`, `Cond.argStrPrefix_false_of_kind_ne`,
+  `Cond.argStrPrefix_false_of_symbol`: an argument of another constructor fails
+  `argEq` and `argStrPrefix`, whatever its payload.
 
 Byte strings (with `RuleCore.Bytes.eq_iff`):
 
@@ -54,6 +59,8 @@ Byte strings (with `RuleCore.Bytes.eq_iff`):
   contract and exactly one of its functions.
 * `Rule.allows_false_of_functions_nil`: a rule with an empty function list
   allows nothing.
+* `Rule.allows_call_any`: the wildcard matches every function of the rule's
+  contract.
 * `Rule.allows_extension_false`, `Rule.allows_prefix_false`: a call to a
   proper extension or a proper prefix of the rule's contract id is denied.
 
@@ -61,17 +68,21 @@ Attenuation:
 
 * `RuleSet.rules_denote`: a rule set denotes the list of its rules' denotations.
 * `Rule.denote_addCond`, `Rule.denote_removeFunctions`,
-  `Rule.denote_removeSigners`, `RuleSet.denote_modifyRule`,
-  `RuleSet.denote_dropRule`, `RuleSet.denote_addCond`,
-  `RuleSet.denote_removeFunctions`, `RuleSet.denote_removeSigners`,
+  `Rule.denote_restrictFunctions`, `Rule.denote_removeSigners`,
+  `RuleSet.denote_modifyRule`, `RuleSet.denote_dropRule`,
+  `RuleSet.denote_addCond`, `RuleSet.denote_removeFunctions`,
+  `RuleSet.denote_restrictFunctions`, `RuleSet.denote_removeSigners`,
   `RuleSet.denote_raiseThreshold`, `RuleSet.denote_addCap`,
   `RuleSet.denote_lowerCapLimit`, `RuleSet.denote_lengthenCapPeriod`,
-  `RuleSet.denote_attenuate`, `RuleSet.denote_attenuateAll`: each chain step,
-  and each list of steps, denotes the generic step of the same kind.
+  `RuleSet.denote_lowerValidUntil`, `RuleSet.denote_attenuate`,
+  `RuleSet.denote_attenuateAll`: each chain step, and each list of steps,
+  denotes the generic step of the same kind; removing and restricting functions
+  both denote restricting the scope.
 * `RuleSet.dropRule_narrower`, `RuleSet.addCond_narrower`,
-  `RuleSet.removeFunctions_narrower`, `RuleSet.removeSigners_narrower`,
-  `RuleSet.raiseThreshold_narrower`, `RuleSet.addCap_narrower`,
-  `RuleSet.lowerCapLimit_narrower`, `RuleSet.lengthenCapPeriod_narrower`,
+  `RuleSet.removeFunctions_narrower`, `RuleSet.restrictFunctions_narrower`,
+  `RuleSet.removeSigners_narrower`, `RuleSet.raiseThreshold_narrower`,
+  `RuleSet.addCap_narrower`, `RuleSet.lowerCapLimit_narrower`,
+  `RuleSet.lengthenCapPeriod_narrower`, `RuleSet.lowerValidUntil_narrower`,
   `RuleSet.attenuate_narrower`: each step yields a narrower rule set.
 * `RuleSet.narrower_refl`, `RuleSet.narrower_trans`: `narrower` is a preorder.
 * `RuleSet.Derives.narrower`, `RuleSet.attenuateAll_derives`,
@@ -79,12 +90,19 @@ Attenuation:
 * `RuleSet.allowsAll_of_narrower`: a narrower rule set allows a batch only if
   its ancestor does.
 * `Rule.mem_removeFunctions`, `Rule.mem_removeSigners`: removing `fs` or `ss`
-  keeps exactly the functions or signers not in it.
+  keeps exactly the functions or signers not in it, on a list or a wildcard
+  (`Functions.mem_remove`); `Rule.mem_restrictFunctions`: restricting to `fs`
+  keeps exactly the functions also in it (`Functions.mem_restrict`).
 * `RuleSet.dropRule_eq_error_iff`, `RuleSet.addCond_eq_error_iff`,
-  `RuleSet.removeFunctions_eq_error_iff`, `RuleSet.removeSigners_eq_error_iff`,
-  `RuleSet.raiseThreshold_eq_noSuchRule_iff`, `RuleSet.modifyRule_eq_error_iff`:
+  `RuleSet.removeFunctions_eq_error_iff`,
+  `RuleSet.restrictFunctions_eq_error_iff`, `RuleSet.removeSigners_eq_error_iff`,
+  `RuleSet.raiseThreshold_eq_noSuchRule_iff`,
+  `RuleSet.lowerValidUntil_eq_noSuchRule_iff`, `RuleSet.modifyRule_eq_error_iff`:
   a step is refused with `noSuchRule` exactly when its index is not below the
   number of rules.
+* `RuleSet.lowerValidUntil_eq_validUntilRaised_iff`: `lowerValidUntil` is
+  refused with `validUntilRaised` exactly when the rule's last ledger is before
+  the new one.
 * `RuleSet.raiseThreshold_eq_thresholdLowered_iff`: `raiseThreshold` is refused
   with `thresholdLowered` exactly when the rule exists and the new threshold is
   below its current one.
@@ -93,6 +111,18 @@ Authorization:
 
 * `RuleSet.authorize_allowsAll`: a rule set that accepts an authorization
   allows its batch under its signers.
+* `RuleSet.authorize_validUntil`: an accepted authorization chooses no rule
+  whose last ledger is before its ledger.
+* `RuleSet.authorize_generation`, `RuleSet.authorize_not_chosen_of_stale`,
+  `RuleSet.authorize_contexts_nil_of_stale`: it chooses no rule issued under a
+  generation other than the current one, so once the current generation is not
+  `g` a rule issued under `g` authorizes nothing, and a rule set issued under
+  `g` accepts only an empty batch.
+* `RuleSet.authorize_signers`: every authenticated signer is a signer of a
+  chosen rule.
+* `RuleSet.attenuate_generation`, `RuleSet.attenuateAll_generation`,
+  `RuleSet.attenuateAll_generation_eq`: no step changes a rule's generation, so
+  every rule set derived from a root issued under `g` is issued under `g`.
 * `RuleSet.attenuate_traceNarrower`, `RuleSet.attenuateAll_traceNarrower`: each
   step, and every chain of steps, is narrowing as trace inclusion on the
   denotations, with the choices renumbered by the map `dropRule` induces
@@ -271,6 +301,8 @@ theorem RuleSet.allowsAll_false_of_create_mem (rs : RuleSet) {cs : List Context}
 def Cond.index : Cond → UInt32
   | .argEq i _ => i
   | .argI128AtMost i _ => i
+  | .argIn i _ => i
+  | .argStrPrefix i _ => i
 
 theorem Cond.argEq_holds_iff (i : UInt32) (val : Val) (args : List Val) :
     (Cond.argEq i val).holds args = true ↔ args[i.toNat]? = some val := by
@@ -290,6 +322,12 @@ theorem Cond.holds_false_of_length_le (cond : Cond) {args : List Val}
     simp only [Cond.index] at h
     simp [Cond.holds, List.getElem?_eq_none h]
   | argI128AtMost i n =>
+    simp only [Cond.index] at h
+    simp [Cond.holds, List.getElem?_eq_none h]
+  | argIn i vals =>
+    simp only [Cond.index] at h
+    simp [Cond.holds, List.getElem?_eq_none h]
+  | argStrPrefix i pre =>
     simp only [Cond.index] at h
     simp [Cond.holds, List.getElem?_eq_none h]
 
@@ -321,6 +359,57 @@ theorem Cond.argEq_bytes_false_of_other {i : UInt32} {b xdr : Bytes} {args : Lis
     (Cond.argEq i (.bytes b)).holds args = false :=
   Cond.argEq_false_of_kind_ne hw (by simp [Val.kind])
 
+theorem Cond.argIn_holds_iff (i : UInt32) (vals args : List Val) :
+    (Cond.argIn i vals).holds args = true ↔ ∃ v ∈ vals, args[i.toNat]? = some v := by
+  simp only [Cond.holds]
+  split <;> simp_all
+
+/-- `argIn` compares as `argEq` does: it holds exactly when `argEq` holds for
+one of its values. -/
+theorem Cond.argIn_holds_iff_argEq (i : UInt32) (vals args : List Val) :
+    (Cond.argIn i vals).holds args = true ↔ ∃ v ∈ vals, (Cond.argEq i v).holds args = true := by
+  simp only [Cond.argIn_holds_iff, Cond.argEq_holds_iff]
+
+theorem Cond.argStrPrefix_holds_iff (i : UInt32) (pre : Bytes) (args : List Val) :
+    (Cond.argStrPrefix i pre).holds args = true ↔
+      ∃ v, args[i.toNat]? = some (.string v) ∧ pre <+: v := by
+  simp only [Cond.holds]
+  split <;> simp_all
+
+/-- `argStrPrefix` holds only for an argument that is a string. -/
+theorem Cond.argStrPrefix_kind {i : UInt32} {pre : Bytes} {args : List Val}
+    (h : (Cond.argStrPrefix i pre).holds args = true) :
+    ∃ w, args[i.toNat]? = some w ∧ w.kind = .string := by
+  obtain ⟨v, hv, -⟩ := (Cond.argStrPrefix_holds_iff i pre args).mp h
+  exact ⟨.string v, hv, rfl⟩
+
+/-- An argument of another constructor fails `argStrPrefix`, whatever its
+payload: a symbol is not a string, even with the same bytes. -/
+theorem Cond.argStrPrefix_false_of_kind_ne {i : UInt32} {pre : Bytes} {w : Val} {args : List Val}
+    (hw : args[i.toNat]? = some w) (hk : w.kind ≠ .string) :
+    (Cond.argStrPrefix i pre).holds args = false := by
+  cases h : (Cond.argStrPrefix i pre).holds args
+  · rfl
+  · obtain ⟨w', hw', hk'⟩ := Cond.argStrPrefix_kind h
+    rw [hw] at hw'
+    cases hw'
+    exact absurd hk' hk
+
+/-- A symbol argument never satisfies `argStrPrefix`, even when its bytes start
+with the prefix. -/
+theorem Cond.argStrPrefix_false_of_symbol {i : UInt32} {pre v : Bytes} {args : List Val}
+    (hw : args[i.toNat]? = some (.symbol v)) : (Cond.argStrPrefix i pre).holds args = false :=
+  Cond.argStrPrefix_false_of_kind_ne hw (by simp [Val.kind])
+
+/-- A string is never a symbol, even with the same bytes. -/
+theorem Val.string_ne_symbol (a b : Bytes) : Val.string a ≠ .symbol b :=
+  Val.ne_of_kind_ne (by simp [Val.kind])
+
+/-- An `argEq` on a string fails on a symbol argument with the same bytes. -/
+theorem Cond.argEq_string_false_of_symbol {i : UInt32} {b : Bytes} {args : List Val}
+    (hw : args[i.toNat]? = some (.symbol b)) : (Cond.argEq i (.string b)).holds args = false :=
+  Cond.argEq_false_of_kind_ne hw (by simp [Val.kind])
+
 /-! ## Byte strings -/
 
 /-- A rule allows only calls to exactly its contract and exactly one of its
@@ -332,12 +421,22 @@ theorem Rule.contract_eq_of_allows {r : Rule} {contract function : Bytes} {args 
   ⟨hc, hf⟩
 
 /-- A rule with an empty function list allows nothing. -/
-theorem Rule.allows_false_of_functions_nil {r : Rule} (h : r.functions = []) (c : Context)
+theorem Rule.allows_false_of_functions_nil {r : Rule} (h : r.functions = .only []) (c : Context)
     (auth : List Signer) : r.allows c auth = false := by
   cases ha : r.allows c auth
   · rfl
   · obtain ⟨_, _, _, hf, _⟩ := (Rule.allows_iff r c auth).mp ha
     simp [h] at hf
+
+/-- The wildcard matches every function: a rule whose functions are
+`Functions.any` allows a call to its contract exactly when its conditions and
+signer requirement hold, whatever the function. -/
+theorem Rule.allows_call_any {r : Rule} (h : r.functions = Functions.any)
+    (function : Bytes) (args : List Val) (auth : List Signer) :
+    r.allows (.call r.contract function args) auth = true ↔
+      (∀ cond ∈ r.conds, cond.holds args = true) ∧ r.signed auth = true := by
+  rw [Rule.allows_call_iff]
+  simp [h, Functions.any]
 
 /-- No prefix match: a call to a proper extension of the rule's contract id is
 denied. -/
@@ -373,19 +472,48 @@ theorem Rule.denote_addCond (r : Rule) (cond : Cond) :
   funext c
   cases c <;> rfl
 
+theorem Functions.mem_remove (fs : Functions) (gs : List Bytes) (f : Bytes) :
+    f ∈ fs.remove gs ↔ f ∈ fs ∧ f ∉ gs := by
+  cases fs <;> simp [Functions.remove, not_or]
+
+theorem Functions.mem_restrict (fs : Functions) (gs : List Bytes) (f : Bytes) :
+    f ∈ fs.restrict gs ↔ f ∈ fs ∧ f ∈ gs := by
+  cases fs <;> simp [Functions.restrict, and_comm]
+
+@[simp] theorem Functions.mem_any (f : Bytes) : f ∈ Functions.any := by
+  simp [Functions.any]
+
 theorem Rule.mem_removeFunctions (r : Rule) (fs : List Bytes) (f : Bytes) :
-    f ∈ (r.removeFunctions fs).functions ↔ f ∈ r.functions ∧ f ∉ fs := by
-  simp [Rule.removeFunctions]
+    f ∈ (r.removeFunctions fs).functions ↔ f ∈ r.functions ∧ f ∉ fs :=
+  Functions.mem_remove r.functions fs f
+
+theorem Rule.mem_restrictFunctions (r : Rule) (fs : List Bytes) (f : Bytes) :
+    f ∈ (r.restrictFunctions fs).functions ↔ f ∈ r.functions ∧ f ∈ fs :=
+  Functions.mem_restrict r.functions fs f
 
 theorem Rule.denote_removeFunctions (r : Rule) (fs : List Bytes) :
     (r.removeFunctions fs).denote = r.denote.restrictScope (notCalling fs) := by
   simp only [Rule.denote, RuleCore.Rule.restrictScope, RuleCore.Rule.mk.injEq]
-  refine ⟨?_, rfl, rfl, rfl, rfl⟩
+  refine ⟨?_, rfl, rfl, rfl, rfl, rfl, rfl⟩
   funext c
   cases c with
   | call contract function args =>
-    simp [Rule.scope, notCalling, Rule.removeFunctions, Bool.and_assoc]
+    have := Rule.mem_removeFunctions r fs function
+    by_cases hm : function ∈ (r.removeFunctions fs).functions <;>
+      simp_all [Rule.scope, notCalling, Bool.and_assoc] <;> rfl
   | create wasmHash => rfl
+
+theorem Rule.denote_restrictFunctions (r : Rule) (fs : List Bytes) :
+    (r.restrictFunctions fs).denote = r.denote.restrictScope (calling fs) := by
+  simp only [Rule.denote, RuleCore.Rule.restrictScope, RuleCore.Rule.mk.injEq]
+  refine ⟨?_, rfl, rfl, rfl, rfl, rfl, rfl⟩
+  funext c
+  cases c with
+  | call contract function args =>
+    have := Rule.mem_restrictFunctions r fs function
+    by_cases hm : function ∈ (r.restrictFunctions fs).functions <;>
+      simp_all [Rule.scope, calling, Bool.and_assoc] <;> rfl
+  | create wasmHash => simp [Rule.scope, calling]
 
 theorem Rule.mem_removeSigners (r : Rule) (ss : List Signer) (s : Signer) :
     s ∈ (r.removeSigners ss).signers ↔ s ∈ r.signers ∧ s ∉ ss := by
@@ -421,6 +549,11 @@ theorem RuleSet.denote_removeFunctions (rs : RuleSet) (i : UInt32) (fs : List By
     (rs.removeFunctions i fs).map RuleSet.denote =
       rs.denote.restrictScope i.toNat (notCalling fs) :=
   RuleSet.denote_modifyRule rs i.toNat _ _ (fun r => Rule.denote_removeFunctions r fs)
+
+theorem RuleSet.denote_restrictFunctions (rs : RuleSet) (i : UInt32) (fs : List Bytes) :
+    (rs.restrictFunctions i fs).map RuleSet.denote =
+      rs.denote.restrictScope i.toNat (calling fs) :=
+  RuleSet.denote_modifyRule rs i.toNat _ _ (fun r => Rule.denote_restrictFunctions r fs)
 
 theorem RuleSet.denote_removeSigners (rs : RuleSet) (i : UInt32) (ss : List Signer) :
     (rs.removeSigners i ss).map RuleSet.denote = rs.denote.removeSigners i.toNat ss :=
@@ -505,17 +638,43 @@ theorem RuleSet.denote_lengthenCapPeriod (rs : RuleSet) (i period : UInt32) :
       · simp only [h₁, ↓reduceIte, Except.map, RuleSet.denote, List.map_set, Rule.denote]
         rfl
 
+theorem RuleSet.denote_lowerValidUntil (rs : RuleSet) (i v : UInt32) :
+    (rs.lowerValidUntil i v).map RuleSet.denote = rs.denote.lowerValidUntil i.toNat v.toNat := by
+  unfold RuleSet.lowerValidUntil RuleCore.RuleSet.lowerValidUntil
+  simp only [RuleSet.rules_denote, List.getElem?_map]
+  cases h : rs[i.toNat]? with
+  | none => rfl
+  | some r =>
+    simp only [Option.map_some]
+    cases hv : r.validUntil with
+    | none =>
+      have hd : r.denote.validUntil = none := by simp [Rule.denote, hv]
+      simp only [hd]
+      simp only [Except.map, RuleSet.denote, List.map_set, Rule.denote]
+      rfl
+    | some last =>
+      have hd : r.denote.validUntil = some last.toNat := by simp [Rule.denote, hv]
+      simp only [hd]
+      have hlt : (last < v) = (last.toNat < v.toNat) := by simp [UInt32.lt_iff_toNat_lt]
+      simp only [hlt]
+      by_cases h₁ : last.toNat < v.toNat
+      · simp [h₁, Except.map]
+      · simp only [h₁, ↓reduceIte, Except.map, RuleSet.denote, List.map_set, Rule.denote]
+        rfl
+
 theorem RuleSet.denote_attenuate (rs : RuleSet) (a : Attenuation) :
     (rs.attenuate a).map RuleSet.denote = rs.denote.attenuate a.denote := by
   cases a with
   | dropRule i => exact RuleSet.denote_dropRule rs i
   | addCond i cond => exact RuleSet.denote_addCond rs i cond
   | removeFunctions i fs => exact RuleSet.denote_removeFunctions rs i fs
+  | restrictFunctions i fs => exact RuleSet.denote_restrictFunctions rs i fs
   | removeSigners i ss => exact RuleSet.denote_removeSigners rs i ss
   | raiseThreshold i k => exact RuleSet.denote_raiseThreshold rs i k
   | addCap i k => exact RuleSet.denote_addCap rs i k
   | lowerCapLimit i limit => exact RuleSet.denote_lowerCapLimit rs i limit
   | lengthenCapPeriod i period => exact RuleSet.denote_lengthenCapPeriod rs i period
+  | lowerValidUntil i v => exact RuleSet.denote_lowerValidUntil rs i v
 
 theorem RuleSet.denote_attenuateAll :
     ∀ (rs : RuleSet) (steps : List Attenuation),
@@ -562,6 +721,14 @@ theorem RuleSet.addCond_narrower {rs rs' : RuleSet} {i : UInt32} {cond : Cond}
 theorem RuleSet.removeFunctions_narrower {rs rs' : RuleSet} {i : UInt32} {fs : List Bytes}
     (h : rs.removeFunctions i fs = .ok rs') : rs'.narrower rs :=
   RuleSet.attenuate_narrower (a := .removeFunctions i fs) h
+
+theorem RuleSet.restrictFunctions_narrower {rs rs' : RuleSet} {i : UInt32} {fs : List Bytes}
+    (h : rs.restrictFunctions i fs = .ok rs') : rs'.narrower rs :=
+  RuleSet.attenuate_narrower (a := .restrictFunctions i fs) h
+
+theorem RuleSet.lowerValidUntil_narrower {rs rs' : RuleSet} {i v : UInt32}
+    (h : rs.lowerValidUntil i v = .ok rs') : rs'.narrower rs :=
+  RuleSet.attenuate_narrower (a := .lowerValidUntil i v) h
 
 theorem RuleSet.removeSigners_narrower {rs rs' : RuleSet} {i : UInt32} {ss : List Signer}
     (h : rs.removeSigners i ss = .ok rs') : rs'.narrower rs :=
@@ -647,6 +814,37 @@ theorem RuleSet.removeFunctions_eq_error_iff (rs : RuleSet) (i : UInt32) (fs : L
     rs.removeFunctions i fs = .error .noSuchRule ↔ rs.length ≤ i.toNat :=
   RuleSet.modifyRule_eq_error_iff rs i.toNat _
 
+theorem RuleSet.restrictFunctions_eq_error_iff (rs : RuleSet) (i : UInt32) (fs : List Bytes) :
+    rs.restrictFunctions i fs = .error .noSuchRule ↔ rs.length ≤ i.toNat :=
+  RuleSet.modifyRule_eq_error_iff rs i.toNat _
+
+theorem RuleSet.lowerValidUntil_eq_noSuchRule_iff (rs : RuleSet) (i v : UInt32) :
+    rs.lowerValidUntil i v = .error .noSuchRule ↔ rs.length ≤ i.toNat := by
+  unfold RuleSet.lowerValidUntil
+  split <;> rename_i h
+  · have hi := (List.getElem?_eq_some_iff.mp h).1
+    constructor
+    · intro he
+      split at he
+      · split at he <;> cases he
+      · cases he
+    · intro hle
+      exact absurd hi (Nat.not_lt.mpr hle)
+  · simp only [true_iff]
+    exact List.getElem?_eq_none_iff.mp h
+
+/-- `lowerValidUntil` refuses to move a last ledger later, and refuses nothing
+else with `validUntilRaised`. -/
+theorem RuleSet.lowerValidUntil_eq_validUntilRaised_iff (rs : RuleSet) (i v : UInt32) :
+    rs.lowerValidUntil i v = .error .validUntilRaised ↔
+      ∃ r last, rs[i.toNat]? = some r ∧ r.validUntil = some last ∧ last < v := by
+  unfold RuleSet.lowerValidUntil
+  split <;> rename_i h
+  · split <;> rename_i hc
+    · split <;> rename_i hp <;> simp [h, hc, hp]
+    · simp [h, hc]
+  · simp [h]
+
 theorem RuleSet.removeSigners_eq_error_iff (rs : RuleSet) (i : UInt32) (ss : List Signer) :
     rs.removeSigners i ss = .error .noSuchRule ↔ rs.length ≤ i.toNat :=
   RuleSet.modifyRule_eq_error_iff rs i.toNat _
@@ -701,6 +899,132 @@ theorem RuleSet.authorize_allowsAll {rs : RuleSet} {records records' : List Rule
     {a : Authorization} (h : rs.authorize records a = .ok records') :
     rs.allowsAll a.contexts a.auth = true :=
   RuleCore.RuleSet.authorize_allowsAll h
+
+theorem RuleSet.denote_get (rs : RuleSet) (j : Nat) :
+    rs.denote.rules[j]? = rs[j]?.map Rule.denote := by
+  simp [RuleSet.rules_denote, List.getElem?_map]
+
+/-- Expiry: an accepted authorization chooses no rule whose last ledger is
+before the authorization's ledger. -/
+theorem RuleSet.authorize_validUntil {rs : RuleSet} {records records' : List RuleCore.Cap.Record}
+    {a : Authorization} (h : rs.authorize records a = .ok records') {j : UInt32}
+    (hj : j ∈ a.choices) {r : Rule} (hr : rs[j.toNat]? = some r) {last : UInt32}
+    (hl : r.validUntil = some last) : a.now ≤ last := by
+  have := RuleCore.RuleSet.authorize_validUntil (a := a.denote) h (j := j.toNat)
+    (by simpa [Authorization.denote] using List.mem_map_of_mem (f := (·.toNat)) hj)
+    (r := r.denote) (by simp [hr]) (last := last.toNat)
+    (by simp [Rule.denote, hl])
+  simpa [Authorization.denote, UInt32.le_iff_toNat_le] using this
+
+/-- Generation: an accepted authorization chooses no rule issued under a
+generation other than the current one. -/
+theorem RuleSet.authorize_generation {rs : RuleSet} {records records' : List RuleCore.Cap.Record}
+    {a : Authorization} (h : rs.authorize records a = .ok records') {j : UInt32}
+    (hj : j ∈ a.choices) {r : Rule} (hr : rs[j.toNat]? = some r) {g : UInt64}
+    (hg : r.generation = some g) : g = a.generation := by
+  have := RuleCore.RuleSet.authorize_generation (a := a.denote) h (j := j.toNat)
+    (by simpa [Authorization.denote] using List.mem_map_of_mem (f := (·.toNat)) hj)
+    (r := r.denote) (by simp [hr]) (g := g.toNat)
+    (by simp [Rule.denote, hg])
+  exact UInt64.toNat_inj.mp (by simpa [Authorization.denote] using this)
+
+/-- Once the current generation is not `g`, a rule issued under `g` authorizes
+nothing: no accepted authorization chooses it. -/
+theorem RuleSet.authorize_not_chosen_of_stale {rs : RuleSet}
+    {records records' : List RuleCore.Cap.Record} {a : Authorization}
+    (h : rs.authorize records a = .ok records') {j : UInt32} {r : Rule}
+    (hr : rs[j.toNat]? = some r) {g : UInt64} (hg : r.generation = some g)
+    (hne : g ≠ a.generation) : j ∉ a.choices :=
+  fun hj => hne (RuleSet.authorize_generation h hj hr hg)
+
+/-- A rule set every rule of which was issued under `g` accepts, once the
+current generation is not `g`, only an authorization with no contexts. -/
+theorem RuleSet.authorize_contexts_nil_of_stale {rs : RuleSet}
+    {records records' : List RuleCore.Cap.Record} {a : Authorization}
+    (h : rs.authorize records a = .ok records') {g : UInt64}
+    (hall : ∀ r ∈ rs, r.generation = some g) (hne : g ≠ a.generation) : a.contexts = [] := by
+  have := RuleCore.RuleSet.authorize_contexts_nil_of_stale (a := a.denote) h (g := g.toNat)
+    (by
+      intro r hr
+      rw [RuleSet.rules_denote, List.mem_map] at hr
+      obtain ⟨r₀, hr₀, rfl⟩ := hr
+      simp [Rule.denote, hall r₀ hr₀])
+    (by
+      intro he
+      exact hne (UInt64.toNat_inj.mp (by simpa [Authorization.denote] using he)))
+  simpa [Authorization.denote] using this
+
+/-- Signers: every signer an accepted authorization authenticated is a signer
+of some rule it chose. -/
+theorem RuleSet.authorize_signers {rs : RuleSet} {records records' : List RuleCore.Cap.Record}
+    {a : Authorization} (h : rs.authorize records a = .ok records') :
+    ∀ s ∈ a.auth, ∃ j ∈ a.choices, ∃ r, rs[j.toNat]? = some r ∧ s ∈ r.signers := by
+  intro s hs
+  obtain ⟨j, hj, r, hr, hsr⟩ := RuleCore.RuleSet.authorize_signers (a := a.denote) h s hs
+  simp only [Authorization.denote, List.mem_map] at hj
+  obtain ⟨k, hk, rfl⟩ := hj
+  rw [RuleSet.denote_get] at hr
+  cases hk' : rs[k.toNat]? with
+  | none => rw [hk'] at hr; cases hr
+  | some r₀ =>
+    rw [hk'] at hr
+    cases hr
+    exact ⟨k, hk, r₀, hk', hsr⟩
+
+/-- No chain step changes a rule's generation: each rule after a step carries
+the generation of the rule it comes from. -/
+theorem RuleSet.attenuate_generation {rs rs' : RuleSet} {a : Attenuation}
+    (h : rs.attenuate a = .ok rs') {j : Nat} {r' : Rule} (hj : rs'[j]? = some r') :
+    ∃ r, rs[a.denote.source j]? = some r ∧ r'.generation = r.generation := by
+  have hd := RuleSet.denote_attenuate rs a
+  rw [h] at hd
+  obtain ⟨r, hr, hg⟩ := RuleCore.RuleSet.attenuate_generation hd.symm
+    (j := j) (r' := r'.denote) (by simp [hj])
+  rw [RuleSet.denote_get] at hr
+  cases hr₀ : rs[a.denote.source j]? with
+  | none => rw [hr₀] at hr; cases hr
+  | some r₀ =>
+    rw [hr₀] at hr
+    cases hr
+    refine ⟨r₀, rfl, ?_⟩
+    simp only [Rule.denote] at hg
+    exact Option.map_injective (fun _ _ e => UInt64.toNat_inj.mp e) hg
+
+/-- Each rule at the end of a chain of steps carries the generation of the
+root rule it comes from. -/
+theorem RuleSet.attenuateAll_generation {root rs : RuleSet} {steps : List Attenuation}
+    (h : root.attenuateAll steps = .ok rs) {j : Nat} {r' : Rule} (hj : rs[j]? = some r') :
+    ∃ r, root[Attenuation.chainSource steps j]? = some r ∧ r'.generation = r.generation := by
+  have hd := RuleSet.denote_attenuateAll root steps
+  rw [h] at hd
+  obtain ⟨r, hr, hg⟩ := RuleCore.RuleSet.attenuateAll_generation hd.symm
+    (j := j) (r' := r'.denote) (by simp [hj])
+  have hcs : RuleCore.Attenuation.chainSource (steps.map Attenuation.denote) j =
+      Attenuation.chainSource steps j := rfl
+  rw [RuleSet.denote_get, hcs] at hr
+  cases hr₀ : root[Attenuation.chainSource steps j]? with
+  | none =>
+    rw [hr₀] at hr
+    cases hr
+  | some r₀ =>
+    rw [hr₀] at hr
+    cases hr
+    refine ⟨r₀, rfl, ?_⟩
+    simp only [Rule.denote] at hg
+    exact Option.map_injective (fun _ _ e => UInt64.toNat_inj.mp e) hg
+
+/-- A rule set derived by a chain of steps from a root every rule of which was
+issued under `g` has every rule issued under `g`: once the current generation
+is not `g`, it too accepts only an empty batch. -/
+theorem RuleSet.attenuateAll_generation_eq {root rs : RuleSet} {steps : List Attenuation}
+    (h : root.attenuateAll steps = .ok rs) {g : UInt64}
+    (hall : ∀ r ∈ root, r.generation = some g) : ∀ r ∈ rs, r.generation = some g := by
+  intro r' hr'
+  obtain ⟨j, hj, hjr⟩ := List.getElem_of_mem hr'
+  obtain ⟨r, hr, hg⟩ := RuleSet.attenuateAll_generation h
+    (List.getElem?_eq_some_iff.mpr ⟨hj, hjr⟩)
+  rw [hg]
+  exact hall r (List.mem_of_getElem? hr)
 
 theorem Attenuation.source_denote_dropRule (i : UInt32) (j : Nat) :
     (Attenuation.dropRule i).denote.source j = if j < i.toNat then j else j + 1 := rfl

@@ -1,0 +1,76 @@
+{
+  "format": 4,
+  "name": "arg-in",
+  "description": "argIn holds when the argument equals one of its values, compared as argEq compares: each listed value, an unlisted one, the same bytes under another constructor, a missing argument, and an empty list that allows nothing.",
+  "rules": [
+    {
+      "contract": "746f6b656e",
+      "functions": {"only": ["7472616e73666572"]},
+      "conds": [
+        {"arg_in": {"index": 0, "values": [{"string": "6f6b"}, {"u64": "7"}, {"symbol": "73796d"}]}}
+      ],
+      "signers": [],
+      "threshold": 0,
+      "cap": null,
+      "valid_until": null,
+      "generation": null
+    },
+    {
+      "contract": "7661756c74",
+      "functions": {"only": ["6465706f736974"]},
+      "conds": [{"arg_in": {"index": 0, "values": []}}],
+      "signers": [],
+      "threshold": 0,
+      "cap": null,
+      "valid_until": null,
+      "generation": null
+    }
+  ],
+  "batch": [
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7472616e73666572",
+        "args": [{"string": "6f6b"}]
+      }
+    },
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": [{"u64": "7"}]}},
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7472616e73666572",
+        "args": [{"symbol": "73796d"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7472616e73666572",
+        "args": [{"string": "6e6f"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7472616e73666572",
+        "args": [{"symbol": "6f6b"}]
+      }
+    },
+    {
+      "call": {
+        "contract": "746f6b656e",
+        "function": "7472616e73666572",
+        "args": [{"string": "73796d"}]
+      }
+    },
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": [{"i128": "7"}]}},
+    {"call": {"contract": "746f6b656e", "function": "7472616e73666572", "args": []}},
+    {"call": {"contract": "7661756c74", "function": "6465706f736974", "args": [{"u64": "7"}]}}
+  ],
+  "authenticated": [],
+  "expected": {
+    "allows": [true, true, true, false, false, false, false, false, false],
+    "allows_all": false
+  },
+  "attenuations": []
+}

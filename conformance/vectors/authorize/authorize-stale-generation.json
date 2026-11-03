@@ -1,0 +1,70 @@
+{
+  "format": 2,
+  "name": "authorize-stale-generation",
+  "description": "A rule issued under generation 3 authorizes in generation 3 and is refused with stale_generation in any other, 2^64 - 1 included; a rule without a generation is not refused for it.",
+  "rules": [
+    {
+      "contract": "7661756c74",
+      "functions": {"any_except": []},
+      "conds": [],
+      "signers": [{"delegated": {"address": "616c696365"}}],
+      "threshold": 1,
+      "cap": null,
+      "valid_until": 10,
+      "generation": "3"
+    },
+    {
+      "contract": "7661756c74",
+      "functions": {"only": ["7769746864726177"]},
+      "conds": [],
+      "signers": [{"delegated": {"address": "616c696365"}}],
+      "threshold": 1,
+      "cap": null,
+      "valid_until": null,
+      "generation": null
+    }
+  ],
+  "start": [{"history": [], "total": "0"}, {"history": [], "total": "0"}],
+  "authorizations": [
+    {
+      "batch": [{"call": {"contract": "7661756c74", "function": "7769746864726177", "args": []}}],
+      "choices": [0],
+      "authenticated": [{"delegated": {"address": "616c696365"}}],
+      "now": 1,
+      "generation": "3",
+      "expected": {"ok": [{"history": [], "total": "0"}, {"history": [], "total": "0"}]}
+    },
+    {
+      "batch": [{"call": {"contract": "7661756c74", "function": "7769746864726177", "args": []}}],
+      "choices": [0],
+      "authenticated": [{"delegated": {"address": "616c696365"}}],
+      "now": 1,
+      "generation": "4",
+      "expected": {"error": "stale_generation"}
+    },
+    {
+      "batch": [{"call": {"contract": "7661756c74", "function": "7769746864726177", "args": []}}],
+      "choices": [0],
+      "authenticated": [{"delegated": {"address": "616c696365"}}],
+      "now": 1,
+      "generation": "2",
+      "expected": {"error": "stale_generation"}
+    },
+    {
+      "batch": [{"call": {"contract": "7661756c74", "function": "7769746864726177", "args": []}}],
+      "choices": [0],
+      "authenticated": [{"delegated": {"address": "616c696365"}}],
+      "now": 1,
+      "generation": "18446744073709551615",
+      "expected": {"error": "stale_generation"}
+    },
+    {
+      "batch": [{"call": {"contract": "7661756c74", "function": "7769746864726177", "args": []}}],
+      "choices": [1],
+      "authenticated": [{"delegated": {"address": "616c696365"}}],
+      "now": 1,
+      "generation": "4",
+      "expected": {"ok": [{"history": [], "total": "0"}, {"history": [], "total": "0"}]}
+    }
+  ]
+}

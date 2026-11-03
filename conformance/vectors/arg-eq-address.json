@@ -1,15 +1,17 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "arg-eq-address",
   "description": "argEq on an address: the same bytes, a prefix, an extension, another case, and the same bytes under every other byte-string constructor.",
   "rules": [
     {
       "contract": "746f6b656e",
-      "functions": ["7472616e73666572"],
+      "functions": {"only": ["7472616e73666572"]},
       "conds": [{"arg_eq": {"index": 0, "value": {"address": "6162"}}}],
       "signers": [],
       "threshold": 0,
-      "cap": null
+      "cap": null,
+      "valid_until": null,
+      "generation": null
     }
   ],
   "batch": [

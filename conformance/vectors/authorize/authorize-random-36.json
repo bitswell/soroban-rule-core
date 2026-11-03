@@ -1,38 +1,37 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "authorize-random-36",
   "description": "Randomized authorization trace 36 of seed 20261102.",
   "rules": [
     {
       "contract": "633130",
-      "functions": ["67", "", "666f"],
-      "conds": [{"arg_i128_at_most": {"index": 3, "bound": "100"}}],
+      "functions": {"only": [""]},
+      "conds": [],
       "signers": [],
       "threshold": 0,
-      "cap": {"limit": "0", "period": 2, "amount_arg": 2}
+      "cap": {"limit": "0", "period": 1, "amount_arg": 2},
+      "valid_until": null,
+      "generation": "2"
+    },
+    {
+      "contract": "",
+      "functions": {"only": ["666f6f"]},
+      "conds": [{"arg_str_prefix": {"index": 1, "prefix": "6162"}}],
+      "signers": [],
+      "threshold": 0,
+      "cap": {"limit": "0", "period": 4294967295, "amount_arg": 1},
+      "valid_until": 9,
+      "generation": null
     },
     {
       "contract": "63",
-      "functions": ["666f6f"],
-      "conds": [{"arg_i128_at_most": {"index": 1, "bound": "-1"}}],
-      "signers": [],
+      "functions": {"any_except": ["666f6f"]},
+      "conds": [{"arg_eq": {"index": 0, "value": {"address": "616263"}}}],
+      "signers": [{"external": {"verifier": "61", "key": ""}}, {"delegated": {"address": "6162"}}],
       "threshold": 0,
-      "cap": {"limit": "170141183460469231731687303715884105727", "period": 0, "amount_arg": 2}
-    },
-    {
-      "contract": "63",
-      "functions": ["", "66", ""],
-      "conds": [{"arg_eq": {"index": 0, "value": {"symbol": "6162"}}}],
-      "signers": [
-        {"external": {"verifier": "76", "key": "6b32"}},
-        {"external": {"verifier": "61", "key": ""}}
-      ],
-      "threshold": 0,
-      "cap": {
-        "limit": "170141183460469231731687303715884105727",
-        "period": 4294967295,
-        "amount_arg": 1
-      }
+      "cap": null,
+      "valid_until": null,
+      "generation": "1"
     }
   ],
   "start": [
@@ -42,35 +41,74 @@
   ],
   "authorizations": [
     {
+      "batch": [],
+      "choices": [],
+      "authenticated": [],
+      "now": 1,
+      "generation": "2",
+      "expected": {
+        "ok": [
+          {"history": [], "total": "0"},
+          {"history": [], "total": "0"},
+          {"history": [], "total": "0"}
+        ]
+      }
+    },
+    {
+      "batch": [{"call": {"contract": "63", "function": "67", "args": [{"address": "616263"}]}}],
+      "choices": [2],
+      "authenticated": [],
+      "now": 13,
+      "generation": "2",
+      "expected": {"error": "stale_generation"}
+    },
+    {
+      "batch": [
+        {"call": {"contract": "63", "function": "66", "args": [{"address": "616263"}]}},
+        {
+          "call": {
+            "contract": "6331",
+            "function": "",
+            "args": [{"bool": false}, {"bool": false}, {"i128": "0"}]
+          }
+        },
+        {
+          "call": {
+            "contract": "633130",
+            "function": "",
+            "args": [{"bool": false}, {"bool": false}, {"i128": "0"}]
+          }
+        }
+      ],
+      "choices": [2, 0, 0],
+      "authenticated": [],
+      "now": 16,
+      "generation": "2",
+      "expected": {"error": "stale_generation"}
+    },
+    {
       "batch": [
         {
           "call": {
             "contract": "633130",
-            "function": "67",
-            "args": [{"address": "00ff"}, {"bool": false}, {"i128": "-1"}]
+            "function": "",
+            "args": [{"bool": false}, {"bool": false}, {"i128": "1"}]
           }
-        },
-        {
-          "call": {
-            "contract": "63",
-            "function": "666f6f",
-            "args": [
-              {"i128": "-170141183460469231731687303715884105728"},
-              {"i128": "-170141183460469231731687303715884105727"}
-            ]
-          }
-        },
-        {"call": {"contract": "63", "function": "", "args": [{"symbol": "6162"}, {"i128": "3"}]}}
+        }
       ],
-      "choices": [2147483648, 1, 2],
-      "authenticated": [
-        {"external": {"verifier": "76", "key": "6b32"}},
-        {"external": {"verifier": "61", "key": ""}},
-        {"delegated": {"address": "61"}},
-        {"external": {"verifier": "76", "key": "6b"}}
-      ],
-      "now": 102,
-      "expected": {"error": "no_such_rule"}
+      "choices": [0],
+      "authenticated": [],
+      "now": 23,
+      "generation": "2",
+      "expected": {"error": "cap_limit_exceeded"}
+    },
+    {
+      "batch": [{"call": {"contract": "633130", "function": "66", "args": []}}],
+      "choices": [2],
+      "authenticated": [],
+      "now": 31,
+      "generation": "2",
+      "expected": {"error": "stale_generation"}
     }
   ]
 }

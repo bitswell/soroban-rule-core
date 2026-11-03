@@ -14,10 +14,12 @@ use rule_eval::{CapError, Refusal, SpendRecord, authorize};
 use serde::Deserialize;
 
 use crate::caps::{JsonRecord, decode_record};
-use crate::{JsonContext, JsonRule, JsonSigner, decode_context, decode_rules, decode_signers};
+use crate::{
+    JsonContext, JsonRule, JsonSigner, decode_context, decode_decimal, decode_rules, decode_signers,
+};
 
 /// The authorization trace format version this runner reads.
-pub const FORMAT: u32 = 1;
+pub const FORMAT: u32 = 2;
 
 /// One authorization trace file.
 #[derive(Deserialize)]
@@ -38,6 +40,8 @@ pub struct JsonAuthorization {
     pub choices: Vec<u32>,
     pub authenticated: Vec<JsonSigner>,
     pub now: u32,
+    /// The current generation, a decimal `u64`.
+    pub generation: String,
     pub expected: Outcome,
 }
 
@@ -56,7 +60,10 @@ pub enum JsonRefusal {
     ChoicesMismatch,
     RecordsMismatch,
     NoSuchRule,
+    Expired,
+    StaleGeneration,
     NotAllowed,
+    UnauthorizedSigner,
     NoAmount,
     CapNegativeAmount,
     CapLedgerBeforeNewest,
@@ -106,7 +113,10 @@ pub fn refusal_of(r: &Refusal) -> JsonRefusal {
         Refusal::ChoicesMismatch => JsonRefusal::ChoicesMismatch,
         Refusal::RecordsMismatch => JsonRefusal::RecordsMismatch,
         Refusal::NoSuchRule => JsonRefusal::NoSuchRule,
+        Refusal::Expired => JsonRefusal::Expired,
+        Refusal::StaleGeneration => JsonRefusal::StaleGeneration,
         Refusal::NotAllowed => JsonRefusal::NotAllowed,
+        Refusal::UnauthorizedSigner => JsonRefusal::UnauthorizedSigner,
         Refusal::NoAmount => JsonRefusal::NoAmount,
         Refusal::Cap(CapError::NegativeAmount) => JsonRefusal::CapNegativeAmount,
         Refusal::Cap(CapError::LedgerBeforeNewest) => JsonRefusal::CapLedgerBeforeNewest,
@@ -157,7 +167,16 @@ pub fn check(trace: &Trace) -> Result<(), String> {
             .map(decode_context)
             .collect::<Result<Vec<_>, _>>()?;
         let authenticated = decode_signers(&a.authenticated)?;
-        let got = authorize(&rules, &records, &batch, &a.choices, &authenticated, a.now);
+        let generation: u64 = decode_decimal(&a.generation)?;
+        let got = authorize(
+            &rules,
+            &records,
+            &batch,
+            &a.choices,
+            &authenticated,
+            a.now,
+            generation,
+        );
         match (got, &a.expected) {
             (Ok(out), Outcome::Ok(want)) => {
                 let want = decode_records(want)?;
