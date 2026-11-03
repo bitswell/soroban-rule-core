@@ -1,7 +1,9 @@
 # The harness at the pin: soroban-sdk 29.0.1, which fixes soroban-env-host
 # 29.0.1 (protocol 29). Each host version the vectors run on is a crate like
-# this one, named soroban-host-p<protocol>, with its own pins and lock,
-# sharing ../src and ../tests.
+# this one, named soroban-host-p<protocol>, with its own pins, sharing ../src
+# and ../tests. This one is a member of the repository's workspace and shares
+# its lock with soroban-facade's real implementation; the others are
+# workspaces of their own with their own locks (../p30).
 [package]
 name = "soroban-host-p29"
 description = "Replays the Soroban vectors on soroban-env-host 29.0.1 through soroban-sdk 29.0.1's testutils"
@@ -33,4 +35,6 @@ rule-eval = { path = "../../../crates/rule-eval" }
 rule-eval-conformance = { path = "../../runner" }
 sha2 = "0.10"
 soroban-facade = { path = "../../../crates/soroban-facade" }
+# The host the SDK fixes, named so the harness can set its diagnostic level.
+soroban-env-host = "=29.0.1"
 soroban-sdk = { version = "=29.0.1", features = ["testutils"] }

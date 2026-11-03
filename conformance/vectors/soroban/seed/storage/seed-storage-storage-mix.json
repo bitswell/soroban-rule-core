@@ -1,0 +1,231 @@
+{
+  "format": 1,
+  "name": "seed-storage-storage-mix",
+  "description": "test_storage_mix of soroban-env-host 29.0.1 src/test/storage.rs: one operation for each call, at lines [159, 170, 181, 263, 273, 296, 310, 322, 332, 344, 351, 362, 376, 159, 170, 181, 263, 273, 296, 310, 322, 332, 344, 351, 362, 376, 159, 170, 181, 263, 273, 296, 310, 322, 332, 344, 351, 362, 376] in order.",
+  "contract": {"contract": "0000000000000000000000000000000000000000000000000000000000000040"},
+  "ops": [
+    {
+      "op": "has",
+      "durability": "persistent",
+      "key": {"symbol": "6b65795f31"},
+      "expected": {"present": false}
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"symbol": "6b65795f31"},
+      "val": {"u64": "1234"},
+      "expected": "done"
+    },
+    {
+      "op": "has",
+      "durability": "persistent",
+      "key": {"symbol": "6b65795f31"},
+      "expected": {"present": true}
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"symbol": "746869735f69735f6b65795f32"},
+      "val": {"u64": "18446744073709551615"},
+      "expected": "done"
+    },
+    {
+      "op": "has",
+      "durability": "persistent",
+      "key": {"symbol": "746869735f69735f6b65795f32"},
+      "expected": {"present": true}
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"symbol": "6b65795f31"},
+      "expected": {"value": {"u64": "1234"}}
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"symbol": "746869735f69735f6b65795f32"},
+      "expected": {"value": {"u64": "18446744073709551615"}}
+    },
+    {
+      "op": "set",
+      "durability": "persistent",
+      "key": {"symbol": "746869735f69735f6b65795f32"},
+      "val": {"u64": "4321"},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "persistent",
+      "key": {"symbol": "746869735f69735f6b65795f32"},
+      "expected": {"value": {"u64": "4321"}}
+    },
+    {
+      "op": "remove",
+      "durability": "persistent",
+      "key": {"symbol": "6b65795f31"},
+      "expected": "done"
+    },
+    {
+      "op": "remove",
+      "durability": "persistent",
+      "key": {"symbol": "6b65795f31"},
+      "expected": "done"
+    },
+    {
+      "op": "has",
+      "durability": "persistent",
+      "key": {"symbol": "6b65795f31"},
+      "expected": {"present": false}
+    },
+    {
+      "op": "has",
+      "durability": "persistent",
+      "key": {"symbol": "746869735f69735f6b65795f32"},
+      "expected": {"present": true}
+    },
+    {
+      "op": "has",
+      "durability": "temporary",
+      "key": {"symbol": "6b65795f31"},
+      "expected": {"present": false}
+    },
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"symbol": "6b65795f31"},
+      "val": {"u64": "1234"},
+      "expected": "done"
+    },
+    {
+      "op": "has",
+      "durability": "temporary",
+      "key": {"symbol": "6b65795f31"},
+      "expected": {"present": true}
+    },
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"symbol": "746869735f69735f6b65795f32"},
+      "val": {"u64": "18446744073709551615"},
+      "expected": "done"
+    },
+    {
+      "op": "has",
+      "durability": "temporary",
+      "key": {"symbol": "746869735f69735f6b65795f32"},
+      "expected": {"present": true}
+    },
+    {
+      "op": "get",
+      "durability": "temporary",
+      "key": {"symbol": "6b65795f31"},
+      "expected": {"value": {"u64": "1234"}}
+    },
+    {
+      "op": "get",
+      "durability": "temporary",
+      "key": {"symbol": "746869735f69735f6b65795f32"},
+      "expected": {"value": {"u64": "18446744073709551615"}}
+    },
+    {
+      "op": "set",
+      "durability": "temporary",
+      "key": {"symbol": "746869735f69735f6b65795f32"},
+      "val": {"u64": "4321"},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "temporary",
+      "key": {"symbol": "746869735f69735f6b65795f32"},
+      "expected": {"value": {"u64": "4321"}}
+    },
+    {"op": "remove", "durability": "temporary", "key": {"symbol": "6b65795f31"}, "expected": "done"},
+    {"op": "remove", "durability": "temporary", "key": {"symbol": "6b65795f31"}, "expected": "done"},
+    {
+      "op": "has",
+      "durability": "temporary",
+      "key": {"symbol": "6b65795f31"},
+      "expected": {"present": false}
+    },
+    {
+      "op": "has",
+      "durability": "temporary",
+      "key": {"symbol": "746869735f69735f6b65795f32"},
+      "expected": {"present": true}
+    },
+    {
+      "op": "has",
+      "durability": "instance",
+      "key": {"symbol": "6b65795f31"},
+      "expected": {"present": false}
+    },
+    {
+      "op": "set",
+      "durability": "instance",
+      "key": {"symbol": "6b65795f31"},
+      "val": {"u64": "1234"},
+      "expected": "done"
+    },
+    {
+      "op": "has",
+      "durability": "instance",
+      "key": {"symbol": "6b65795f31"},
+      "expected": {"present": true}
+    },
+    {
+      "op": "set",
+      "durability": "instance",
+      "key": {"symbol": "746869735f69735f6b65795f32"},
+      "val": {"u64": "18446744073709551615"},
+      "expected": "done"
+    },
+    {
+      "op": "has",
+      "durability": "instance",
+      "key": {"symbol": "746869735f69735f6b65795f32"},
+      "expected": {"present": true}
+    },
+    {
+      "op": "get",
+      "durability": "instance",
+      "key": {"symbol": "6b65795f31"},
+      "expected": {"value": {"u64": "1234"}}
+    },
+    {
+      "op": "get",
+      "durability": "instance",
+      "key": {"symbol": "746869735f69735f6b65795f32"},
+      "expected": {"value": {"u64": "18446744073709551615"}}
+    },
+    {
+      "op": "set",
+      "durability": "instance",
+      "key": {"symbol": "746869735f69735f6b65795f32"},
+      "val": {"u64": "4321"},
+      "expected": "done"
+    },
+    {
+      "op": "get",
+      "durability": "instance",
+      "key": {"symbol": "746869735f69735f6b65795f32"},
+      "expected": {"value": {"u64": "4321"}}
+    },
+    {"op": "remove", "durability": "instance", "key": {"symbol": "6b65795f31"}, "expected": "done"},
+    {"op": "remove", "durability": "instance", "key": {"symbol": "6b65795f31"}, "expected": "done"},
+    {
+      "op": "has",
+      "durability": "instance",
+      "key": {"symbol": "6b65795f31"},
+      "expected": {"present": false}
+    },
+    {
+      "op": "has",
+      "durability": "instance",
+      "key": {"symbol": "746869735f69735f6b65795f32"},
+      "expected": {"present": true}
+    }
+  ]
+}

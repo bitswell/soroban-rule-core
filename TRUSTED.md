@@ -215,8 +215,12 @@ written from `soroban-env-host` 29.0.1 (`auth.rs`, `host/frame.rs`,
 and they are part of the specification, as the denotations are. The theorems
 in `RuleCore.Theorems.Soroban` are about the models; that they describe the
 host rests on the models, and nothing proves the models equal to the host.
-The host harness tests them against the host at the pin
-([the host harness](#the-host-harness)) on every change.
+The host harness tests them against the host on every change
+([the host harness](#the-host-harness)), at the pin, soroban-env-host 29.0.1,
+and at the next release, 30.0.0, with the model's own vectors and with the
+host's own authorization and storage tests transcribed into the same form
+(`conformance/vectors/soroban/seed`, whose `coverage.json` lists each host test
+the models leave out and why).
 
 The models leave out, and nothing here tests:
 
@@ -225,21 +229,30 @@ The models leave out, and nothing here tests:
 - Stellar accounts' ed25519 signatures, source-account credentials, `require_auth` inside `__check_auth`, `require_auth_for_args`, `authorize_as_current_contract` and contract creation as a call (a creation context is modelled, and the facade reads it, as data);
 - a key holding a muxed address in instance storage, which host 29.0.1 refuses only when it writes the instance back at the end of the call (the facade refuses every such key at once);
 - executable tags (CAP-85), which the host takes as values and treats apart as storage keys, and which the facade refuses as keys and as values;
-- every protocol but 29.
+- every protocol but 29. The vectors also run on soroban-env-host 30.0.0 (protocol 30), which tests the models there as far as the vectors reach; nothing models a change between protocols.
 
 ## soroban-sdk and soroban-env-host
 
 `crates/soroban-facade`'s real implementation and the host harness build
 against soroban-sdk 29.0.1, which fixes soroban-env-host 29.0.1 and
 stellar-xdr 28.0.0 (protocol 29, the protocol mainnet runs), as `Cargo.lock`
-records. The harness drives the host through
+records. The harness also builds, in `conformance/host/p30`, against
+soroban-sdk 30.0.0-rc.1, which fixes soroban-env-host 30.0.0 and stellar-xdr
+30.0.0 (protocol 30, the next), as that crate's own `Cargo.lock` records.
+
+| Host tested | SDK | stellar-xdr | Protocol | Through |
+| --- | --- | --- | --- | --- |
+| soroban-env-host 29.0.1 | soroban-sdk 29.0.1 | 28.0.0 | 29 | the facade's real implementation, and the SDK directly |
+| soroban-env-host 30.0.0 | soroban-sdk 30.0.0-rc.1 | 30.0.0 | 30 | the SDK directly |
+
+The harness drives each host through
 soroban-sdk's testutils: native test contracts (`ContractFunctionSet`),
 `set_auths` and `try_invoke_contract`. That path shares storage, rollback
 within a transaction and enforcing authorization with the host function
 stellar-core calls (`e2e_invoke::invoke_host_function`), and it is trusted to
 behave as that path does for what the vectors exercise. A contract built at
-the pin runs on the host the network's protocol selects; nothing here runs the
-vectors on another host version yet.
+the pin runs on the host the network's protocol selects, which is why the
+vectors run on the next host as well as the pin's.
 
 Building the facade's real implementation for `wasm32v1-none` outside
 stellar-cli needs `SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2` set,
@@ -275,17 +288,18 @@ for any contract.
 (`val_to_rule_eval`, `to_rule_eval`) `Val.toChain` and `AuthFn.toChain`; the
 value and context vectors check each one against the model, and the host
 harness checks them against what the host gives `__check_auth` and against
-SDK 29's reading of every context vector. Nothing proves them equal.
+each SDK's reading of every context vector. Nothing proves them equal.
 
 ## The host harness
 
-`conformance/host` replays the Soroban vectors on the host. Three of its parts
+`conformance/host` replays the Soroban vectors on the host. Five of its parts
 are trusted:
 
 - the signature payload it expects is SHA-256 (the `sha2` crate) of `stellar-xdr`'s encoding of the `HashIdPreimage` it builds from the model's preimage and the ledger's network id;
 - values pass between the vectors, the facade and the host through the facade's XDR and `stellar-xdr`'s reading and writing of it;
 - its native contracts run each step of a call or of `__check_auth` as the model's step says, and record what they see;
-- its reading of the context vectors takes SDK 29's `auth::Context` (`TryFromVal` and `IntoVal`) as the reading a shell's `__check_auth` makes, and a trap while reading as a refusal, as it is in a contract.
+- its reading of the context vectors takes each SDK's `auth::Context` (`TryFromVal` and `IntoVal`) as the reading a shell's `__check_auth` makes, and a trap while reading as a refusal, as it is in a contract;
+- it turns the host's diagnostic events off. They are no part of what the harness compares, and with them on, a native contract's storage call refused for a muxed key leaves the host's shadow budget spent and testutils' next record of the authorizations panics (`Error(Budget, ExceededLimit)`), on both hosts.
 
 A mistake in any of them shows up as a failing vector, unless it hides a
 difference between the model and the host in the same way on both sides.

@@ -12,18 +12,44 @@ permissions:
 # Replays the Soroban vectors (conformance/vectors/soroban), which the Lean
 # models compute, on soroban-env-host through soroban-sdk's testutils with
 # enforcing authorization, and fails on any difference in outcome, events or
-# storage. Each matrix entry is a crate in conformance/host that pins one host
-# version and shares the harness source; p29 is the pin the workspace and the
-# facade build against (soroban-sdk 29.0.1, soroban-env-host 29.0.1,
-# protocol 29). Every entry runs on every pull request and push to main, with
-# no condition and no allowed failure.
+# storage. The vectors include the traces transcribed from the host's own
+# authorization and storage tests (conformance/vectors/soroban/seed).
+#
+# Each host version is a crate in conformance/host that pins one host and
+# shares the harness source:
+#
+# - p29: soroban-sdk 29.0.1 and soroban-env-host 29.0.1 (protocol 29, the
+#   network's), in the repository's workspace and lock, the pin
+#   soroban-facade's real implementation builds against. It runs twice:
+#   through the facade, and through the SDK directly, the way every other
+#   entry runs.
+# - p30: soroban-sdk 30.0.0-rc.1 and soroban-env-host 30.0.0 (protocol 30,
+#   the next), a workspace of its own with its own lock. The facade's real
+#   implementation is built against soroban-sdk 29.0.1, whose types are not
+#   this SDK's, so this entry goes through the SDK directly.
+#
+# Every entry runs on every pull request and push to main, with no condition
+# and no allowed failure, and each is its own check.
 jobs:
   host:
-    name: Soroban models against the host
+    name: Host ${{ matrix.name }}
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        entry: [p29]
+        include:
+          - name: 29.0.1 (facade)
+            entry: p29
+            features: ""
+            workspace: .
+          - name: 29.0.1 (SDK)
+            entry: p29
+            features: --no-default-features
+            workspace: .
+          - name: 30.0.0 (SDK)
+            entry: p30
+            features: ""
+            workspace: conformance/host/p30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -32,7 +58,15 @@ jobs:
 
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
-          key: host-${{ matrix.entry }}
+          key: host-${{ matrix.entry }}-${{ matrix.features }}
+          workspaces: ${{ matrix.workspace }} -> target
+
+      - name: Lint the harness
+        run: >-
+          cargo clippy --locked --all-targets ${{ matrix.features }}
+          --manifest-path "conformance/host/${{ matrix.entry }}/Cargo.toml" -- -D warnings
 
       - name: Replay the vectors on the host
-        run: cargo test --locked --manifest-path "conformance/host/${{ matrix.entry }}/Cargo.toml"
+        run: >-
+          cargo test --locked ${{ matrix.features }}
+          --manifest-path "conformance/host/${{ matrix.entry }}/Cargo.toml"

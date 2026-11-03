@@ -186,14 +186,6 @@ def accountStepOk (a : Address) : AccountStep → Bool
       | _ => true
     | none => true
 
-/-- Whether two calls with the same context have the same body in every
-transaction, so the harness can find a body by the call that runs it. -/
-def Trace.bodiesConsistent (t : Trace) : Bool :=
-  t.txs.all fun tx =>
-    let cs := callsOf tx.call
-    cs.all fun c => cs.all fun c' =>
-      c.context != c'.context || (encodeCall c).compact == (encodeCall c').compact
-
 /-- Whether the harness can drive the trace on the host: contracts and their
 calls are well formed, entries and delegates are for contracts, muxed keys
 stay out of instance storage, every transaction runs between ledgers 100 and
@@ -203,7 +195,6 @@ def Trace.inDomain (t : Trace) : Bool :=
   t.contracts.all isContract &&
   t.calls.all (fun c => authFnOk c.context && c.body.all (stepOk c.contract)) &&
   t.accounts.all (fun (a, prog) => isContract a && prog.all (accountStepOk a)) &&
-  t.bodiesConsistent &&
   t.txs.all fun tx =>
     100 ≤ tx.ledger && tx.ledger ≤ 115 &&
     tx.entries.all fun e =>

@@ -19,6 +19,7 @@ claims:
     evidence:
       - test: rule-eval/evaluate::no_rule_allows_a_creation
       - ci: {workflow: .github/workflows/gate.yml, job: check, step: Build, runs: lake build}
+      - ci: {workflow: .github/workflows/gate.yml, job: entries, step: Test, matrix: {entry: b, features: --no-default-features}}
   - id: vectors
     claim: rule-eval agrees with every vector.
     status: measured

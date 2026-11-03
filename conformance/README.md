@@ -19,7 +19,8 @@ differential test.
 | `vectors/soroban/host/*.json` | One host trace per file: contract accounts' `__check_auth` programs and transactions of calls and signed entries, each with the model's outcome, events and storage. |
 | `generator/` | The Lake package that writes the vectors and traces: the case specifications and the JSON encoding. |
 | `runner/` | The Rust crate `rule-eval-conformance`, which loads every vector and trace and checks `rule-eval` and `soroban-facade` against it. |
-| `host/` | The host harness: `src/` and `tests/` replay the Soroban vectors on `soroban-env-host`, and each crate beside them (`p29/`) pins one host version. |
+| `vectors/soroban/seed/` | soroban-env-host 29.0.1's own authorization and storage tests, transcribed: host traces in `host/`, storage traces in `storage/`, and `coverage.json`, which lists every test of the five test files, what the traces express of it and why the rest is outside the models. |
+| `host/` | The host harness: `src/` and `tests/` replay the Soroban vectors on `soroban-env-host`, and each crate beside them (`p29/`, `p30/`) pins one host version. |
 
 ## How the vectors are made
 
@@ -41,7 +42,11 @@ and written to `budget/<name>.json`, and the document traces
 computed with the Soroban models' own functions, `Val.xdr`, `Val.toChain`,
 `Val.storable`, `contextsOfVal`, `AuthFn.toChain`, `Op.apply` and `Tx.run`,
 and written to `soroban/values`, `soroban/contexts`, `soroban/storage` and
-`soroban/host`. No expected result is written by hand.
+`soroban/host`. The seed traces (`Conformance/Soroban/Seed.lean`) are the
+host's own tests transcribed, each case with the host test's expectation; the
+generator computes each with the same model functions, writes the model's
+outcome, and writes nothing at all when one differs from the host test's
+(see [Seed traces](#seed-traces)). No expected result is written by hand.
 
 ```sh
 cd conformance/generator
@@ -56,7 +61,8 @@ randomized traces of the same seed, every named budget trace plus 50
 randomized traces of the same seed, every named document trace plus 40
 randomized traces of the same seed, the Soroban value and context vectors,
 every named storage trace plus 30 randomized traces of the same seed, and
-every named host trace plus 60 randomized traces of the same seed. It refuses
+every named host trace plus 60 randomized traces of the same seed, and the
+seed traces with their coverage. It refuses
 to write a document trace whose document is not valid or that chooses the
 recovery rule, and a host trace the harness cannot drive on the host
 (`Trace.inDomain`). `--seed <n>`, `--count <n>`, `--cap-count <n>`,
@@ -68,6 +74,7 @@ for a larger run outside the committed vectors:
 lake exe gen-vectors /tmp/vectors --seed 7 --count 5000 --cap-count 5000 --auth-count 5000 --budget-count 5000 --doc-count 5000 --storage-count 1000 --host-count 2000
 CONFORMANCE_VECTORS=/tmp/vectors cargo test -p rule-eval-conformance
 CONFORMANCE_VECTORS=/tmp/vectors cargo test -p soroban-host-p29
+CONFORMANCE_VECTORS=/tmp/vectors cargo test --manifest-path host/p30/Cargo.toml
 ```
 
 The randomized cases use SplitMix64, written out in `Conformance/Random.lean`,
@@ -144,23 +151,31 @@ every storage trace's results.
 
 ```sh
 cargo test --locked --manifest-path host/p29/Cargo.toml
+cargo test --locked --manifest-path host/p29/Cargo.toml --no-default-features
+cargo test --locked --manifest-path host/p30/Cargo.toml
 ```
 
 `host/p29` is the harness at the pin, soroban-sdk 29.0.1 with
 soroban-env-host 29.0.1 and stellar-xdr 28.0.0 (protocol 29), and a
-workspace member. Its tests (`host/tests/host.rs`) replay the value vectors,
-the storage traces and the host traces on the host, through soroban-sdk's testutils with enforcing
+workspace member. `host/p30` is the harness at the next release,
+soroban-sdk 30.0.0-rc.1 with soroban-env-host 30.0.0 and stellar-xdr 30.0.0
+(protocol 30), a workspace of its own with its own lock. Their tests
+(`host/tests/host.rs`) replay the value vectors, the storage traces, the host
+traces and the seed traces on the host, through soroban-sdk's testutils with enforcing
 authorization (`set_auths`, not `mock_all_auths`), and compare outcomes,
 events and storage, not error codes: every refusal reaches the caller as the
 same host error whatever its cause. Every contract a trace names is a native
-contract that runs what the trace says, and with the `facade` feature its
-storage, `require_auth` and reading of `__check_auth`'s contexts go through
-`soroban-facade`'s real implementation. They also read every context vector
+contract that runs what the trace says: before each call the harness hands the
+callee the body the trace gives it. With the `facade` feature, on by default
+in `p29`, its storage, `require_auth` and reading of `__check_auth`'s contexts
+go through `soroban-facade`'s real implementation; without it, through the SDK
+directly, as in `p30`, whose SDK is not the facade's. They also read every context vector
 with the SDK's `auth::Context`, which must read exactly the vectors the model
 reads and write them back as the same XDR. `.github/workflows/host.yml` runs
-it, one matrix entry per host crate. A crate for another host version is a
-directory beside `p29`, named `soroban-host-p<protocol>` with its library
-named `harness`, with its own `Cargo.toml` and `Cargo.lock` naming
+three entries: `p29` with the facade, `p29` without it and `p30`. A crate for
+another host version is a directory beside these, named
+`soroban-host-p<protocol>` with its library named `harness`, with its own
+`Cargo.toml` (holding an empty `[workspace]`) and `Cargo.lock` naming
 `../src/lib.rs` and `../tests/host.rs`; a version whose SDK is not the
 facade's leaves the `facade` feature off and drives the SDK directly.
 
@@ -830,8 +845,8 @@ contexts cannot be read.
 - An event is `{"check_auth": {"account", "preimage": {"address": Address | null, "nonce", "expiration", "invocation"}, "signature", "contexts": [Context, ...], "contexts_value": Value, "rule_eval_contexts": [Context, ...]}}`, `{"read": {"contract", "durability", "key", "value"}}`, `{"found": {"contract", "durability", "key", "present"}}` or `{"authorized": {"address", "context", "via": "invoker" | "entry"}}`. The harness compares `via` with nothing: the host does not report it.
 - `store` lists every slot the trace touches, with its value after the transaction, `null` when absent.
 
-Two calls of one transaction with the same context have the same body, so a
-contract finds its body by the call that runs it. Every transaction runs
+Two calls of one transaction with the same context may have different
+bodies: the harness hands each callee its body as it calls it. Every transaction runs
 between ledgers 100 and 115 and every signature is valid for at most 1000
 ledgers past it, so temporary entries and used nonces stay live.
 
@@ -848,3 +863,34 @@ and uncaught calls and failures; entries are the tree of each account's
 `require_auth`s, often changed (an argument, a dropped or an extra node, an
 expired signature, a reused nonce), with each kind of credentials; account
 programs read and write storage, check rules, delegate or refuse.
+
+### Seed traces
+
+`soroban/seed/host/*.json` and `soroban/seed/storage/*.json` are host traces
+and storage traces in the formats above, transcribed from soroban-env-host
+29.0.1's `src/test/auth.rs`, `auth_delegation.rs` and `storage.rs`. Each
+trace's description names its host test and the line of each case. A trace
+from `auth.rs` holds one transaction per case of one test; a trace from
+`auth_delegation.rs` holds one case, since each case gives its accounts
+their own programs. The host tests' Stellar-account signers are contract
+accounts whose `__check_auth` accepts.
+
+`soroban/seed/coverage.json`:
+
+```json
+{"format": 1, "host": "soroban-env-host 29.0.1", "files": ["src/test/auth.rs", ...],
+ "totals": {"tests": 74, "tests_expressed": 27, "tests_outside": 47,
+            "cases_in_expressed_tests": 213, "cases_expressed": 155,
+            "cases_agree": 155, "cases_disagree": 0, "cases_left": 58},
+ "tests": [{"file": "auth.rs", "test": "test_single_authorized_call", "expressed": true,
+            "cases": 9, "expressed_cases": 6, "agree": 6, "disagree": 0,
+            "vectors": ["seed-auth-single-authorized-call"],
+            "left": [{"cases": 2, "reason": "..."}, ...]},
+           {"file": "invoker_auth.rs", "test": "test_self_invoker_auth", "expressed": false,
+            "reason": "..."}, ...]}
+```
+
+A case is a call whose outcome the host test asserts. `agree` counts the
+cases where the model gives the host test's outcome (and, where the test
+counts consumed nonces, the same count); the generator refuses to write
+anything when `disagree` would not be 0.

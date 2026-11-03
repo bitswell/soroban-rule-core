@@ -80,6 +80,28 @@ fn the_host_agrees_with_every_host_trace() {
     assert!(failed.is_empty(), "{}", failed.join("\n"));
 }
 
+/// soroban-env-host's own authorization tests, transcribed into host traces
+/// (`conformance/vectors/soroban/seed/host`).
+#[test]
+fn the_host_agrees_with_every_seed_trace() {
+    let ts: Vec<(PathBuf, HostTrace)> =
+        load_dir(&vectors_dir("seed/host")).unwrap_or_else(|e| panic!("{e}"));
+    assert!(!ts.is_empty(), "no seed host traces found");
+    let failed = failures(&ts, harness::check_host);
+    assert!(failed.is_empty(), "{}", failed.join("\n"));
+}
+
+/// soroban-env-host's own storage tests, transcribed into storage traces
+/// (`conformance/vectors/soroban/seed/storage`).
+#[test]
+fn storage_on_the_host_agrees_with_every_seed_storage_trace() {
+    let ts: Vec<(PathBuf, StorageTrace)> =
+        load_dir(&vectors_dir("seed/storage")).unwrap_or_else(|e| panic!("{e}"));
+    assert!(!ts.is_empty(), "no seed storage traces found");
+    let failed = failures(&ts, harness::check_storage);
+    assert!(failed.is_empty(), "{}", failed.join("\n"));
+}
+
 /// The harness reports a changed outcome, a missing event, a changed
 /// payload, a changed read and a changed slot.
 #[test]

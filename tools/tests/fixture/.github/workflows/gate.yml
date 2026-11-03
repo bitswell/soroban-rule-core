@@ -14,3 +14,15 @@ jobs:
       - name: Maybe
         if: github.event_name == 'push'
         run: lake build
+  entries:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - entry: a
+            features: ""
+          - entry: b
+            features: --no-default-features
+    steps:
+      - name: Test
+        run: cargo test --locked

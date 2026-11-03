@@ -28,12 +28,17 @@ jobs:
       - name: Self-tests of the checker
         run: uv run --script tools/tests/check_claims_test.py
 
-      # The checker lists the workspace's tests with the toolchain that
-      # rust-toolchain.toml pins.
+      # The checker lists the tests of the repository's workspace and of each
+      # host entry with its own lock (conformance/host/p30) with the toolchain
+      # that rust-toolchain.toml pins.
       - name: Install the pinned toolchain
         run: rustup toolchain install
 
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: |
+            . -> target
+            conformance/host/p30 -> target
 
       - name: Check claims.yaml
         run: uv run --script tools/check-claims

@@ -1,0 +1,663 @@
+{
+  "format": 1,
+  "host": "soroban-env-host 29.0.1",
+  "files": [
+    "src/test/auth.rs",
+    "src/test/auth_delegation.rs",
+    "src/test/invoker_auth.rs",
+    "src/test/storage.rs",
+    "src/test/frame.rs"
+  ],
+  "totals": {
+    "tests": 74,
+    "tests_expressed": 27,
+    "tests_outside": 47,
+    "cases_in_expressed_tests": 213,
+    "cases_expressed": 155,
+    "cases_agree": 155,
+    "cases_disagree": 0,
+    "cases_left": 58
+  },
+  "tests": [
+    {
+      "file": "auth.rs",
+      "test": "test_single_authorized_call",
+      "expressed": true,
+      "cases": 9,
+      "expressed_cases": 6,
+      "agree": 6,
+      "disagree": 0,
+      "vectors": ["seed-auth-single-authorized-call"],
+      "left": [
+        {"cases": 2, "reason": "recording authorization (simulation) is not modelled"},
+        {
+          "cases": 1,
+          "reason": "a Stellar account signer whose account entry is missing: the models authenticate contract accounts only"
+        }
+      ]
+    },
+    {
+      "file": "auth.rs",
+      "test": "test_single_authorized_call_for_multiple_addresses",
+      "expressed": true,
+      "cases": 5,
+      "expressed_cases": 4,
+      "agree": 4,
+      "disagree": 0,
+      "vectors": ["seed-auth-single-authorized-call-for-multiple-addresses"],
+      "left": [{"cases": 1, "reason": "recording authorization (simulation) is not modelled"}]
+    },
+    {
+      "file": "auth.rs",
+      "test": "test_single_authorization_for_one_address_among_multiple",
+      "expressed": true,
+      "cases": 5,
+      "expressed_cases": 4,
+      "agree": 4,
+      "disagree": 0,
+      "vectors": ["seed-auth-single-authorization-for-one-address-among-multiple"],
+      "left": [{"cases": 1, "reason": "recording authorization (simulation) is not modelled"}]
+    },
+    {
+      "file": "auth.rs",
+      "test": "test_single_authorized_call_tree",
+      "expressed": true,
+      "cases": 6,
+      "expressed_cases": 5,
+      "agree": 5,
+      "disagree": 0,
+      "vectors": ["seed-auth-single-authorized-call-tree"],
+      "left": [{"cases": 1, "reason": "recording authorization (simulation) is not modelled"}]
+    },
+    {
+      "file": "auth.rs",
+      "test": "test_disjoint_tree_not_allowed",
+      "expressed": true,
+      "cases": 2,
+      "expressed_cases": 2,
+      "agree": 2,
+      "disagree": 0,
+      "vectors": ["seed-auth-disjoint-tree-not-allowed"],
+      "left": []
+    },
+    {
+      "file": "auth.rs",
+      "test": "test_two_authorized_trees",
+      "expressed": true,
+      "cases": 4,
+      "expressed_cases": 2,
+      "agree": 2,
+      "disagree": 0,
+      "vectors": ["seed-auth-two-authorized-trees"],
+      "left": [
+        {"cases": 1, "reason": "recording authorization (simulation) is not modelled"},
+        {"cases": 1, "reason": "resource metering is not modelled"}
+      ]
+    },
+    {
+      "file": "auth.rs",
+      "test": "test_two_authorized_trees_with_rollback",
+      "expressed": true,
+      "cases": 5,
+      "expressed_cases": 5,
+      "agree": 5,
+      "disagree": 0,
+      "vectors": ["seed-auth-two-authorized-trees-with-rollback"],
+      "left": []
+    },
+    {
+      "file": "auth.rs",
+      "test": "test_rolled_back_auth_entry_can_be_reused",
+      "expressed": true,
+      "cases": 2,
+      "expressed_cases": 2,
+      "agree": 2,
+      "disagree": 0,
+      "vectors": ["seed-auth-rolled-back-auth-entry-can-be-reused"],
+      "left": []
+    },
+    {
+      "file": "auth.rs",
+      "test": "test_three_authorized_trees",
+      "expressed": true,
+      "cases": 5,
+      "expressed_cases": 4,
+      "agree": 4,
+      "disagree": 0,
+      "vectors": ["seed-auth-three-authorized-trees"],
+      "left": [{"cases": 1, "reason": "recording authorization (simulation) is not modelled"}]
+    },
+    {
+      "file": "auth.rs",
+      "test": "test_multi_address_trees",
+      "expressed": true,
+      "cases": 3,
+      "expressed_cases": 2,
+      "agree": 2,
+      "disagree": 0,
+      "vectors": ["seed-auth-multi-address-trees"],
+      "left": [{"cases": 1, "reason": "recording authorization (simulation) is not modelled"}]
+    },
+    {
+      "file": "auth.rs",
+      "test": "test_multi_address_auth_with_stored_addresses",
+      "expressed": true,
+      "cases": 4,
+      "expressed_cases": 3,
+      "agree": 3,
+      "disagree": 0,
+      "vectors": ["seed-auth-multi-address-auth-with-stored-addresses"],
+      "left": [{"cases": 1, "reason": "recording authorization (simulation) is not modelled"}]
+    },
+    {
+      "file": "auth.rs",
+      "test": "test_same_auth_tree_with_duplicate_addresses",
+      "expressed": true,
+      "cases": 4,
+      "expressed_cases": 3,
+      "agree": 3,
+      "disagree": 0,
+      "vectors": ["seed-auth-same-auth-tree-with-duplicate-addresses"],
+      "left": [{"cases": 1, "reason": "recording authorization (simulation) is not modelled"}]
+    },
+    {
+      "file": "auth.rs",
+      "test": "test_different_auth_trees_with_duplicate_addresses",
+      "expressed": true,
+      "cases": 4,
+      "expressed_cases": 3,
+      "agree": 3,
+      "disagree": 0,
+      "vectors": ["seed-auth-different-auth-trees-with-duplicate-addresses"],
+      "left": [{"cases": 1, "reason": "recording authorization (simulation) is not modelled"}]
+    },
+    {
+      "file": "auth.rs",
+      "test": "test_out_of_order_auth",
+      "expressed": true,
+      "cases": 3,
+      "expressed_cases": 2,
+      "agree": 2,
+      "disagree": 0,
+      "vectors": ["seed-auth-out-of-order-auth"],
+      "left": [{"cases": 1, "reason": "recording authorization (simulation) is not modelled"}]
+    },
+    {
+      "file": "auth.rs",
+      "test": "test_disable_non_root_recording_auth",
+      "expressed": false,
+      "reason": "recording authorization (simulation) is not modelled"
+    },
+    {
+      "file": "auth.rs",
+      "test": "test_invoker_subcontract_auth",
+      "expressed": false,
+      "reason": "authorize_as_current_contract is not modelled"
+    },
+    {
+      "file": "auth.rs",
+      "test": "test_invoker_subcontract_auth_with_duplicates",
+      "expressed": false,
+      "reason": "authorize_as_current_contract is not modelled"
+    },
+    {
+      "file": "auth.rs",
+      "test": "test_invoker_subcontract_with_gaps",
+      "expressed": false,
+      "reason": "authorize_as_current_contract is not modelled"
+    },
+    {
+      "file": "auth.rs",
+      "test": "test_invoker_subcontract_auth_with_rollbacks",
+      "expressed": false,
+      "reason": "authorize_as_current_contract is not modelled"
+    },
+    {
+      "file": "auth.rs",
+      "test": "test_invoker_subcontract_auth_is_not_reused",
+      "expressed": false,
+      "reason": "authorize_as_current_contract is not modelled"
+    },
+    {
+      "file": "auth.rs",
+      "test": "test_invoker_subcontract_auth_without_subcontract_calls",
+      "expressed": false,
+      "reason": "authorize_as_current_contract is not modelled"
+    },
+    {
+      "file": "auth.rs",
+      "test": "test_invoker_auth_depth_limit",
+      "expressed": false,
+      "reason": "authorize_as_current_contract is not modelled"
+    },
+    {
+      "file": "auth.rs",
+      "test": "test_require_auth_within_check_auth",
+      "expressed": false,
+      "reason": "require_auth inside __check_auth is not modelled"
+    },
+    {
+      "file": "auth.rs",
+      "test": "test_require_auth_for_self_within_check_auth",
+      "expressed": false,
+      "reason": "require_auth inside __check_auth is not modelled"
+    },
+    {
+      "file": "auth.rs",
+      "test": "test_rollback_with_conditional_custom_account_auth",
+      "expressed": false,
+      "reason": "the account's __check_auth branches on its storage; the model's account programs do not branch"
+    },
+    {
+      "file": "auth.rs",
+      "test": "test_instance_storage_in_check_auth_with_reentrance",
+      "expressed": false,
+      "reason": "require_auth_for_args with arguments other than the call's, and account programs that compute stored values, are not modelled"
+    },
+    {
+      "file": "auth_delegation.rs",
+      "test": "test_delegated_auth_functions_not_callable_outside_check_auth",
+      "expressed": false,
+      "reason": "delegate_account_auth and get_delegated_signers outside __check_auth: the model's delegation is an account step"
+    },
+    {
+      "file": "auth_delegation.rs",
+      "test": "test_credential_with_delegates_uses_preimage_with_address",
+      "expressed": true,
+      "cases": 7,
+      "expressed_cases": 3,
+      "agree": 3,
+      "disagree": 0,
+      "vectors": [
+        "seed-delegation-credential-with-delegates-uses-preimage-with-address-1",
+        "seed-delegation-credential-with-delegates-uses-preimage-with-address-2",
+        "seed-delegation-credential-with-delegates-uses-preimage-with-address-3"
+      ],
+      "left": [
+        {
+          "cases": 4,
+          "reason": "the test account refuses because it compares its payload or contexts with values the test computed; the model's account programs make no such comparison (the payload and contexts themselves are checked on every __check_auth event)"
+        }
+      ]
+    },
+    {
+      "file": "auth_delegation.rs",
+      "test": "test_duplicate_and_unsorted_delegated_signers_are_not_allowed",
+      "expressed": true,
+      "cases": 7,
+      "expressed_cases": 1,
+      "agree": 1,
+      "disagree": 0,
+      "vectors": ["seed-delegation-duplicate-and-unsorted-delegated-signers-are-not-allowed-1"],
+      "left": [
+        {
+          "cases": 6,
+          "reason": "the host refuses the entries when they are installed (duplicate, unsorted or too deeply nested delegates); the model takes the delegate list as given, and the traces keep delegates sorted, unique and shallow"
+        }
+      ]
+    },
+    {
+      "file": "auth_delegation.rs",
+      "test": "test_signature_payload_forwarded_to_delegated_signers",
+      "expressed": true,
+      "cases": 4,
+      "expressed_cases": 2,
+      "agree": 2,
+      "disagree": 0,
+      "vectors": [
+        "seed-delegation-signature-payload-forwarded-to-delegated-signers-1",
+        "seed-delegation-signature-payload-forwarded-to-delegated-signers-2"
+      ],
+      "left": [
+        {
+          "cases": 2,
+          "reason": "the test account refuses because it compares its payload or contexts with values the test computed; the model's account programs make no such comparison (the payload and contexts themselves are checked on every __check_auth event)"
+        }
+      ]
+    },
+    {
+      "file": "auth_delegation.rs",
+      "test": "test_context_forwarded_to_delegated_signers",
+      "expressed": true,
+      "cases": 8,
+      "expressed_cases": 2,
+      "agree": 2,
+      "disagree": 0,
+      "vectors": [
+        "seed-delegation-context-forwarded-to-delegated-signers-1",
+        "seed-delegation-context-forwarded-to-delegated-signers-2"
+      ],
+      "left": [
+        {
+          "cases": 6,
+          "reason": "the test account refuses because it compares its payload or contexts with values the test computed; the model's account programs make no such comparison (the payload and contexts themselves are checked on every __check_auth event)"
+        }
+      ]
+    },
+    {
+      "file": "auth_delegation.rs",
+      "test": "test_builtin_delegated_signer_reentrance_not_allowed",
+      "expressed": true,
+      "cases": 7,
+      "expressed_cases": 4,
+      "agree": 4,
+      "disagree": 0,
+      "vectors": [
+        "seed-delegation-builtin-delegated-signer-reentrance-not-allowed-1",
+        "seed-delegation-builtin-delegated-signer-reentrance-not-allowed-2",
+        "seed-delegation-builtin-delegated-signer-reentrance-not-allowed-3",
+        "seed-delegation-builtin-delegated-signer-reentrance-not-allowed-4"
+      ],
+      "left": [
+        {"cases": 2, "reason": "require_auth inside __check_auth is not modelled"},
+        {"cases": 1, "reason": "__check_auth calling other contracts is not modelled"}
+      ]
+    },
+    {
+      "file": "auth_delegation.rs",
+      "test": "test_builtin_delegated_signers_must_be_present_in_payload",
+      "expressed": true,
+      "cases": 5,
+      "expressed_cases": 5,
+      "agree": 5,
+      "disagree": 0,
+      "vectors": [
+        "seed-delegation-builtin-delegated-signers-must-be-present-in-payload-1",
+        "seed-delegation-builtin-delegated-signers-must-be-present-in-payload-2",
+        "seed-delegation-builtin-delegated-signers-must-be-present-in-payload-3",
+        "seed-delegation-builtin-delegated-signers-must-be-present-in-payload-4",
+        "seed-delegation-builtin-delegated-signers-must-be-present-in-payload-5"
+      ],
+      "left": []
+    },
+    {
+      "file": "auth_delegation.rs",
+      "test": "test_delegate_account_auth_is_not_reused",
+      "expressed": true,
+      "cases": 2,
+      "expressed_cases": 2,
+      "agree": 2,
+      "disagree": 0,
+      "vectors": [
+        "seed-delegation-delegate-account-auth-is-not-reused-1",
+        "seed-delegation-delegate-account-auth-is-not-reused-2"
+      ],
+      "left": []
+    },
+    {
+      "file": "auth_delegation.rs",
+      "test": "test_multiple_auth_entries_with_delegates_for_same_account",
+      "expressed": false,
+      "reason": "the account's __check_auth acts on each entry's own signature; the model gives an account one program for every entry"
+    },
+    {
+      "file": "auth_delegation.rs",
+      "test": "test_builtin_delegate_can_be_repeated_at_different_levels",
+      "expressed": true,
+      "cases": 1,
+      "expressed_cases": 1,
+      "agree": 1,
+      "disagree": 0,
+      "vectors": ["seed-delegation-builtin-delegate-can-be-repeated-at-different-levels-1"],
+      "left": []
+    },
+    {
+      "file": "auth_delegation.rs",
+      "test": "test_delegated_signers_getter",
+      "expressed": false,
+      "reason": "get_delegated_signers_for_current_auth_check is not modelled"
+    },
+    {
+      "file": "auth_delegation.rs",
+      "test": "test_builtin_delegates_within_nested_auth",
+      "expressed": false,
+      "reason": "require_auth inside __check_auth is not modelled"
+    },
+    {
+      "file": "auth_delegation.rs",
+      "test": "test_builtin_delegates_within_nested_auth_and_rollbacks",
+      "expressed": false,
+      "reason": "__check_auth calling other contracts is not modelled"
+    },
+    {
+      "file": "auth_delegation.rs",
+      "test": "test_failed_nested_auth_does_not_change_current_auth_frame",
+      "expressed": false,
+      "reason": "__check_auth calling other contracts is not modelled"
+    },
+    {
+      "file": "auth_delegation.rs",
+      "test": "test_builtin_delegated_signer_with_classic_accounts",
+      "expressed": false,
+      "reason": "Stellar account (classic) delegates: the models authenticate contract accounts only"
+    },
+    {
+      "file": "auth_delegation.rs",
+      "test": "test_deeply_nested_delegate_tree_is_rejected",
+      "expressed": false,
+      "reason": "the host refuses the entries when they are installed (duplicate, unsorted or too deeply nested delegates); the model takes the delegate list as given, and the traces keep delegates sorted, unique and shallow"
+    },
+    {
+      "file": "invoker_auth.rs",
+      "test": "test_invalid_invoker_auth_format",
+      "expressed": false,
+      "reason": "authorize_as_current_contract is not modelled"
+    },
+    {
+      "file": "invoker_auth.rs",
+      "test": "test_invoker_auth_with_multiple_authorizers",
+      "expressed": false,
+      "reason": "authorize_as_current_contract is not modelled"
+    },
+    {
+      "file": "invoker_auth.rs",
+      "test": "test_failure_after_adding_invoker_auth",
+      "expressed": false,
+      "reason": "authorize_as_current_contract is not modelled"
+    },
+    {
+      "file": "invoker_auth.rs",
+      "test": "test_invoker_auth_tree_with_rollbacks",
+      "expressed": false,
+      "reason": "authorize_as_current_contract is not modelled"
+    },
+    {
+      "file": "invoker_auth.rs",
+      "test": "test_multi_invoker_auth_deep_stack_with_rollbacks",
+      "expressed": false,
+      "reason": "authorize_as_current_contract is not modelled"
+    },
+    {
+      "file": "invoker_auth.rs",
+      "test": "test_self_invoker_auth",
+      "expressed": false,
+      "reason": "authorize_as_current_contract is not modelled"
+    },
+    {
+      "file": "invoker_auth.rs",
+      "test": "test_randomized_invoker_auth_trees",
+      "expressed": false,
+      "reason": "authorize_as_current_contract is not modelled"
+    },
+    {
+      "file": "storage.rs",
+      "test": "footprint_record_access",
+      "expressed": false,
+      "reason": "footprints are not modelled"
+    },
+    {
+      "file": "storage.rs",
+      "test": "footprint_enforce_access",
+      "expressed": false,
+      "reason": "footprints are not modelled"
+    },
+    {
+      "file": "storage.rs",
+      "test": "footprint_enforce_access_not_exist",
+      "expressed": false,
+      "reason": "footprints are not modelled"
+    },
+    {
+      "file": "storage.rs",
+      "test": "footprint_attempt_to_write_readonly_entry",
+      "expressed": false,
+      "reason": "footprints are not modelled"
+    },
+    {
+      "file": "storage.rs",
+      "test": "test_persistent_storage",
+      "expressed": true,
+      "cases": 17,
+      "expressed_cases": 13,
+      "agree": 13,
+      "disagree": 0,
+      "vectors": ["seed-storage-persistent-storage"],
+      "left": [{"cases": 4, "reason": "time to live and its extension are not modelled"}]
+    },
+    {
+      "file": "storage.rs",
+      "test": "test_temp_storage",
+      "expressed": true,
+      "cases": 16,
+      "expressed_cases": 13,
+      "agree": 13,
+      "disagree": 0,
+      "vectors": ["seed-storage-temp-storage"],
+      "left": [{"cases": 3, "reason": "time to live and its extension are not modelled"}]
+    },
+    {
+      "file": "storage.rs",
+      "test": "test_instance_storage",
+      "expressed": true,
+      "cases": 17,
+      "expressed_cases": 13,
+      "agree": 13,
+      "disagree": 0,
+      "vectors": ["seed-storage-instance-storage"],
+      "left": [{"cases": 4, "reason": "time to live and its extension are not modelled"}]
+    },
+    {
+      "file": "storage.rs",
+      "test": "test_nested_bump",
+      "expressed": false,
+      "reason": "time to live and its extension are not modelled"
+    },
+    {
+      "file": "storage.rs",
+      "test": "muxed_address_storage_key_conversion",
+      "expressed": false,
+      "reason": "a test of a host-internal or test-only function, not of a contract's behaviour"
+    },
+    {
+      "file": "storage.rs",
+      "test": "test_muxed_account_is_not_allowed_as_storage_key",
+      "expressed": true,
+      "cases": 11,
+      "expressed_cases": 10,
+      "agree": 10,
+      "disagree": 0,
+      "vectors": ["seed-storage-muxed-account-is-not-allowed-as-storage-key"],
+      "left": [
+        {
+          "cases": 1,
+          "reason": "a muxed address as an instance storage key: the host refuses it when it writes the instance back, which the model leaves out"
+        }
+      ]
+    },
+    {
+      "file": "storage.rs",
+      "test": "test_storage_mix",
+      "expressed": true,
+      "cases": 50,
+      "expressed_cases": 39,
+      "agree": 39,
+      "disagree": 0,
+      "vectors": ["seed-storage-storage-mix"],
+      "left": [{"cases": 11, "reason": "time to live and its extension are not modelled"}]
+    },
+    {
+      "file": "storage.rs",
+      "test": "test_large_persistent_value",
+      "expressed": false,
+      "reason": "the budget's limits on value and key size are not modelled"
+    },
+    {
+      "file": "storage.rs",
+      "test": "test_large_instance_value",
+      "expressed": false,
+      "reason": "the budget's limits on value and key size are not modelled"
+    },
+    {
+      "file": "storage.rs",
+      "test": "test_large_persistent_key",
+      "expressed": false,
+      "reason": "the budget's limits on value and key size are not modelled"
+    },
+    {
+      "file": "storage.rs",
+      "test": "test_large_instance_key",
+      "expressed": false,
+      "reason": "the budget's limits on value and key size are not modelled"
+    },
+    {
+      "file": "storage.rs",
+      "test": "test_extend_ttl_v2_persistent",
+      "expressed": false,
+      "reason": "time to live and its extension are not modelled"
+    },
+    {
+      "file": "storage.rs",
+      "test": "test_extend_ttl_v2_instance",
+      "expressed": false,
+      "reason": "time to live and its extension are not modelled"
+    },
+    {
+      "file": "storage.rs",
+      "test": "test_extend_ttl_v2_temporary",
+      "expressed": false,
+      "reason": "time to live and its extension are not modelled"
+    },
+    {
+      "file": "storage.rs",
+      "test": "test_extend_data_ttl_v2_rejects_instance_storage",
+      "expressed": false,
+      "reason": "time to live and its extension are not modelled"
+    },
+    {
+      "file": "storage.rs",
+      "test": "test_extend_instance_and_code_ttl_v2_extension_scope",
+      "expressed": false,
+      "reason": "time to live and its extension are not modelled"
+    },
+    {
+      "file": "frame.rs",
+      "test": "has_frame",
+      "expressed": false,
+      "reason": "a test of a host-internal or test-only function, not of a contract's behaviour"
+    },
+    {
+      "file": "frame.rs",
+      "test": "invocation_hook_tracks_top_frame",
+      "expressed": false,
+      "reason": "a test of a host-internal or test-only function, not of a contract's behaviour"
+    },
+    {
+      "file": "frame.rs",
+      "test": "try_with_test_contract_frame_has_frame",
+      "expressed": false,
+      "reason": "a test of a host-internal or test-only function, not of a contract's behaviour"
+    },
+    {
+      "file": "frame.rs",
+      "test": "try_with_test_contract_frame_catches_host_error",
+      "expressed": false,
+      "reason": "a test of a host-internal or test-only function, not of a contract's behaviour"
+    },
+    {
+      "file": "frame.rs",
+      "test": "try_with_test_contract_frame_catches_panic",
+      "expressed": false,
+      "reason": "a test of a host-internal or test-only function, not of a contract's behaviour"
+    }
+  ]
+}

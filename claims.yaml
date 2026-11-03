@@ -2002,10 +2002,10 @@ claims:
 
   - id: trusted.soroban-host
     claim: >-
-      soroban-sdk 29.0.1's testutils, driving soroban-env-host 29.0.1 with
-      native contracts and set_auths, behave as the host function
-      stellar-core calls for storage, rollback within a transaction and
-      enforcing authorization.
+      soroban-sdk 29.0.1's and 30.0.0-rc.1's testutils, driving
+      soroban-env-host 29.0.1 and 30.0.0 with native contracts and set_auths,
+      behave as the host function stellar-core calls for storage, rollback
+      within a transaction and enforcing authorization.
     status: assumed
     evidence:
       - trusted: soroban-sdk and soroban-env-host
@@ -2443,6 +2443,7 @@ claims:
     status: tested
     evidence:
       - test: soroban-host-p29/host::the_host_runs_the_pinned_protocol
+      - ci: {workflow: .github/workflows/host.yml, job: host, step: Replay the vectors on the host, runs: cargo test --locked, matrix: {name: 29.0.1 (facade), entry: p29}}
       - file: conformance/host/p29/Cargo.toml
         contains: "soroban-sdk = { version = \"=29.0.1\""
       - file: crates/soroban-facade/Cargo.toml
@@ -2453,39 +2454,76 @@ claims:
         contains: "name = \"soroban-sdk\"\nversion = \"29.0.1\""
       - file: Cargo.lock
         contains: "name = \"stellar-xdr\"\nversion = \"28.0.0\""
-      - ci: {workflow: .github/workflows/host.yml, job: host, step: Replay the vectors on the host, runs: cargo test --locked}
+
+  - id: host.next
+    claim: >-
+      The host harness also runs on soroban-env-host 30.0.0, fixed by
+      soroban-sdk 30.0.0-rc.1 with stellar-xdr 30.0.0, at ledger protocol 30,
+      in a crate that is a workspace of its own with its own lock and shares
+      the harness's source and tests; there storage, require_auth and the
+      reading of __check_auth's contexts go through the SDK directly, since
+      the facade's real implementation is built against soroban-sdk 29.0.1.
+    status: tested
+    evidence:
+      - test: soroban-host-p30/host::the_host_runs_the_pinned_protocol
+      - file: conformance/host/p30/Cargo.toml
+        contains: "soroban-sdk = { version = \"=30.0.0-rc.1\""
+      - file: conformance/host/p30/Cargo.lock
+        contains: "name = \"soroban-env-host\"\nversion = \"30.0.0\""
+      - file: conformance/host/p30/Cargo.lock
+        contains: "name = \"stellar-xdr\"\nversion = \"30.0.0\""
+
+  - id: host.matrix
+    claim: >-
+      Every pull request and push to main lints the harness and replays every
+      Soroban vector, the transcribed host tests included, on three entries,
+      each its own check with no condition and no allowed failure:
+      soroban-env-host 29.0.1 through the facade's real implementation,
+      29.0.1 through the SDK directly, and 30.0.0 through the SDK directly.
+      The two 29.0.1 entries set the 29.0.1 host apart from the facade; the
+      two SDK entries set the host version apart.
+    status: tested
+    evidence:
+      - ci: {workflow: .github/workflows/host.yml, job: host, step: Replay the vectors on the host, runs: cargo test --locked, matrix: {name: 29.0.1 (facade), entry: p29, features: ""}}
+      - ci: {workflow: .github/workflows/host.yml, job: host, step: Replay the vectors on the host, runs: cargo test --locked, matrix: {name: 29.0.1 (SDK), entry: p29, features: --no-default-features}}
+      - ci: {workflow: .github/workflows/host.yml, job: host, step: Replay the vectors on the host, runs: cargo test --locked, matrix: {name: 30.0.0 (SDK), entry: p30, features: ""}}
+      - ci: {workflow: .github/workflows/host.yml, job: host, step: Lint the harness, runs: cargo clippy --locked}
 
   - id: host.values
     claim: >-
-      On soroban-env-host 29.0.1, every value of the value vectors crosses
-      the host unchanged: stellar-xdr reads the model's XDR and writes it back
-      byte for byte, the host takes it and gives the same value back, and
-      the facade reads it as the vector's value.
+      On soroban-env-host 29.0.1 and 30.0.0, every value of the value vectors
+      crosses the host unchanged: stellar-xdr reads the model's XDR and
+      writes it back byte for byte, the host takes it and gives the same
+      value back, and the facade reads it as the vector's value.
     status: tested
     assumes: [trusted.soroban-host, trusted.host-harness]
     evidence:
       - test: soroban-host-p29/host::every_value_crosses_the_host_unchanged
+      - test: soroban-host-p30/host::every_value_crosses_the_host_unchanged
       - file: conformance/vectors/soroban/values
 
   - id: host.storage-map
     claim: >-
-      On soroban-env-host 29.0.1, through the facade's real implementation,
-      every operation of every storage trace returns what the storage model
-      gives, each as a transaction of its own (muxed keys in persistent and
-      temporary storage refused), and storage across calls, durabilities and
-      contracts holds what the model says after every transaction of the host
-      traces.
+      On soroban-env-host 29.0.1, through the facade's real implementation
+      and through the SDK directly, and on soroban-env-host 30.0.0 through
+      the SDK directly, every operation of every storage trace returns what
+      the storage model gives, each as a transaction of its own (muxed keys
+      in persistent and temporary storage refused), and storage across calls,
+      durabilities and contracts holds what the model says after every
+      transaction of the host traces.
     status: tested
     assumes: [trusted.soroban-models, trusted.soroban-host, trusted.sdk-items, trusted.host-harness]
     evidence:
       - test: soroban-host-p29/host::storage_on_the_host_agrees_with_every_storage_trace
       - test: soroban-host-p29/host::the_host_agrees_with_every_host_trace
+      - test: soroban-host-p30/host::storage_on_the_host_agrees_with_every_storage_trace
+      - test: soroban-host-p30/host::the_host_agrees_with_every_host_trace
       - file: conformance/vectors/soroban/storage
       - file: conformance/vectors/soroban/host/host-storage-in-calls.json
 
   - id: host.rollback
     claim: >-
-      On soroban-env-host 29.0.1, a call that fails with an error or a trap
+      On soroban-env-host 29.0.1 and 30.0.0, a call that fails with an error or a trap
       leaves storage as it was; a caught failure keeps the caller's writes and
       drops the callee's; an uncaught one drops both; an authorized call
       inside a failed, caught call is rolled back with it, its nonce and its
@@ -2496,6 +2534,7 @@ claims:
     assumes: [trusted.soroban-models, trusted.soroban-host, trusted.host-harness]
     evidence:
       - test: soroban-host-p29/host::the_host_agrees_with_every_host_trace
+      - test: soroban-host-p30/host::the_host_agrees_with_every_host_trace
       - file: conformance/vectors/soroban/host/host-rollback-error-and-trap.json
       - file: conformance/vectors/soroban/host/host-rollback-caught.json
       - file: conformance/vectors/soroban/host/host-rollback-uncaught.json
@@ -2505,7 +2544,7 @@ claims:
 
   - id: host.require-auth
     claim: >-
-      On soroban-env-host 29.0.1 with enforcing authorization, require_auth
+      On soroban-env-host 29.0.1 and 30.0.0 with enforcing authorization, require_auth
       is accepted and refused exactly as the matching model says on every
       host trace: an exact tree, a nested tree with one __check_auth, a tree
       rooted below the top call and a signed node that never runs are
@@ -2518,7 +2557,9 @@ claims:
     assumes: [trusted.soroban-models, trusted.soroban-host, trusted.host-harness]
     evidence:
       - test: soroban-host-p29/host::the_host_agrees_with_every_host_trace
+      - test: soroban-host-p30/host::the_host_agrees_with_every_host_trace
       - test: soroban-host-p29/host::a_wrong_host_expectation_is_reported
+      - test: soroban-host-p30/host::a_wrong_host_expectation_is_reported
       - file: conformance/vectors/soroban/host/host-exact-tree.json
       - file: conformance/vectors/soroban/host/host-nested-tree.json
       - file: conformance/vectors/soroban/host/host-root-below-top-call.json
@@ -2535,18 +2576,20 @@ claims:
 
   - id: host.check-auth-input
     claim: >-
-      On soroban-env-host 29.0.1, every __check_auth call of every host trace
+      On soroban-env-host 29.0.1 and 30.0.0, every __check_auth call of every host trace
       receives the payload the model's preimage hashes to (address-bound for
       ADDRESS_V2 and delegated credentials), the entry's or the delegate's
       signature, and the contexts of the signed tree in preorder, as the
-      host's value and as the facade's real implementation reads them, with
-      rule-eval's reading of them the model's; a delegate receives the
+      host's value and as the facade reads them (its real implementation on
+      29.0.1, its plain reading on both), with rule-eval's reading of them
+      the model's; a delegate receives the
       top-level payload and contexts, may delegate further, may be used once
       per authentication and must be listed.
     status: tested
     assumes: [trusted.soroban-models, trusted.soroban-host, trusted.sdk-items, trusted.host-harness]
     evidence:
       - test: soroban-host-p29/host::the_host_agrees_with_every_host_trace
+      - test: soroban-host-p30/host::the_host_agrees_with_every_host_trace
       - file: conformance/vectors/soroban/host/host-address-bound-payload.json
       - file: conformance/vectors/soroban/host/host-delegation.json
       - file: conformance/vectors/soroban/host/host-nested-delegation.json
@@ -2558,7 +2601,7 @@ claims:
 
   - id: host.reentrant-instance
     claim: >-
-      On soroban-env-host 29.0.1, a contract account's re-entrant __check_auth
+      On soroban-env-host 29.0.1 and 30.0.0, a contract account's re-entrant __check_auth
       sees the instance storage its own call wrote before require_auth, and
       the call sees afterwards what __check_auth wrote there, as the model's
       single store says.
@@ -2566,27 +2609,31 @@ claims:
     assumes: [trusted.soroban-models, trusted.soroban-host, trusted.host-harness]
     evidence:
       - test: soroban-host-p29/host::the_host_agrees_with_every_host_trace
+      - test: soroban-host-p30/host::the_host_agrees_with_every_host_trace
       - file: conformance/vectors/soroban/host/host-reentrant-instance.json
       - file: conformance/vectors/soroban/host/host-check-auth-writes-instance.json
 
   - id: host.rule-eval-in-check-auth
     claim: >-
-      On soroban-env-host 29.0.1, an account whose __check_auth reads its
-      contexts with the facade's real implementation and checks them with
+      On soroban-env-host 29.0.1 and 30.0.0, an account whose __check_auth
+      reads its contexts with the facade (its real implementation on 29.0.1,
+      its plain reading on both) and checks them with
       rule-eval's allows_all accepts and refuses as the model says: every
       signed context is checked, a node that never runs included.
     status: tested
     assumes: [trusted.soroban-models, trusted.soroban-host, trusted.sdk-items, trusted.host-harness]
     evidence:
       - test: soroban-host-p29/host::the_host_agrees_with_every_host_trace
+      - test: soroban-host-p30/host::the_host_agrees_with_every_host_trace
       - file: conformance/vectors/soroban/host/host-check-rules-allows.json
       - file: conformance/vectors/soroban/host/host-check-rules-refuses-unused-node.json
       - file: conformance/vectors/soroban/host/host-check-rules-arguments.json
 
   - id: host.sdk-contexts
     claim: >-
-      With soroban-sdk 29.0.1 on soroban-env-host 29.0.1, the SDK's
-      auth::Context, the type a shell's __check_auth takes its contexts as,
+      With soroban-sdk 29.0.1 on soroban-env-host 29.0.1 and soroban-sdk
+      30.0.0-rc.1 on soroban-env-host 30.0.0, the SDK's auth::Context, the
+      type a shell's __check_auth takes its contexts as,
       reads every context vector exactly when the model reads it, creations
       from an external reference included, and writes what it read back as
       the vector's XDR; a refusal the SDK does not make is reported.
@@ -2594,6 +2641,7 @@ claims:
     assumes: [trusted.soroban-host, trusted.host-harness]
     evidence:
       - test: soroban-host-p29/host::the_sdk_reads_every_context_vector_as_the_model_does
+      - test: soroban-host-p30/host::the_sdk_reads_every_context_vector_as_the_model_does
       - file: conformance/vectors/soroban/contexts/contexts-create-external-ref.json
 
   - id: host.executable-tag
@@ -2607,6 +2655,30 @@ claims:
     assumes: [trusted.soroban-host, trusted.sdk-items]
     evidence:
       - test: soroban-host-p29/host::the_facade_refuses_an_executable_tag
+
+  - id: host.seed
+    claim: >-
+      The authorization and storage tests of soroban-env-host 29.0.1
+      (src/test/auth.rs, auth_delegation.rs, invoker_auth.rs, storage.rs and
+      frame.rs, 74 tests) are transcribed into host and storage traces
+      wherever the models express them: 27 tests, 155 of their 213 cases.
+      The model gives the host test's own outcome in all 155 (the generator
+      writes no vectors otherwise), and the transcribed traces replay with
+      the model's outcomes, events and storage on soroban-env-host 29.0.1 and
+      30.0.0. The other 58 cases of those tests and the other 47 tests are
+      outside the models' stated scope, each listed with its reason in
+      conformance/vectors/soroban/seed/coverage.json.
+    status: tested
+    assumes: [trusted.soroban-models, trusted.soroban-host, trusted.host-harness]
+    evidence:
+      - test: soroban-host-p29/host::the_host_agrees_with_every_seed_trace
+      - test: soroban-host-p29/host::storage_on_the_host_agrees_with_every_seed_storage_trace
+      - test: soroban-host-p30/host::the_host_agrees_with_every_seed_trace
+      - test: soroban-host-p30/host::storage_on_the_host_agrees_with_every_seed_storage_trace
+      - ci: {workflow: .github/workflows/conformance.yml, job: regenerate, step: Regenerate the vectors and compare, runs: lake exe gen-vectors}
+      - file: conformance/generator/Conformance/Soroban/Seed.lean
+      - file: conformance/vectors/soroban/seed/coverage.json
+        contains: "\"tests\": 74,\n    \"tests_expressed\": 27,\n    \"tests_outside\": 47,\n    \"cases_in_expressed_tests\": 213,\n    \"cases_expressed\": 155,\n    \"cases_agree\": 155,\n    \"cases_disagree\": 0,"
 
   # The restricted subset and the build.
 

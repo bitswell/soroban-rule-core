@@ -1,0 +1,43 @@
+# The harness at the next protocol: soroban-sdk 30.0.0-rc.1, which fixes
+# soroban-env-host 30.0.0 (protocol 30). The crate is a workspace of its own,
+# with its own Cargo.lock, so its SDK and host resolve apart from the
+# repository's workspace, which builds soroban-facade's real implementation
+# against soroban-sdk 29.0.1. It shares ../src and ../tests with every other
+# entry.
+[package]
+name = "soroban-host-p30"
+description = "Replays the Soroban vectors on soroban-env-host 30.0.0 through soroban-sdk 30.0.0-rc.1's testutils"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/bitswell/soroban-rule-core"
+publish = false
+
+[workspace]
+
+[lib]
+name = "harness"
+path = "../src/lib.rs"
+doctest = false
+
+[[test]]
+name = "host"
+path = "../tests/host.rs"
+
+# Storage, require_auth and the reading of __check_auth's contexts go through
+# this SDK directly, with the facade's plain reading of the contexts:
+# soroban-facade's real implementation is built against soroban-sdk 29.0.1,
+# whose types are not this SDK's. `facade` is declared only so the shared
+# source's gates on it are known; it adds nothing here.
+[features]
+default = []
+facade = []
+
+[dependencies]
+rule-eval = { path = "../../../crates/rule-eval" }
+rule-eval-conformance = { path = "../../runner" }
+sha2 = "0.10"
+soroban-facade = { path = "../../../crates/soroban-facade" }
+# The host the SDK fixes, named so the harness can set its diagnostic level.
+soroban-env-host = "=30.0.0"
+soroban-sdk = { version = "=30.0.0-rc.1", features = ["testutils"] }
