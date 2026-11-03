@@ -1,0 +1,87 @@
+{
+  "format": 1,
+  "name": "document-random-35",
+  "description": "Randomized admin document trace 35 of seed 20261102.",
+  "document": {
+    "signers": [
+      {"id": "7330", "signer": {"delegated": {"address": "61"}}},
+      {"id": "7331", "signer": {"external": {"verifier": "76", "key": "6b"}}},
+      {"id": "7332", "signer": {"external": {"verifier": "76", "key": "6b32"}}},
+      {"id": "7333", "signer": {"delegated": {"address": "6162"}}}
+    ],
+    "rules": [
+      {
+        "scope": "self_admin",
+        "principals": {"all": ["7330"]},
+        "functions": null,
+        "args": null,
+        "not_after_ledger": null,
+        "cap": null
+      },
+      {
+        "scope": {"contract": "7265676973747279"},
+        "principals": {"threshold": {"ids": ["7332"], "m": 1}},
+        "functions": null,
+        "args": [
+          {"index": 3, "pred": {"string_in": ["706b675f61", "706b675f62", "6f6b"]}},
+          {"index": 0, "pred": {"string_prefix": "70"}}
+        ],
+        "not_after_ledger": null,
+        "cap": null
+      }
+    ],
+    "recovery": null
+  },
+  "account": "6163636f756e74",
+  "scoped": null,
+  "lowered": {
+    "ok": [
+      {
+        "contract": "6163636f756e74",
+        "functions": {"any_except": []},
+        "conds": [],
+        "signers": [{"delegated": {"address": "61"}}],
+        "threshold": 1,
+        "cap": null,
+        "valid_until": null,
+        "generation": null
+      },
+      {
+        "contract": "7265676973747279",
+        "functions": {"any_except": []},
+        "conds": [
+          {
+            "arg_in": {
+              "index": 3,
+              "values": [{"string": "706b675f61"}, {"string": "706b675f62"}, {"string": "6f6b"}]
+            }
+          },
+          {"arg_str_prefix": {"index": 0, "prefix": "70"}}
+        ],
+        "signers": [{"external": {"verifier": "76", "key": "6b32"}}],
+        "threshold": 1,
+        "cap": null,
+        "valid_until": null,
+        "generation": null
+      }
+    ]
+  },
+  "authorizations": [
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "7265676973747279",
+            "function": "7472616e73666572",
+            "args": [{"string": "7078"}, {"address": "62"}, {"i128": "1"}, {"string": "6f6b"}]
+          }
+        }
+      ],
+      "choices": [1],
+      "authenticated": [],
+      "now": 502,
+      "generation": "0",
+      "expected": "refused"
+    }
+  ]
+}

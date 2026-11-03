@@ -583,6 +583,114 @@ info: 'RuleCore.Chain.Val.ne_of_kind_ne' does not depend on any axioms
 ---
 info: 'RuleCore.Chain.Val.string_ne_symbol' depends on axioms: [propext]
 ---
+info: 'RuleCore.Document.Account.adminRules_authorize_generation' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Account.chain' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Account.chain_after_recovery' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Account.chain_trace' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Account.issued_stale' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Account.run_address' depends on axioms: [propext]
+---
+info: 'RuleCore.Document.Account.run_generation' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Document.Account.step_address' depends on axioms: [propext]
+---
+info: 'RuleCore.Document.Doc.authorize_eq_some_iff' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.authorize_lowerAll' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.authorize_mono' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.authorize_of_recovery_none' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.charge_lower' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.checkChoice_lower' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.foldlM_charge_lower' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.lastLedger_toNat' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.lowerAll_eq_map' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.lowerRule_allows' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.lowerRules_allows' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.lowerRules_eq_append' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.lowerScoped_allows' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.lowerScoped_allows_excluded' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.lowerScoped_attenuateAll_excluded' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.lowerScoped_authorize' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.lowerScoped_contract' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.lowerScoped_eq_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.lowerScoped_generation' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.lower_allows' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.lower_allows_of_recovery_none' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.lower_authorize' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.lower_authorize_of_check' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.lower_authorize_of_recovery_none' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.lower_generation' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.mem_excluded' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.mem_rules_of_installed' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.signerChosen_lower' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Pred.lower_holds' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Rule.Valid.allDistinct' does not depend on any axioms
+---
+info: 'RuleCore.Document.Rule.Valid.allFits' does not depend on any axioms
+---
+info: 'RuleCore.Document.Rule.Valid.notAfterPos' does not depend on any axioms
+---
+info: 'RuleCore.Document.Rule.covers_iff' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Rule.lowerConds_all' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Rule.mem_lowerFunctions' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Rule.signed_lowerRule' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.RuleSet.allows_eq_any' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.RuleSet.authorize_generation_none' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.amountCond_holds' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.eraseDups_of_nodup' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Document.i128Max_toInt' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Document.recoveryRule_allows' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.toOption_eq_of_iff' depends on axioms: [propext]
+---
+info: 'RuleCore.Document.toOption_eq_some' depends on axioms: [propext]
+---
+info: 'RuleCore.Equiv.LowerRoom.args' depends on axioms: [propext]
+---
+info: 'RuleCore.Equiv.LowerRoom.rules' depends on axioms: [propext]
+---
 info: 'RuleCore.Equiv.add_cap_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.add_cap_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -601,15 +709,25 @@ info: 'RuleCore.Equiv.allows_all_eq' depends on axioms: [propext, Classical.choi
 ---
 info: 'RuleCore.Equiv.allows_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
+info: 'RuleCore.Equiv.amount_arg_val' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Equiv.any_bytes_eq_mem' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.any_excluded_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.any_signer_eq_mem' depends on axioms: [propext, Quot.sound]
 ---
 info: 'RuleCore.Equiv.any_val_eq_mem' depends on axioms: [propext, Quot.sound]
 ---
+info: 'RuleCore.Equiv.apply_doc_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.array_slice_val' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Equiv.authorize_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.before_newest_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.byte_cast' depends on axioms: [propext]
 ---
 info: 'RuleCore.Equiv.byte_injective' depends on axioms: [propext]
 ---
@@ -628,6 +746,8 @@ info: 'RuleCore.Equiv.bytes_eq_loop_eq' depends on axioms: [propext, Classical.c
 info: 'RuleCore.Equiv.bytes_in_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.bytes_list_copy_deref' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.bytes_list_copy_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.bytes_list_copy_loop_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
@@ -707,13 +827,19 @@ info: 'RuleCore.Equiv.conds_copy_loop_eq' depends on axioms: [propext, Classical
 ---
 info: 'RuleCore.Equiv.conds_hold_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
+info: 'RuleCore.Equiv.contract_of_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Equiv.countFrom_first' depends on axioms: [propext, Quot.sound]
 ---
 info: 'RuleCore.Equiv.countFrom_first_from' depends on axioms: [propext, Quot.sound]
 ---
 info: 'RuleCore.Equiv.countFrom_map' depends on axioms: [propext]
 ---
+info: 'RuleCore.Equiv.covers_transfer_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Equiv.delegate_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.denoteArg_injective' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.denoteAuthorized_injective' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
@@ -735,6 +861,14 @@ info: 'RuleCore.Equiv.denoteCond_injective' depends on axioms: [propext, Classic
 ---
 info: 'RuleCore.Equiv.denoteContext_injective' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
+info: 'RuleCore.Equiv.denoteDecl_injective' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.denoteDocCap_injective' depends on axioms: [propext]
+---
+info: 'RuleCore.Equiv.denoteDocRule_injective' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.denoteDoc_injective' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Equiv.denoteEntry_injective' depends on axioms: [propext, Quot.sound]
 ---
 info: 'RuleCore.Equiv.denoteError_injective' does not depend on any axioms
@@ -747,11 +881,17 @@ info: 'RuleCore.Equiv.denoteOutcome_injective' depends on axioms: [propext, Clas
 ---
 info: 'RuleCore.Equiv.denoteParams_injective' depends on axioms: [propext, Quot.sound]
 ---
+info: 'RuleCore.Equiv.denotePred_injective' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.denotePrincipals_injective' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Equiv.denoteRecord_history' depends on axioms: [propext]
 ---
 info: 'RuleCore.Equiv.denoteRecord_injective' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.denoteRecord_total' depends on axioms: [propext]
+---
+info: 'RuleCore.Equiv.denoteRecovery_injective' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.denoteRefusal_injective' depends on axioms: [propext]
 ---
@@ -763,6 +903,12 @@ info: 'RuleCore.Equiv.denoteRules_injective' depends on axioms: [propext, Classi
 ---
 info: 'RuleCore.Equiv.denoteRules_rules_get' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
+info: 'RuleCore.Equiv.denoteScopeError_injective' does not depend on any axioms
+---
+info: 'RuleCore.Equiv.denoteScope_injective' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.denoteScoped_injective' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Equiv.denoteSigner_injective' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.denoteSigners_injective' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -772,6 +918,8 @@ info: 'RuleCore.Equiv.denoteSpend_injective' depends on axioms: [propext, Classi
 info: 'RuleCore.Equiv.denoteTree_drop' depends on axioms: [propext]
 ---
 info: 'RuleCore.Equiv.denoteTree_injective' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Equiv.denoteU32_eq_ofNat' depends on axioms: [propext, Quot.sound]
 ---
 info: 'RuleCore.Equiv.denoteU32_injective' depends on axioms: [propext]
 ---
@@ -784,6 +932,8 @@ info: 'RuleCore.Equiv.denoteU64_injective' depends on axioms: [propext]
 info: 'RuleCore.Equiv.denoteU64_toNat' does not depend on any axioms
 ---
 info: 'RuleCore.Equiv.denoteVal_injective' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.denoteZk_injective' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.denote_filter_inList' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
@@ -823,9 +973,13 @@ info: 'RuleCore.Equiv.except_map_cons_unit' does not depend on any axioms
 ---
 info: 'RuleCore.Equiv.except_ok_bind' does not depend on any axioms
 ---
+info: 'RuleCore.Equiv.excluded_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Equiv.expired_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.extends_validity_eq' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Equiv.filterMap_strings' depends on axioms: [propext, Quot.sound]
 ---
 info: 'RuleCore.Equiv.fits_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
@@ -847,6 +1001,8 @@ info: 'RuleCore.Equiv.i128_bv_inj' depends on axioms: [propext]
 ---
 info: 'RuleCore.Equiv.i128_bv_injective' depends on axioms: [propext]
 ---
+info: 'RuleCore.Equiv.i128_max_bv' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Equiv.i128_max_eq' depends on axioms: [propext]
 ---
 info: 'RuleCore.Equiv.i128_min_eq' depends on axioms: [propext]
@@ -858,6 +1014,8 @@ info: 'RuleCore.Equiv.incr_eq' depends on axioms: [propext, Classical.choice, Qu
 info: 'RuleCore.Equiv.incr_eq_of_le' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.index_usize_eq' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Equiv.last_ledger_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.length_denoteTree' depends on axioms: [propext]
 ---
@@ -877,11 +1035,37 @@ info: 'RuleCore.Equiv.loop_build_fail' depends on axioms: [propext, Classical.ch
 ---
 info: 'RuleCore.Equiv.loop_count' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
+info: 'RuleCore.Equiv.loop_find' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Equiv.loop_set_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.lower_args_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.lower_args_loop_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.lower_cap_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.lower_cap_limit_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.lower_cap_limit_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.lower_conds_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.lower_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.lower_full' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.lower_functions_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.lower_pred_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.lower_rule_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.lower_rules_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.lower_rules_loop_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.lower_scoped_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.lower_valid_until_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
@@ -895,6 +1079,12 @@ info: 'RuleCore.Equiv.max_nodes_eq' depends on axioms: [propext, Classical.choic
 ---
 info: 'RuleCore.Equiv.max_nodes_le_usize' depends on axioms: [propext, Quot.sound]
 ---
+info: 'RuleCore.Equiv.max_string_len_val' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.named_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.named_loop_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Equiv.node_copy_eq' depends on axioms: [propext, Quot.sound]
 ---
 info: 'RuleCore.Equiv.node_valid_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -905,6 +1095,8 @@ info: 'RuleCore.Equiv.nodes_copy_loop_eq' depends on axioms: [propext, Classical
 ---
 info: 'RuleCore.Equiv.params_valid_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
+info: 'RuleCore.Equiv.principal_ids_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Equiv.push_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.push_full' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -914,6 +1106,8 @@ info: 'RuleCore.Equiv.pushedFrom_eraseIdx' depends on axioms: [propext, Quot.sou
 info: 'RuleCore.Equiv.pushedFrom_eraseIdx_from' depends on axioms: [propext, Quot.sound]
 ---
 info: 'RuleCore.Equiv.pushedFrom_filter' depends on axioms: [propext]
+---
+info: 'RuleCore.Equiv.pushedFrom_filterMap' does not depend on any axioms
 ---
 info: 'RuleCore.Equiv.pushedFrom_map' depends on axioms: [propext, Quot.sound]
 ---
@@ -939,6 +1133,8 @@ info: 'RuleCore.Equiv.records_copy_eq' depends on axioms: [propext, Classical.ch
 ---
 info: 'RuleCore.Equiv.records_copy_loop_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
+info: 'RuleCore.Equiv.recovery_rule_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Equiv.refill_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.refill_loop_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -963,6 +1159,10 @@ info: 'RuleCore.Equiv.remove_signers_loop_eq' depends on axioms: [propext, Class
 ---
 info: 'RuleCore.Equiv.remove_signers_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
+info: 'RuleCore.Equiv.resolve_denote' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Equiv.resolve_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Equiv.restrict_functions_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.restrict_functions_err' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -986,6 +1186,8 @@ info: 'RuleCore.Equiv.rule_without_functions_fail' depends on axioms: [propext, 
 info: 'RuleCore.Equiv.rule_without_signers_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.saturating_sub_val' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Equiv.scope_excluded_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.signed_count_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
@@ -1031,11 +1233,25 @@ info: 'RuleCore.Equiv.spend_eq' depends on axioms: [propext, Classical.choice, Q
 ---
 info: 'RuleCore.Equiv.stale_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
+info: 'RuleCore.Equiv.strings_within_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.strings_within_loop_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.threshold_of_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.transfer_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Equiv.tree_valid_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.tree_valid_loop_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
+info: 'RuleCore.Equiv.u32_div_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.u32_rem_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Equiv.u32_val_injective' does not depend on any axioms
+---
+info: 'RuleCore.Equiv.u32_xdr_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.usize_val_eq_iff' does not depend on any axioms
 ---
@@ -1049,15 +1265,23 @@ info: 'RuleCore.Equiv.vals_copy_deref' depends on axioms: [propext, Classical.ch
 ---
 info: 'RuleCore.Equiv.vals_copy_loop_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
+info: 'RuleCore.Equiv.vec_deref_mk' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Equiv.vec_deref_val' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.vec_eq_of_val' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
+info: 'RuleCore.Equiv.vec_map_inj' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Equiv.vec_mk_deref' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.vec_mk_val' depends on axioms: [propext]
 ---
 info: 'RuleCore.Equiv.vec_new_val' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.vec_val_set_opt' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.with_amount_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.zip_all_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
@@ -1139,6 +1363,10 @@ info: 'RuleCore.Extracted.budget_spend_unchanged' depends on axioms: [propext, C
 ---
 info: 'RuleCore.Extracted.bytes_eq_iff' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
+info: 'RuleCore.Extracted.chain' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.chain_trace' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Extracted.check_spend_before_newest' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Extracted.check_spend_negative' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -1161,6 +1389,8 @@ info: 'RuleCore.Extracted.denoteSigners_mem_iff' depends on axioms: [propext, Qu
 ---
 info: 'RuleCore.Extracted.denoteSigners_subset' depends on axioms: [propext, Quot.sound]
 ---
+info: 'RuleCore.Extracted.derives_allows_excluded' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Extracted.drop_rule_narrower' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Extracted.emptyRecords_denote' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -1177,7 +1407,25 @@ info: 'RuleCore.Extracted.functions_match_only_iff' depends on axioms: [propext,
 ---
 info: 'RuleCore.Extracted.lengthen_cap_period_narrower' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
+info: 'RuleCore.Extracted.lower_allows' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.lower_allows_of_recovery_none' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.lower_authorize' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Extracted.lower_cap_limit_narrower' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.lower_generation' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.lower_scoped_allows' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.lower_scoped_allows_excluded' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.lower_scoped_authorize' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.lower_scoped_generation' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.lower_scoped_model' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Extracted.lower_valid_until_narrower' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---

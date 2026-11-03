@@ -1,0 +1,112 @@
+{
+  "format": 1,
+  "name": "document-extra-signer",
+  "description": "An authorization signed by the rule's signer is accepted; one that also authenticates a signer of no chosen rule is refused.",
+  "document": {
+    "signers": [
+      {
+        "id": "6369",
+        "signer": {"external": {"verifier": "7665726966696572", "key": "63692d6b6579"}}
+      },
+      {"id": "6f7073", "signer": {"delegated": {"address": "6f7073"}}}
+    ],
+    "rules": [
+      {
+        "scope": "self_admin",
+        "principals": {"all": ["6f7073"]},
+        "functions": null,
+        "args": null,
+        "not_after_ledger": null,
+        "cap": null
+      },
+      {
+        "scope": {"contract": "746f6b656e"},
+        "principals": {"all": ["6369"]},
+        "functions": ["7472616e73666572"],
+        "args": null,
+        "not_after_ledger": null,
+        "cap": null
+      }
+    ],
+    "recovery": null
+  },
+  "account": "6163636f756e74",
+  "scoped": null,
+  "lowered": {
+    "ok": [
+      {
+        "contract": "6163636f756e74",
+        "functions": {"any_except": []},
+        "conds": [],
+        "signers": [{"delegated": {"address": "6f7073"}}],
+        "threshold": 1,
+        "cap": null,
+        "valid_until": null,
+        "generation": null
+      },
+      {
+        "contract": "746f6b656e",
+        "functions": {"only": ["7472616e73666572"]},
+        "conds": [],
+        "signers": [{"external": {"verifier": "7665726966696572", "key": "63692d6b6579"}}],
+        "threshold": 1,
+        "cap": null,
+        "valid_until": null,
+        "generation": null
+      }
+    ]
+  },
+  "authorizations": [
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "61"}, {"address": "62"}, {"i128": "5"}]
+          }
+        }
+      ],
+      "choices": [1],
+      "authenticated": [{"external": {"verifier": "7665726966696572", "key": "63692d6b6579"}}],
+      "now": 500,
+      "generation": "0",
+      "expected": {"ok": [{"history": [], "total": "0"}, {"history": [], "total": "0"}]}
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "61"}, {"address": "62"}, {"i128": "5"}]
+          }
+        }
+      ],
+      "choices": [1],
+      "authenticated": [
+        {"external": {"verifier": "7665726966696572", "key": "63692d6b6579"}},
+        {"external": {"verifier": "7665726966696572", "key": "737472616e676572"}}
+      ],
+      "now": 500,
+      "generation": "0",
+      "expected": "refused"
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "746f6b656e",
+            "function": "7472616e73666572",
+            "args": [{"address": "61"}, {"address": "62"}, {"i128": "5"}]
+          }
+        }
+      ],
+      "choices": [1],
+      "authenticated": [],
+      "now": 500,
+      "generation": "0",
+      "expected": "refused"
+    }
+  ]
+}

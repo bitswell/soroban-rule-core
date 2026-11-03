@@ -1,0 +1,142 @@
+{
+  "format": 1,
+  "name": "document-random-15",
+  "description": "Randomized admin document trace 15 of seed 20261102.",
+  "document": {
+    "signers": [
+      {"id": "7330", "signer": {"delegated": {"address": "61"}}},
+      {"id": "7331", "signer": {"external": {"verifier": "76", "key": "6b"}}},
+      {"id": "7332", "signer": {"external": {"verifier": "76", "key": "6b32"}}},
+      {"id": "7333", "signer": {"delegated": {"address": "6162"}}}
+    ],
+    "rules": [
+      {
+        "scope": "self_admin",
+        "principals": {"all": ["7330"]},
+        "functions": null,
+        "args": null,
+        "not_after_ledger": null,
+        "cap": null
+      },
+      {
+        "scope": {"contract": "7661756c74"},
+        "principals": {"all": ["7333"]},
+        "functions": ["7075626c697368", "66", "7472616e73666572"],
+        "args": null,
+        "not_after_ledger": null,
+        "cap": {"limit": "1", "period_ledgers": 1000}
+      }
+    ],
+    "recovery": null
+  },
+  "account": "6163636f756e74",
+  "scoped": null,
+  "lowered": {
+    "ok": [
+      {
+        "contract": "6163636f756e74",
+        "functions": {"any_except": []},
+        "conds": [],
+        "signers": [{"delegated": {"address": "61"}}],
+        "threshold": 1,
+        "cap": null,
+        "valid_until": null,
+        "generation": null
+      },
+      {
+        "contract": "7661756c74",
+        "functions": {"only": ["7472616e73666572"]},
+        "conds": [
+          {"arg_i128_at_most": {"index": 2, "bound": "170141183460469231731687303715884105727"}}
+        ],
+        "signers": [{"delegated": {"address": "6162"}}],
+        "threshold": 1,
+        "cap": {"limit": "1", "period": 1000, "amount_arg": 2},
+        "valid_until": null,
+        "generation": null
+      }
+    ]
+  },
+  "authorizations": [
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "6163636f756e74",
+            "function": "617070726f7665",
+            "args": [{"address": "61"}, {"address": "62"}, {"i128": "1"}, {"bool": false}]
+          }
+        }
+      ],
+      "choices": [0],
+      "authenticated": [{"delegated": {"address": "61"}}],
+      "now": 500,
+      "generation": "0",
+      "expected": {"ok": [{"history": [], "total": "0"}, {"history": [], "total": "0"}]}
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "7661756c74",
+            "function": "7472616e73666572",
+            "args": [{"address": "61"}, {"address": "62"}, {"i128": "10"}, {"bool": false}]
+          }
+        }
+      ],
+      "choices": [1],
+      "authenticated": [{"delegated": {"address": "61"}}],
+      "now": 500,
+      "generation": "0",
+      "expected": "refused"
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "6163636f756e74",
+            "function": "7472616e73666572",
+            "args": [{"address": "61"}, {"address": "62"}, {"i128": "1"}, {"bool": false}]
+          }
+        }
+      ],
+      "choices": [0],
+      "authenticated": [{"delegated": {"address": "61"}}],
+      "now": 501,
+      "generation": "0",
+      "expected": {"ok": [{"history": [], "total": "0"}, {"history": [], "total": "0"}]}
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "6163636f756e74",
+            "function": "617070726f7665",
+            "args": [{"address": "61"}, {"address": "62"}, {"i128": "1"}, {"bool": false}]
+          }
+        }
+      ],
+      "choices": [0],
+      "authenticated": [],
+      "now": 506,
+      "generation": "0",
+      "expected": "refused"
+    },
+    {
+      "batch": [
+        {
+          "call": {
+            "contract": "7661756c74",
+            "function": "617070726f7665",
+            "args": [{"address": "61"}, {"address": "62"}, {"i128": "5"}, {"bool": false}]
+          }
+        }
+      ],
+      "choices": [1],
+      "authenticated": [{"external": {"verifier": "76", "key": "6b"}}],
+      "now": 511,
+      "generation": "0",
+      "expected": "refused"
+    }
+  ]
+}

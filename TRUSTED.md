@@ -29,6 +29,11 @@ and `len - kept_from`, run under `len > 0` and `kept_from <= len`, and
 `check_spend_eq` proves that neither fails. The budget operations' walks count
 their steps with `step += 1` under `step < tree.len()`, and they sum amounts
 with `i128::checked_add`; `spend_eq` proves that the counter never overflows.
+The lowering divides a `u32` by 16,777,216, 65,536 and 256 and takes it modulo
+256, none of which can fail, and narrows only where the value fits: a byte of
+a `u32` after a division or remainder that leaves less than 256, and a signer
+count cast to `u32` under `count <= u32::MAX as usize`. `u32_xdr_eq` and
+`threshold_of_eq` prove the values. A last ledger is `u32::saturating_sub`.
 
 ## Charon
 
@@ -87,17 +92,21 @@ each is trusted to match the Rust item.
 | `s[i]` on a slice (`Index<usize>`) | `Slice.index_usize` | Element `i`, or `fail` when `i` is out of range. |
 | `<[T]>::get(i)` | `core.slice.Slice.get` with `core.slice.index.SliceIndexUsizeSlice` | `some` element `i`, or `none` when `i` is out of range. Called on a rule's arguments (a condition's, and a cap's amount), on a string argument's bytes in `bytes_starts_with`, on the rules in `raise_threshold`, the cap steps, `lower_valid_until` and both of `authorize`'s passes over choices, on an authorization's choices, and on the tree's nodes in the budget's walks and in `refill`. |
 | `<[T]>::get_mut(i)` | `core.slice.Slice.get_mut` with `core.slice.index.SliceIndexUsizeSlice` | `some` element `i` and a function that writes a new element back at `i` (`Slice.set_opt`), or `none` and the slice unchanged when `i` is out of range. Called in `authorize` on the copied records, and in the budget's charging walk on the copied tree. |
-| `u32 as usize` | `UScalar.cast` | The same value. Lossless because `usize` has at least 32 bits. Widens indices (an authorization's choices, a cap's `amount_arg` and the budget's node and parent indices included), in `signers_met` the threshold, and `u32::MAX` into `MAX_NODES`. |
+| `u32 as usize` | `UScalar.cast` | The same value. Lossless because `usize` has at least 32 bits. Widens indices (an authorization's choices, a cap's `amount_arg` and the budget's node and parent indices included), in `signers_met` the threshold, and `u32::MAX` into `MAX_NODES` and in the lowering's `threshold_of`. |
+| `u32 as u8`, `usize as u32` | `UScalar.cast` | The value modulo `2^8` or `2^32`. The lowering casts only a `u32` below 256 and a signer count of at most `u32::MAX`, so no value changes. |
+| `/` and `%` on `u32` | `UScalar.div`, `UScalar.rem` | The quotient and the remainder, `fail` on a zero divisor. `u32_xdr` divides and takes remainders by the constants 16,777,216, 65,536 and 256. |
+| `[u8; N]` and `[Vec<u8>; 1]` literals, and their coercion to slices | `Array.make`, `Array.to_slice` | An array of the listed elements, and the slice of the same list. The lowering builds the names `transfer` and `apply_doc`, a `u32`'s XDR and the recovery rule's function list from them. |
+| `i128::MAX` | `core.num.I128.MAX` | `2^127 - 1`. The lowering's amount condition bounds argument 2 by it. |
 | `u32::MAX` | `core.num.U32.MAX` | `2^32 - 1`. |
 | `i += 1`, `count += 1` and `step += 1` on `usize` | `+` on `Usize` | Checked addition: `fail` on overflow. |
 | `len - 1` and `len - kept_from` on `usize` | `-` on `Usize` | Checked subtraction: `fail` when the result would be negative. |
-| `<`, `<=`, `>=`, `==`, `!=` on `usize` | the order and equality of `Usize` | On the values. |
+| `<`, `<=`, `>`, `>=`, `==`, `!=` on `usize` | the order and equality of `Usize` | On the values. The lowering compares a string's length with 256 and a signer count with `u32::MAX`. |
 | `!=` on `u8` | equality of `U8` | On the values. |
 | `==` and `!=` on `u64` | equality of `U64` | On the values. `!=` compares a rule's generation with the current one in `authorize`. |
 | `==`, `<`, `<=`, `>` and `>=` on `i128` | equality and order of `I128` | On the values, as signed integers. `lower_cap_limit` compares limits with `>` and `<= 0`, `cap_valid` the limit with `> 0`, and `tree_valid` each allowance and spent amount with `>= 0`. |
 | `i128::checked_add`, `i128::checked_sub` | `I128.checked_add`, `I128.checked_sub` | `some` of the sum or difference when it lies between `i128::MIN` and `i128::MAX`, `none` otherwise. |
 | `Option<T>` (`Some`, `None`) | Lean's `Option` | The two-constructor inductive. |
-| `u32::saturating_sub` | `core.num.U32.saturating_sub` | The difference when it is not negative, `0` otherwise. |
+| `u32::saturating_sub` | `core.num.U32.saturating_sub` | The difference when it is not negative, `0` otherwise. The cap check takes its cutoff with it, and the lowering a last ledger. |
 | `usize::BITS` | `core.num.Usize.BITS` | `System.Platform.numBits`, as a `U32`. |
 | `<`, `>` and `>=` on `u32` | the order of `U32` | On the values. `lengthen_cap_period` compares periods with `<`, `cap_valid` the period with `> 0`, `authorize` a rule's last ledger with the current one with `<`, `lower_valid_until` a new last ledger with the current one with `>`, and the budget's walks a parent index with the current one with `>=`. |
 | `const _: () = assert!(usize::BITS >= 32)` | `massert` | `ok ()` when the condition holds, `fail` otherwise. |
@@ -163,8 +172,33 @@ module to the budget model of `formal/RuleCore/Model/Budget.lean` the same way:
 - `Node` maps each field to the field of the same name, the optional parent to the optional value, and a tree to the list of its nodes' denotations;
 - each `BudgetError` constructor maps to the constructor of the same name, with its index's value, and a result of `spend`, `delegate` or `refill` is the `Except` of the denoted tree or error.
 
+`formal/RuleCore/Equiv/DenoteDocument.lean` maps the types of the `document`
+and `scoped` modules to the document vocabulary of
+`formal/RuleCore/Vocab/Document.lean` the same way:
+
+- each enum constructor maps to the constructor of the same name (`Scope::SelfAdmin` to `selfAdmin`, `Pred::U32Eq` to `u32Eq`, `ScopeError::ExcludedScope` to `excludedScope`);
+- each struct field maps to the field of the same name (`period_ledgers` to `periodLedgers`, `not_after_ledger` to `notAfterLedger`), an optional field to the optional denoted value, and a vector to the list of its elements' denotations;
+- a result of `lower_scoped` is the `Except` of the denoted rules or error.
+
 Each one is proven injective, so two Rust values that differ never have the
 same meaning.
+
+## The document's meaning
+
+`formal/RuleCore/Vocab/Document.lean` says what a document means:
+`Doc.allows` without time, generation or caps, and `Doc.authorize` through an
+authorization, as OpenZeppelin's `do_check_auth` checks the rules Perch
+installs for the document. The compile-soundness theorems prove the lowering
+equal to this meaning, so that the lowering allows what a document says rests
+on the meaning saying what Perch's installed rules do on chain. It is written
+from Perch `dff2a73` (`bitswell-hq/stellar-registry__perch`) and OpenZeppelin
+`stellar-accounts` at `theahaco/stellar-contracts-OZ@33726766`, the revision
+Perch pins, and it is part of the specification, as the denotations are. Three
+of its readings come from outside the document:
+
+- a shell gives a `u32` argument as `Val::Other` of its `ScVal` XDR, and `u32Xdr` is that XDR;
+- a capped rule's spends are charged with the cap model, which mirrors OpenZeppelin's spending-limit policy with the differences `ARCHITECTURE.md` records;
+- the recovery rule's calls are checked by the recovery controller against its own state, which the meaning takes as a parameter `ctl`. The lowering's recovery rule allows every `apply_doc` on the account, which over-approximates every controller check that allows only `apply_doc` calls (`Doc.lower_authorize_of_check`).
 
 ## Stated rules
 
@@ -194,6 +228,18 @@ the translated step fails. In Rust a `Vec<Vec<u8>>` holds at most
 `isize::MAX` bytes, so two of them never hold `Usize.max` names between them.
 The theorems stated on the translation alone do not assume it, because a
 `remove_functions` that returned `Ok` had room (`remove_functions_room`).
+
+### LowerRoom
+
+`lower_eq` and `lower_scoped_eq`, the equivalences for the lowering, assume
+`LowerRoom doc`: a document configuring recovery has fewer than `Usize.max`
+rules, and each capped rule fewer than `Usize.max` argument predicates. That is
+the bound in Aeneas's model of `Vec::push`, which the lowering calls once more
+than the rules for the recovery rule and once more than the predicates for a
+capped rule's amount condition. `lower_full` proves the rule exact for the
+rules: on a document configuring recovery with `Usize.max` rules, the
+translated `lower` fails. In Rust a `Vec<DocRule>` or `Vec<ArgConstraint>`
+holds at most `isize::MAX` bytes, so it never reaches that length.
 
 ### The empty batch
 
@@ -230,12 +276,13 @@ window that eviction leaves at each ledger is bounded without the rule
 
 The vectors in `conformance/vectors`, the cap traces in
 `conformance/vectors/caps`, the authorization traces in
-`conformance/vectors/authorize` and the budget traces in
-`conformance/vectors/budget` are computed by the Lean model and written as
+`conformance/vectors/authorize`, the budget traces in
+`conformance/vectors/budget` and the document traces in
+`conformance/vectors/documents` are computed by the Lean model and written as
 JSON by the generator's own encoder (`conformance/generator/Conformance/Json.lean`,
-`Conformance/Caps.lean`, `Conformance/Authorize.lean` and
-`Conformance/Budget.lean`). The Rust runner decodes them into `rule-eval`'s
-types (`conformance/runner/src/lib.rs`, `src/caps.rs`, `src/authorize.rs` and
-`src/budget.rs`). Neither the
+`Conformance/Caps.lean`, `Conformance/Authorize.lean`, `Conformance/Budget.lean`
+and `Conformance/Documents.lean`). The Rust runner decodes them into
+`rule-eval`'s types (`conformance/runner/src/lib.rs`, `src/caps.rs`,
+`src/authorize.rs`, `src/budget.rs` and `src/documents.rs`). Neither the
 encoding nor the decoding is verified. A mismatch in either one shows up as a
 failing vector, unless both get the same field wrong in the same way.
