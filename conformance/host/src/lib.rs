@@ -31,9 +31,9 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use rule_eval_conformance::soroban::{
-    HostTrace, JsonAccountStep, JsonAddress, JsonCall, JsonCredentials, JsonDelegate, JsonEntry,
-    JsonEvent, JsonFailKind, JsonInvocation, JsonPreimage, JsonSlot, JsonStep, JsonTx,
-    StorageTrace, ValueVector, contexts_eq, decode_address, decode_auth_context,
+    ContextVector, HostTrace, JsonAccountStep, JsonAddress, JsonCall, JsonCredentials,
+    JsonDelegate, JsonEntry, JsonEvent, JsonFailKind, JsonInvocation, JsonPreimage, JsonSlot,
+    JsonStep, JsonTx, StorageTrace, ValueVector, contexts_eq, decode_address, decode_auth_context,
     decode_auth_contexts, decode_durability, decode_rule_eval_contexts, decode_value,
     decode_values,
 };
@@ -857,4 +857,54 @@ pub fn check_values(v: &ValueVector) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+/// Checks a context vector against the SDK's `auth::Context`, the type a
+/// shell's `__check_auth` takes its contexts as: the host takes the vector's
+/// XDR as a value, the SDK reads it as a vector of contexts exactly when the
+/// model reads it, and the SDK writes what it read back as the same XDR.
+///
+/// # Errors
+///
+/// On the first difference.
+pub fn check_contexts(v: &ContextVector) -> Result<(), String> {
+    use soroban_sdk::auth::Context;
+    use soroban_sdk::{IntoVal, Vec as SdkVec};
+
+    let env = env();
+    let bytes = decode_hex(&v.xdr)?;
+    let sc = ScVal::from_xdr(&bytes, Limits::none())
+        .map_err(|e| format!("stellar-xdr does not read the model's XDR: {e}"))?;
+    // The SDK's vector checks its elements' types only when they are read,
+    // so each element is read as a context here. Reading a context whose
+    // fields do not fit traps, as it does in a contract, where the trap
+    // refuses the authorization; here the trap is a panic, read as a refusal.
+    let read = SdkVal::try_from_val(&env, &sc)
+        .ok()
+        .and_then(|host_val| SdkVec::<SdkVal>::try_from_val(&env, &host_val).ok())
+        .and_then(|items| {
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let mut cs = SdkVec::<Context>::new(&env);
+                for item in items.iter() {
+                    cs.push_back(Context::try_from_val(&env, &item).ok()?);
+                }
+                Some(cs)
+            }))
+            .ok()
+            .flatten()
+        });
+    match (read, &v.expected) {
+        (None, None) => Ok(()),
+        (Some(_), None) => Err("the SDK reads contexts the model refuses".into()),
+        (None, Some(_)) => Err("the SDK refuses contexts the model reads".into()),
+        (Some(cs), Some(_)) => {
+            let back: SdkVal = cs.into_val(&env);
+            let back = ScVal::try_from_val(&env, &back).map_err(|e| format!("{e:?}"))?;
+            if back.to_xdr(Limits::none()).map_err(|e| e.to_string())? == bytes {
+                Ok(())
+            } else {
+                Err(format!("the SDK writes the contexts as {back:?}"))
+            }
+        }
+    }
 }

@@ -4,8 +4,8 @@ import RuleCore.Soroban.Auth
 /-!
 # Calls, rollback and authorization
 
-A model of how `soroban-env-host` 27.0.1 runs a transaction of contract calls
-with enforcing authorization, as soroban-sdk 27.0.6's testutils drive it with
+A model of how `soroban-env-host` 29.0.1 runs a transaction of contract calls
+with enforcing authorization, as soroban-sdk 29.0.1's testutils drive it with
 `set_auths`.
 
 A contract call (`Call`) is a contract, a function, arguments and a body of

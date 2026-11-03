@@ -55,15 +55,19 @@ def encodeDurability : Durability → Json
   | .temporary => .str "temporary"
   | .contractInstance => .str "instance"
 
+def encodeExecutable : Executable → Json
+  | .wasm h => tagged "wasm" (.str (hex h))
+  | .externalRef o t => tagged "external_ref" (.obj [("owner", encodeAddress o), ("tag", .str (hex t))])
+
 def encodeAuthFn : AuthFn → Json
   | .contract c f args =>
     tagged "contract" (.obj [
       ("contract", encodeAddress c),
       ("fn_name", .str (hex f)),
       ("args", .arr (encodeValues args))])
-  | .create h s args =>
+  | .create e s args =>
     tagged "create_contract" (.obj [
-      ("wasm_hash", .str (hex h)),
+      ("executable", encodeExecutable e),
       ("salt", .str (hex s)),
       ("constructor_args", .arr (encodeValues args))])
 

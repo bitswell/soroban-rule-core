@@ -1793,7 +1793,7 @@ info: 'RuleCore.Soroban.Address.xdr_injective' depends on axioms: [propext, Quot
 ---
 info: 'RuleCore.Soroban.AuthFn.allows_create' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
-info: 'RuleCore.Soroban.AuthFn.ofVal_toVal' depends on axioms: [propext]
+info: 'RuleCore.Soroban.AuthFn.ofVal_toVal' depends on axioms: [propext, Quot.sound]
 ---
 info: 'RuleCore.Soroban.AuthFn.toChain_contract' depends on axioms: [propext]
 ---
@@ -1802,6 +1802,12 @@ info: 'RuleCore.Soroban.AuthFn.toChain_create' depends on axioms: [propext]
 info: 'RuleCore.Soroban.Checked.allows' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Soroban.Entry.preimage_address' depends on axioms: [propext]
+---
+info: 'RuleCore.Soroban.Executable.id_externalRef_length' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.Soroban.Executable.id_wasm' depends on axioms: [propext]
+---
+info: 'RuleCore.Soroban.Executable.ofVal_toVal' depends on axioms: [propext]
 ---
 info: 'RuleCore.Soroban.Grows.logged' depends on axioms: [propext, Quot.sound]
 ---

@@ -5,7 +5,7 @@ import RuleCore.Vocab.Document
 
 The values a contract passes to the host and receives from it, as plain data:
 the subset of Soroban's `ScVal` that `crates/soroban-facade` models
-(protocol 27, `soroban-env-host` 27.0.1), and their XDR.
+(protocol 29, `soroban-env-host` 29.0.1), and their XDR.
 
 An address is a Stellar account (its ed25519 key), a contract (its id) or a
 muxed account (an account key with a 64-bit id). A value is `void`, a `bool`,
@@ -13,11 +13,12 @@ a `u32`, a `u64`, an `i128`, bytes, a string, a symbol, an address, a vector,
 a map, or `other`, which carries the full XDR of a value of any other type
 (`i32`, `i64`, `u128`, `u256`, `i256`, a time point, a duration or an error).
 Claimable balance and liquidity pool addresses (CAP-67) are no values a
-contract holds: the host refuses them. A map's entries are in the host's key
+contract holds: the host refuses them. An executable tag (CAP-85, protocol
+28) is no value the facade models: it holds none and refuses one. A map's entries are in the host's key
 order; a vector's are in order.
 
 `Val.xdr` is the value's `ScVal` XDR and `Address.xdr` the address's
-`ScAddress` XDR, as `stellar-xdr` 27.0.0 writes them: a four-byte big-endian
+`ScAddress` XDR, as `stellar-xdr` 28.0.0 writes them: a four-byte big-endian
 discriminant, then the payload; byte strings as a four-byte length, the bytes
 and zero padding to a multiple of four; vectors and maps present, then their
 length and their elements. `other` is its own XDR. The `u32` encoding is

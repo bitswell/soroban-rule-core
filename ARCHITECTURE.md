@@ -24,7 +24,7 @@ builds, stores and checks them:
 - **Recovery.** Every scoped rule carries the generation it was issued under, the generation advances only when a recovery completes, and `authorize` refuses a rule issued under another generation, so after a completed recovery every grant attenuated from an earlier scoped document authorizes nothing while the admin rules authorize as before (`Account.issued_stale`, `Account.adminRules_authorize_generation`).
 - **The chain composes.** Anything `authorize` accepts under a grant attenuated from a scoped document's rules is allowed by that document, touches no excluded contract, and is made in the generation the document was issued under, on the model and on the translated Rust functions (`Account.chain`, `Extracted.chain`). [What does not compose](#what-does-not-compose) lists the links that rest on the shell.
 - **The code is the model.** The Rust that Perch's smart account, the grant signer, the agent host and the relay run is proven equal to the Lean model the theorems are about (M1 for rule matching and attenuation, M2 for signers, spending caps and the stateful `authorize`, M3 for the budget tree, M4 for the lowering).
-- **The host lets through only what the rules allow.** Soroban's own behaviour enters through Lean models of soroban-env-host 27.0.1, tested against that host. In the models, every call the host lets through on an account's signature is a context of the signed tree the account's `__check_auth` received, and so is allowed by every rule set that `__check_auth` checks with `rule-eval` (`Tx.run_authorized_allowed`, [Milestone 5: the Soroban facade](#milestone-5-the-soroban-facade)).
+- **The host lets through only what the rules allow.** Soroban's own behaviour enters through Lean models of soroban-env-host 29.0.1, tested against that host. In the models, every call the host lets through on an account's signature is a context of the signed tree the account's `__check_auth` received, and so is allowed by every rule set that `__check_auth` checks with `rule-eval` (`Tx.run_authorized_allowed`, [Milestone 5: the Soroban facade](#milestone-5-the-soroban-facade)).
 
 ## Dependency direction
 
@@ -33,7 +33,7 @@ contract shells (Perch's account, the grant signer)
   ├── rule-eval            pure evaluator, no dependencies
   └── soroban-facade       SDK subset as plain data; converts contexts for rule-eval
         ├── rule-eval
-        └── soroban-sdk 27 (feature `sdk`, the real implementation)
+        └── soroban-sdk 29 (feature `sdk`, the real implementation)
 ```
 
 - `crates/rule-eval` depends on nothing: no crates, and no `std` (it uses only `core` and `alloc`). It holds the evaluator and the lowering of Perch's documents ([where the lowering lives](#where-the-lowering-lives)).
@@ -750,20 +750,21 @@ rule. Perch runs them in M6.
 
 `crates/soroban-facade` gives contract shells the part of soroban-sdk they
 use as plain data and two small interfaces, and `formal/RuleCore/Soroban/`
-models what they rely on from soroban-env-host 27.0.1. The facade's real
-implementation builds against soroban-sdk 27.0.6, which fixes
-soroban-env-host 27.0.1 and stellar-xdr 27.0.0 (protocol 27): the SDK Perch's
-account builds with, and the oldest protocol with CAP-71 delegation, which
-Perch's account uses.
+models what they rely on from soroban-env-host 29.0.1. The facade's real
+implementation builds against soroban-sdk 29.0.1, which fixes
+soroban-env-host 29.0.1 and stellar-xdr 28.0.0 (protocol 29): the protocol
+mainnet runs, and the SDK Perch moves to as the first step of M6. A shell
+passes the facade its SDK's `Env`, so a shell and the facade share one SDK
+major.
 
 ### The facade
 
-- **Plain data.** `Val` is `Void`, `Bool`, `U32`, `U64`, `I128`, `Bytes`, `String`, `Symbol`, `Address`, `Vec`, `Map`, or `Other` of the `ScVal` XDR of any other kind (`i32`, `i64`, `u128`, `u256`, `i256`, a time point, a duration, an error). `Address` is an account key, a contract id or a muxed account. `xdr::encode` and `xdr::decode` write and read their XDR; `decode` reads one whole value or nothing, and refuses the `ScVal`s no contract holds as a value (a contract instance, the ledger keys, and claimable balance and liquidity pool addresses, which the host refuses).
+- **Plain data.** `Val` is `Void`, `Bool`, `U32`, `U64`, `I128`, `Bytes`, `String`, `Symbol`, `Address`, `Vec`, `Map`, or `Other` of the `ScVal` XDR of any other kind (`i32`, `i64`, `u128`, `u256`, `i256`, a time point, a duration, an error). `Address` is an account key, a contract id or a muxed account. `xdr::encode` and `xdr::decode` write and read their XDR; `decode` reads one whole value or nothing, and refuses the `ScVal`s no contract holds as a value (a contract instance, the ledger keys, and claimable balance and liquidity pool addresses, which the host refuses) and the executable tag (CAP-85), which the facade does not model.
 - **Storage.** The `Storage` trait is a contract's own storage by `Durability` (persistent, temporary, instance): `get`, `has`, `set` and `remove`. Every method refuses a key that holds a muxed address (`Val::storable`) with `Refusal::MuxedAddress` and changes nothing.
 - **`require_auth`.** The `Auth` trait. On the host a refusal aborts the call, so the real implementation returns only `Ok`, or a refusal for a muxed address, which is no `Address` on the host.
-- **Authorization contexts.** `AuthContext` is one context `__check_auth` receives: a call (contract, function, arguments) or a creation (Wasm hash, salt, constructor arguments). `auth_contexts` reads them from the value the host passes, the `contracttype` encoding of SDK 27's `Vec<auth::Context>`, and returns every context or nothing: one context the facade cannot read (a creation from an executable SDK 27 does not know, such as protocol 28's `ExternalRef`) refuses the whole batch, and nothing panics.
+- **Authorization contexts.** `AuthContext` is one context `__check_auth` receives: a call (contract, function, arguments) or a creation (executable, salt, constructor arguments). An `Executable` is uploaded Wasm by its hash, or an external reference (CAP-85): the Wasm hash a contract, the owner, keeps under an executable tag, by the owner and the tag's string. `auth_contexts` reads them from the value the host passes, the `contracttype` encoding of SDK 29's `Vec<auth::Context>`, and returns every context or nothing: one context the facade cannot read refuses the whole batch, and nothing panics.
 - **`PlainHost`** implements both traits as plain data, for testing a shell without a host: storage as a map, and `require_auth` against the addresses a test has authorized.
-- **`SdkHost`**, behind the `sdk` feature, implements them over soroban-sdk. Values cross between the facade and the SDK as XDR: a facade value is encoded by the facade and deserialized by the host (`FromXdr`), and a host value is serialized by the host (`ToXdr`) and decoded by the facade. Its surface is storage by durability, `Address::require_auth`, `Bytes` and the host's serialization; `SdkHost::auth_contexts` reads `__check_auth`'s third argument given as a raw value, so an undecodable context is the facade's refusal, not the SDK's trap. [`TRUSTED.md`](TRUSTED.md#sdk-items-the-real-implementation-calls) lists every SDK item it calls.
+- **`SdkHost`**, behind the `sdk` feature, implements them over soroban-sdk. Values cross between the facade and the SDK as XDR: a facade value is encoded by the facade and deserialized by the host (`FromXdr`), and a host value is serialized by the host (`ToXdr`) and decoded by the facade. A facade value whose XDR `decode` does not read back, such as an `Other` holding an executable tag, is refused (`Refusal::Undecodable`) before it reaches the host. Its surface is storage by durability, `Address::require_auth`, `Bytes` and the host's serialization; `SdkHost::auth_contexts` reads `__check_auth`'s third argument given as a raw value, so an undecodable context is the facade's refusal, not the SDK's trap. [`TRUSTED.md`](TRUSTED.md#sdk-items-the-real-implementation-calls) lists every SDK item it calls.
 
 The restricted subset binds `rule-eval` alone. The facade uses ordinary Rust
 (derived traits, iterators), is `no_std` with `alloc`, forbids unsafe code,
@@ -777,7 +778,7 @@ denotation of the same kind as `Equiv/Denote.lean`, written in Lean as
 
 - a call becomes a call of the contract's `ScAddress` XDR, the function name and each argument read;
 - an argument that is an `i128`, a `u64`, a `bool`, bytes, a string or a symbol stays one; an address becomes `Address` of its `ScAddress` XDR; every other value becomes `Other` of its full `ScVal` XDR, so a `u32` is exactly the `u32_xdr` Perch's lowering compares a `u32` with;
-- a creation becomes a creation, which no rule allows.
+- a creation becomes a creation, which no rule allows, of the executable's identity (`Executable::id`, `Executable.id`): the Wasm hash, or for an external reference the `ScVal` XDR of the reference, which is longer than any hash (`Executable.id_externalRef_length`).
 
 The theorems show that `rule-eval` reads a value as one of its constructors
 only when it is one, and an address's XDR only when it is that address
@@ -789,13 +790,13 @@ against what the host passes ([`TRUSTED.md`](TRUSTED.md#the-facades-conversion))
 
 ### The Lean models
 
-`formal/RuleCore/Soroban/` is written from soroban-env-host 27.0.1's source
+`formal/RuleCore/Soroban/` is written from soroban-env-host 29.0.1's source
 and is trusted specification ([`TRUSTED.md`](TRUSTED.md#the-soroban-models)).
 
-- **Storage as a map** (`Storage.lean`). A `Store` maps a slot, a contract, a durability and a key, to a value; each contract and each durability is its own map. `Op.apply` is `get`, `has`, `set` and `remove`, refusing a key holding a muxed address anywhere in it, as the host's storage-key conversion does (CAP-67). Instance storage is part of the store: host 27.0.1 keeps a call's instance writes in its frame and writes them back before a re-entrant `__check_auth` of the same contract and when the call returns (host #1617, from protocol 25), and no other frame can see them, so a single store gives the same observations.
+- **Storage as a map** (`Storage.lean`). A `Store` maps a slot, a contract, a durability and a key, to a value; each contract and each durability is its own map. `Op.apply` is `get`, `has`, `set` and `remove`, refusing a key holding a muxed address anywhere in it, as the host's storage-key conversion does (CAP-67). Keys and values are facade values, so no key is an executable tag, the one key the host treats apart (CAP-85: persistent only, a Wasm hash as its value, never removed). Instance storage is part of the store: host 29.0.1 keeps a call's instance writes in its frame and writes them back before a re-entrant `__check_auth` of the same contract and when the call returns (host #1617, from protocol 25), and no other frame can see them, so a single store gives the same observations.
 - **Signed trees and matching** (`Auth.lean`). An `Entry` is an address's signed `Invocation` tree with a nonce, a last valid ledger, a signature and `Credentials`: `address` (`SOROBAN_CREDENTIALS_ADDRESS`), `addressV2` or `withDelegates` (CAP-71). A `Tracker` follows the host's `AccountAuthorizationTracker`: the nodes already matched, one match state per frame on the call stack, and whether the entry was authenticated. `Tracker.extend` matches a `require_auth` of the top frame against the first unmatched child of the deepest matched node on the stack, or against the root when no frame on the stack matched it.
 - **Calls, rollback and authorization** (`Host.lean`). A `Call` runs `Step`s; `execCall` pushes a frame, and when the call fails puts back the store, the used nonces and every tracker as they were at the push, so a caught failure (`try_call`) leaves the caller to go on and an uncaught one fails it. A call of a contract already on the call stack fails before its frame. `requireAuth` holds when the frame's direct caller is the address (the invoker rule); otherwise the first tracker of the address that matches decides, a root matching only while no other tracker of the address is active and unmatched in this frame (the host's guard against joining disjoint entries into one call tree). The first match authenticates the entry: the address's `__check_auth` runs with the payload, the signature and the tree's contexts in preorder, then the signature must not have expired, then the nonce is consumed. `__check_auth` is refused when the account is on the call stack below the current frame; a delegate's is called with the top-level payload and contexts and its own signature, is refused when the delegate is on the call stack, and each listed delegate may be used once. An `Event` log records every `__check_auth` call, read and `require_auth` that held, and is never rolled back.
-- **What `__check_auth` receives.** `Entry.preimage` is what the payload hashes: the ledger's network id, the address when the credentials bind it (`addressV2` and `withDelegates`), the nonce, the last valid ledger and the whole tree; `Invocation.preorder` is the contexts, and `AuthFn.toVal` the form the host passes each one in, which `contextsOfVal` reads back.
+- **What `__check_auth` receives.** `Entry.preimage` is what the payload hashes: the ledger's network id, the address when the credentials bind it (`addressV2` and `withDelegates`), the nonce, the last valid ledger and the whole tree; `Invocation.preorder` is the contexts, and `AuthFn.toVal` the form the host passes each one in, with a creation's `Executable` as `Wasm` and the hash or `ExternalRef` and the owner and tag, which `contextsOfVal` reads back.
 - **A shell's rule check** is an account step: `checkRules rules authenticated` fails unless `rule-eval`'s rule set allows every received context (`Chain.RuleSet.allowsAll` over `AuthFn.toChain`). It is what a shell's `__check_auth` does with the facade and `rule-eval`, and it is how the models meet the evaluator.
 
 ### Theorems
@@ -804,7 +805,7 @@ and is trusted specification ([`TRUSTED.md`](TRUSTED.md#the-soroban-models)).
 
 - storage is a map, with durabilities and contracts apart, and a muxed key is refused changing nothing;
 - `rule-eval`'s reading of a context is exact: creations are creations, a `u32` is `u32Xdr`, constructors and addresses are read only for themselves;
-- the host's encoding of contexts reads back as the same contexts;
+- the host's encoding of contexts reads back as the same contexts, creations from uploaded Wasm and from an external reference alike;
 - every `__check_auth` call receives its payload's tree in preorder, root first, so never an empty batch, and a delegate receives the authenticated entry's payload and contexts (`Tx.run_checkAuth_contexts`, `authenticate_checkAuth`);
 - **the containment link**: every `require_auth` an entry satisfies is for a node of the entry's tree, and every rule set the address's `__check_auth` checks allows that node's context (`Tx.run_authorized_allowed`). With `allows_all_eq`, the translated `allows_all` gives the same verdict;
 - `__check_auth` reads the store as the requiring call left it, its own instance writes included (`authenticate_store`, `runAccount_get`);
@@ -851,11 +852,18 @@ the reading of contexts and the account's rule check go through
 also tests the shell's path from the host's contexts to the evaluator's
 verdict.
 
+The harness also reads every context vector with SDK 29's `auth::Context`,
+the type a shell's `__check_auth` takes its contexts as: the SDK reads a
+vector exactly when the model does, and writes what it read back as the same
+XDR. And it checks that the facade's real implementation refuses an
+executable tag as a key or a value, which the host itself would take.
+
 The harness source (`conformance/host/src`, `conformance/host/tests`) is one
-crate per host version: `p27` pins soroban-sdk 27.0.6 and is a workspace
-member, sharing the lock with the facade. A crate for another host is a
-directory beside it with its own `Cargo.toml` and `Cargo.lock`; when its SDK
-is not the facade's it leaves `facade` off and drives the SDK directly.
+crate per host version, named `soroban-host-p<protocol>` with its library
+named `harness`: `p29` pins soroban-sdk 29.0.1 and is a workspace member,
+sharing the lock with the facade. A crate for another host is a directory
+beside it with its own `Cargo.toml` and `Cargo.lock`; when its SDK is not the
+facade's it leaves `facade` off and drives the SDK directly.
 
 ### What the models leave out
 
@@ -865,9 +873,10 @@ admits which credentials, frozen keys); Stellar accounts' ed25519 signatures
 and source-account credentials (only contract accounts authenticate);
 `require_auth` inside `__check_auth`, `require_auth_for_args` and
 `authorize_as_current_contract`; contract creation as a call (a creation
-context is data the facade reads); a muxed key in instance storage, which host
-27.0.1 refuses only when it writes the instance back at the end of the call;
-and every protocol but 27. The vectors stay inside this domain
+context is data the facade reads); executable tags (CAP-85), which the facade
+refuses; a muxed key in instance storage, which host 29.0.1 refuses only when
+it writes the instance back at the end of the call; and every protocol but
+29. The vectors stay inside this domain
 (`Trace.inDomain`): contract accounts, valid symbols, maps keyed in the host's
 order, and transactions within 16 ledgers, so temporary entries and used
 nonces stay live.
@@ -877,10 +886,32 @@ nonces stay live.
 A model is only as current as the host version it is tested against. The
 design:
 
-- one pin, soroban-sdk 27.0.6 with soroban-env-host 27.0.1, which the facade builds against; moving the pin is a pull request that must pass every vector, or change the model and its proofs;
-- the same vectors in a CI matrix on the shells' pin, the host the network runs and the next released host (today 27.0.1, 29.0.1 and 30.0.0), so a host change shows before the network adopts it; `host.yml` is that matrix, with the pin as its one entry so far;
+- one pin, soroban-sdk 29.0.1 with soroban-env-host 29.0.1 (protocol 29, the protocol mainnet runs), which the facade and the shells build against; moving the pin is a pull request that must pass every vector, or change the model and its proofs;
+- the same vectors in a CI matrix on the pin and the next released host (29.x and 30.x), so a host change shows before the network adopts it; `host.yml` is that matrix, with the pin as its one entry so far, run on every pull request and push to `main` with no allowed failure;
 - the host's own authorization and storage tests transcribed once as seed vectors, to measure how much of the host's own specification the models cover;
 - models parameterised by protocol only when a theorem must hold across a protocol change.
+
+#### The host changes of protocols 28 and 29
+
+Read from soroban-env-host's history between v27.0.1 and v29.0.1 (`auth.rs`,
+`storage.rs`, `host/frame.rs`, `host/data_helper.rs` and the built-in account
+contract) and from the CAPs of each protocol, with what each does to the
+models:
+
+| Change | Model in scope | Effect |
+| --- | --- | --- |
+| CAP-85 (p28): `ContractExecutable::ExternalRef` in creation contexts, as `Vec[ExternalRef, {owner, tag}]` | What `__check_auth` receives | `AuthFn.create` carries an `Executable`, Wasm or external reference; `Executable.ofVal` and the facade read both; `rule-eval` reads a creation of `Executable.id`. Proven: `Executable.ofVal_toVal`, `AuthFn.ofVal_toVal`, `AuthFn.allows_create`. |
+| CAP-85 (p28): executable tags (`SCV_EXECUTABLE_TAG`) as storage keys, persistent only, valued with an uploaded Wasm hash, never removed | Storage | Outside the facade's values: `decode` reads none, and the real implementation refuses one before the host does. The storage model is unchanged. |
+| CAP-85 (p28): recording-mode authorization of external-reference creations | None | Recording mode (simulation) is not the enforcing path the models describe. |
+| CAP-86 (p28): sparse `Symbol`-keyed map host functions | None | The facade reads contexts itself; the harness shows SDK 29 reads exactly the context vectors the model reads. |
+| CAP-83 (p28): validators vote to drop a transaction set | None | Consensus, outside the host. |
+| Host #1729 (p29): `extend_ttl` clamps `extend_to` instead of failing | None | Time to live is not modelled. |
+| Host #1698 (p28): ledger entries decoded lazily in the end-to-end path | None | Same observations; the storage traces pass on 29.0.1. |
+| Host #1716 (p28): VM linear memory refunded | None | Resources are not modelled. |
+| Host #1720 (p29): native test contracts get their own Wasm entries and roll back constructor failures | None | Test-only; the harness's native contracts replay every host trace unchanged. |
+
+Credentials (`address`, `addressV2`, `withDelegates`), tree matching and
+rollback are the same at 29.0.1 as at 27.0.1.
 
 #### Existing Soroban verification tools
 
@@ -923,13 +954,14 @@ decided here.
 
 ### M5: the host matrix and seed vectors
 
-`host.yml` gains the entries for soroban-env-host 29.0.1 and 30.0.0, each a
-crate in `conformance/host` with its own pins and lock, and the host's own
+`host.yml` gains the entry for soroban-env-host 30.x, a crate in
+`conformance/host` beside `p29` with its own pins and lock, and the host's own
 authorization and storage tests are transcribed into seed vectors.
 
 ### M6: adoption
 
-Perch moves its pure rule check behind `rule-eval` in small pull requests, and
+Perch first moves to soroban-sdk 29, the facade's SDK, on its own fork. It
+then moves its pure rule check behind `rule-eval` in small pull requests, and
 adds what [Milestone 4](#what-perch-adds-in-m6) leaves to it.
 Each one is pinned by a differential test against Perch's current behaviour:
 the conformance vectors, plus recorded verdicts of the code being replaced.

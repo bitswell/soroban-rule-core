@@ -15,7 +15,7 @@ use rule_eval::{Context, val_eq};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use soroban_facade::{
-    Address, AuthContext, Durability, PlainHost, Refusal, Storage, Val, auth_contexts,
+    Address, AuthContext, Durability, Executable, PlainHost, Refusal, Storage, Val, auth_contexts,
     contexts_to_rule_eval, val_to_rule_eval, xdr,
 };
 
@@ -71,10 +71,17 @@ pub enum JsonAuthContext {
         args: Vec<JsonValue>,
     },
     CreateContract {
-        wasm_hash: String,
+        executable: JsonExecutable,
         salt: String,
         constructor_args: Vec<JsonValue>,
     },
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub enum JsonExecutable {
+    Wasm(String),
+    ExternalRef { owner: JsonAddress, tag: String },
 }
 
 /// One value vector file.
@@ -197,11 +204,17 @@ pub fn decode_auth_context(c: &JsonAuthContext) -> Result<AuthContext, String> {
             args: decode_values(args)?,
         },
         JsonAuthContext::CreateContract {
-            wasm_hash,
+            executable,
             salt,
             constructor_args,
         } => AuthContext::CreateContract {
-            wasm_hash: array32(wasm_hash)?,
+            executable: match executable {
+                JsonExecutable::Wasm(h) => Executable::Wasm(array32(h)?),
+                JsonExecutable::ExternalRef { owner, tag } => Executable::ExternalRef {
+                    owner: decode_address(owner)?,
+                    tag: decode_hex(tag)?,
+                },
+            },
             salt: array32(salt)?,
             constructor_args: decode_values(constructor_args)?,
         },

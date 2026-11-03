@@ -164,8 +164,14 @@ def contextVectors : List ContextVector := [
   { name := "contexts-create"
     description := "Creations with and without constructor arguments; rule-eval reads them as creations."
     value := ctxs [
-      .create (wasmHashOf 1) (key32 2) [],
-      .create (wasmHashOf 3) (key32 4) [.u32 1, .symbol (b "init")]] },
+      .create (.wasm (wasmHashOf 1)) (key32 2) [],
+      .create (.wasm (wasmHashOf 3)) (key32 4) [.u32 1, .symbol (b "init")]] },
+  { name := "contexts-create-external-ref"
+    description :=
+      "Creations from an external reference (CAP-85), with and without constructor arguments; rule-eval reads them as creations of the reference's XDR."
+    value := ctxs [
+      .create (.externalRef (contract 7) (b "v1")) (key32 2) [],
+      .create (.externalRef (contract 8) (b "release")) (key32 4) [.u32 1]] },
   { name := "contexts-other-arguments"
     description := "Arguments of kinds the facade carries as their XDR."
     value := ctxs [callCtx (contract 1) "f" [otherOf 6 (beBytes 8 1), otherOf 4 (beBytes 4 2)]] },
@@ -174,14 +180,19 @@ def contextVectors : List ContextVector := [
     value := .vec [] },
   { name := "contexts-unknown-variant"
     description :=
-      "A creation from an executable SDK 27 does not know: the whole batch cannot be read."
+      "A creation of a Stellar asset contract, an executable SDK 29's contexts do not have: the whole batch cannot be read."
     value := .vec [
       AuthFn.toVal (callCtx (contract 1) "f" []),
       .vec [sym "CreateContractHostFn",
-        .map [(sym "executable", .vec [sym "ExternalRef", .bytes (key32 1)]),
+        .map [(sym "executable", .vec [sym "StellarAsset"]),
           (sym "salt", .bytes (key32 2))]]] },
+  { name := "contexts-external-ref-as-hash"
+    description := "An external reference carrying a hash instead of an owner and a tag."
+    value := .vec [.vec [sym "CreateContractHostFn",
+      .map [(sym "executable", .vec [sym "ExternalRef", .bytes (key32 1)]),
+        (sym "salt", .bytes (key32 2))]]] },
   { name := "contexts-unknown-name"
-    description := "A context with a variant name SDK 27 does not have."
+    description := "A context with a variant name SDK 29 does not have."
     value := .vec [.vec [sym "Invoke",
       .map [(sym "args", .vec []), (sym "contract", .address (contract 1)),
         (sym "fn_name", .symbol (b "f"))]]] },

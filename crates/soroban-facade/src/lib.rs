@@ -9,13 +9,15 @@
 //! - [`Storage`] is a contract's storage by [`Durability`]: get, has, set
 //!   and remove. A key holding a muxed address is refused.
 //! - [`Auth`] is `require_auth`.
-//! - [`AuthContext`] is one context `__check_auth` receives;
+//! - [`AuthContext`] is one context `__check_auth` receives, a call or a
+//!   creation, whose [`Executable`] is uploaded Wasm or an external
+//!   reference (CAP-85);
 //!   [`auth_contexts`] reads them from the value the host passes, refusing
 //!   the whole batch when one cannot be read, and [`to_rule_eval`] is what
 //!   `rule-eval` reads of a context.
 //!
 //! [`PlainHost`] implements the interfaces as plain data, for tests. With
-//! the `sdk` feature, `SdkHost` implements them over soroban-sdk 27; it is
+//! the `sdk` feature, `SdkHost` implements them over soroban-sdk 29; it is
 //! the only code in the repository that touches the SDK.
 //!
 //! The Lean models of what these stand for are in
@@ -39,7 +41,7 @@ mod val;
 pub mod xdr;
 
 pub use context::{
-    AuthContext, auth_contexts, contexts_to_rule_eval, to_rule_eval, val_to_rule_eval,
+    AuthContext, Executable, auth_contexts, contexts_to_rule_eval, to_rule_eval, val_to_rule_eval,
 };
 pub use host::{Auth, Refusal, Storage};
 pub use plain::PlainHost;

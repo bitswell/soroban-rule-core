@@ -13,15 +13,17 @@ permissions:
 # models compute, on soroban-env-host through soroban-sdk's testutils with
 # enforcing authorization, and fails on any difference in outcome, events or
 # storage. Each matrix entry is a crate in conformance/host that pins one host
-# version and shares the harness source; p27 is the pin the workspace and the
-# facade build against (soroban-sdk 27.0.6, soroban-env-host 27.0.1).
+# version and shares the harness source; p29 is the pin the workspace and the
+# facade build against (soroban-sdk 29.0.1, soroban-env-host 29.0.1,
+# protocol 29). Every entry runs on every pull request and push to main, with
+# no condition and no allowed failure.
 jobs:
   host:
     name: Soroban models against the host
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        entry: [p27]
+        entry: [p29]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

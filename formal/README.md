@@ -8,7 +8,7 @@ and the theorems relating them. The Lake package is `rule-core`
 | --- | --- |
 | `RuleCore/Model/` | The generic model: rules with their signers, threshold and optional cap, rule sets, `narrower`, and the nine attenuation steps, over any context and signer type. `Cap.lean` models spending caps: the spend record, the check, runs and windows. `Authorize.lean` models `authorize`, its runs, and narrowing as trace inclusion. `Budget.lean` models the budget tree: spends, delegations, refills and their runs. |
 | `RuleCore/Vocab/` | The chain vocabulary (contexts, values, conditions, signers, caps, rules, authorizations) and its denotation into the generic model; Perch's documents, their meaning and validity (`Document.lean`), the lowering and scoped documents (`Lowering.lean`), and the account's generation (`Account.lean`). |
-| `RuleCore/Soroban/` | Lean models of Soroban's behaviour at protocol 27: values and their XDR (`Val.lean`), storage as a map (`Storage.lean`), authorization contexts and what `rule-eval` reads of them (`Context.lean`), signed trees, credentials and the host's matching of `require_auth` (`Auth.lean`), and calls, rollback, `require_auth` and `__check_auth` (`Host.lean`). |
+| `RuleCore/Soroban/` | Lean models of Soroban's behaviour at protocol 29: values and their XDR (`Val.lean`), storage as a map (`Storage.lean`), authorization contexts and what `rule-eval` reads of them (`Context.lean`), signed trees, credentials and the host's matching of `require_auth` (`Auth.lean`), and calls, rollback, `require_auth` and `__check_auth` (`Host.lean`). |
 | `RuleCore/Extracted/` | `RuleEval.lean`, the translation of `crates/rule-eval`, the lowering included, that Charon and Aeneas generate. Never edited by hand. |
 | `RuleCore/Equiv/` | Denotations from the translated types to the chain vocabulary, the cap model (`DenoteCap.lean`), the budget model (`DenoteBudget.lean`) and the document vocabulary (`DenoteDocument.lean`), and theorems that the translated functions compute the model's results (`Cap.lean` for the cap check, `Authorize.lean` for `authorize`, `Budget.lean` for the budget operations, `Lowering.lean` for the lowering). |
 | `RuleCore/Theorems/` | The theorems below, including the Soroban models' theorems (`Soroban.lean`) and the model's theorems carried over to the translation (`Extracted.lean`, `ExtractedCap.lean`, `ExtractedAuthorize.lean`, `ExtractedBudget.lean`, `ExtractedLowering.lean`), the cap theorems (`Cap.lean`), the authorization theorems (`Authorize.lean`), the budget theorems (`Budget.lean`), compile soundness (`Lowering.lean`), scoped documents, the generation and the chain (`Scoped.lean`), and kernel-checked examples of concrete verdicts. |
@@ -443,21 +443,23 @@ translated lowering returns `ok` of the model's, under the stated rule
 
 `RuleCore/Soroban/` models, in namespace `RuleCore.Soroban`, the part of
 Soroban that `crates/soroban-facade` and the contract shells rely on, as
-`soroban-env-host` 27.0.1 behaves. The models are trusted specification
+`soroban-env-host` 29.0.1 behaves. The models are trusted specification
 ([`TRUSTED.md`](../TRUSTED.md#the-soroban-models)); `conformance/host` tests
 them against the host.
 
 * `Val.lean`: an `Address` is an account key, a contract id or a muxed
   account; a `Val` is `void`, `bool`, `u32`, `u64`, `i128`, bytes, a string, a
-  symbol, an address, a vector, a map or `other` of the XDR of any other kind.
+  symbol, an address, a vector, a map or `other` of the XDR of any other kind
+  the facade models (an executable tag is none).
   `Val.xdr` and `Address.xdr` are their `ScVal` and `ScAddress` XDR, and
   `Val.storable` says a key holds no muxed address.
 * `Storage.lean`: a `Store` maps a `Slot` (a contract, a `Durability` and a
   key) to a value; `Op.apply` is a contract's `get`, `has`, `set` or `remove`
   on its own storage, refusing a key that is not storable.
-* `Context.lean`: an `AuthFn` is one context, a call or a creation.
+* `Context.lean`: an `AuthFn` is one context, a call or a creation, whose
+  `Executable` is uploaded Wasm or an external reference (CAP-85).
   `AuthFn.toVal` is the value the host passes it as, `AuthFn.ofVal` and
-  `contextsOfVal` read such values back (nothing for a context SDK 27 does not
+  `contextsOfVal` read such values back (nothing for a context SDK 29 does not
   know), and `Val.toChain` and `AuthFn.toChain` are what `rule-eval` reads: a
   denotation into the chain vocabulary.
 * `Auth.lean`: an `Entry` is an address's signed `Invocation` tree with a

@@ -1,9 +1,10 @@
-# The harness at the pin: soroban-sdk 27.0.6, which fixes soroban-env-host
-# 27.0.1 (protocol 27). Each host version the vectors run on is a crate like
-# this one, with its own pins and lock, sharing ../src and ../tests.
+# The harness at the pin: soroban-sdk 29.0.1, which fixes soroban-env-host
+# 29.0.1 (protocol 29). Each host version the vectors run on is a crate like
+# this one, named soroban-host-p<protocol>, with its own pins and lock,
+# sharing ../src and ../tests.
 [package]
-name = "soroban-host-p27"
-description = "Replays the Soroban vectors on soroban-env-host 27.0.1 through soroban-sdk 27.0.6's testutils"
+name = "soroban-host-p29"
+description = "Replays the Soroban vectors on soroban-env-host 29.0.1 through soroban-sdk 29.0.1's testutils"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,6 +12,9 @@ repository.workspace = true
 publish = false
 
 [lib]
+# Every entry names its library `harness`, so the shared tests import it
+# whichever host the entry pins.
+name = "harness"
 path = "../src/lib.rs"
 doctest = false
 
@@ -29,4 +33,4 @@ rule-eval = { path = "../../../crates/rule-eval" }
 rule-eval-conformance = { path = "../../runner" }
 sha2 = "0.10"
 soroban-facade = { path = "../../../crates/soroban-facade" }
-soroban-sdk = { version = "=27.0.6", features = ["testutils"] }
+soroban-sdk = { version = "=29.0.1", features = ["testutils"] }

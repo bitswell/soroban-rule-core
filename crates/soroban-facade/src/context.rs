@@ -6,7 +6,7 @@ use alloc::vec::Vec;
 use crate::val::{Address, Val};
 use crate::xdr;
 
-/// One context `__check_auth` receives, following SDK 27's `auth::Context`.
+/// One context `__check_auth` receives, following SDK 29's `auth::Context`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AuthContext {
     /// A call of `fn_name` on `contract` with `args`.
@@ -15,13 +15,73 @@ pub enum AuthContext {
         fn_name: Vec<u8>,
         args: Vec<Val>,
     },
-    /// A creation from the Wasm with hash `wasm_hash`, with `salt` and the
-    /// constructor arguments, none for a creation without a constructor call.
+    /// A creation running `executable`, with `salt` and the constructor
+    /// arguments, none for a creation without a constructor call.
     CreateContract {
-        wasm_hash: [u8; 32],
+        executable: Executable,
         salt: [u8; 32],
         constructor_args: Vec<Val>,
     },
+}
+
+/// What a created contract runs, following SDK 29's `ContractExecutable`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Executable {
+    /// Uploaded Wasm, by its hash.
+    Wasm([u8; 32]),
+    /// The Wasm hash `owner` keeps in its persistent storage under the
+    /// executable tag with the string `tag` (CAP-85).
+    ExternalRef { owner: Address, tag: Vec<u8> },
+}
+
+impl Executable {
+    /// Reads an executable from its `contracttype` encoding: `Wasm` and the
+    /// hash, or `ExternalRef` and a map of the owner and the tag.
+    #[must_use]
+    pub fn from_val(v: &Val) -> Option<Executable> {
+        let Val::Vec(items) = v else { return None };
+        let [name, body] = items.as_slice() else {
+            return None;
+        };
+        if is_sym(name, "Wasm") {
+            bytes32(body).map(Executable::Wasm)
+        } else if is_sym(name, "ExternalRef") {
+            match fields(body, ["owner", "tag"])? {
+                [Val::Address(owner), Val::String(tag)] => Some(Executable::ExternalRef {
+                    owner: owner.clone(),
+                    tag: tag.clone(),
+                }),
+                _ => None,
+            }
+        } else {
+            None
+        }
+    }
+
+    /// The executable's `contracttype` encoding.
+    #[must_use]
+    pub fn to_val(&self) -> Val {
+        match self {
+            Executable::Wasm(h) => Val::Vec(alloc::vec![sym("Wasm"), Val::Bytes(h.to_vec())]),
+            Executable::ExternalRef { owner, tag } => Val::Vec(alloc::vec![
+                sym("ExternalRef"),
+                Val::Map(alloc::vec![
+                    (sym("owner"), Val::Address(owner.clone())),
+                    (sym("tag"), Val::String(tag.clone())),
+                ]),
+            ]),
+        }
+    }
+
+    /// What identifies the executable to `rule-eval`: the Wasm hash, or the
+    /// `ScVal` XDR of an external reference, which is longer than any hash.
+    #[must_use]
+    pub fn id(&self) -> Vec<u8> {
+        match self {
+            Executable::Wasm(h) => h.to_vec(),
+            Executable::ExternalRef { .. } => xdr::encode(&self.to_val()),
+        }
+    }
 }
 
 fn sym(s: &str) -> Val {
@@ -56,15 +116,6 @@ fn fields<'a, const N: usize>(v: &'a Val, keys: [&str; N]) -> Option<[&'a Val; N
     Some(out)
 }
 
-/// The Wasm hash of a `ContractExecutable::Wasm`, the one executable SDK 27
-/// knows.
-fn wasm_hash(v: &Val) -> Option<[u8; 32]> {
-    match v {
-        Val::Vec(items) if items.len() == 2 && is_sym(&items[0], "Wasm") => bytes32(&items[1]),
-        _ => None,
-    }
-}
-
 impl AuthContext {
     /// Reads one context from its `contracttype` encoding, the form the host
     /// passes it in: a variant name and a map of fields.
@@ -89,7 +140,7 @@ impl AuthContext {
         } else if is_sym(name, "CreateContractHostFn") {
             let [executable, salt] = fields(body, ["executable", "salt"])?;
             Some(AuthContext::CreateContract {
-                wasm_hash: wasm_hash(executable)?,
+                executable: Executable::from_val(executable)?,
                 salt: bytes32(salt)?,
                 constructor_args: Vec::new(),
             })
@@ -98,7 +149,7 @@ impl AuthContext {
                 fields(body, ["constructor_args", "executable", "salt"])?;
             let Val::Vec(args) = args else { return None };
             Some(AuthContext::CreateContract {
-                wasm_hash: wasm_hash(executable)?,
+                executable: Executable::from_val(executable)?,
                 salt: bytes32(salt)?,
                 constructor_args: args.clone(),
             })
@@ -124,11 +175,11 @@ impl AuthContext {
                 ]),
             ]),
             AuthContext::CreateContract {
-                wasm_hash,
+                executable,
                 salt,
                 constructor_args,
             } => {
-                let executable = Val::Vec(alloc::vec![sym("Wasm"), Val::Bytes(wasm_hash.to_vec())]);
+                let executable = executable.to_val();
                 let salt = Val::Bytes(salt.to_vec());
                 if constructor_args.is_empty() {
                     Val::Vec(alloc::vec![
@@ -180,7 +231,8 @@ pub fn val_to_rule_eval(v: &Val) -> rule_eval::Val {
 }
 
 /// A context as `rule-eval` reads it: a call of the contract's `ScAddress`
-/// XDR, or a creation of the Wasm hash, which no rule allows.
+/// XDR, or a creation, which no rule allows, of the executable's
+/// [`Executable::id`].
 #[must_use]
 pub fn to_rule_eval(c: &AuthContext) -> rule_eval::Context {
     match c {
@@ -193,8 +245,8 @@ pub fn to_rule_eval(c: &AuthContext) -> rule_eval::Context {
             function: fn_name.clone(),
             args: args.iter().map(val_to_rule_eval).collect(),
         },
-        AuthContext::CreateContract { wasm_hash, .. } => rule_eval::Context::Create {
-            wasm_hash: wasm_hash.to_vec(),
+        AuthContext::CreateContract { executable, .. } => rule_eval::Context::Create {
+            wasm_hash: executable.id(),
         },
     }
 }

@@ -208,8 +208,10 @@ on: values and their XDR (`Val.lean`), contract storage as a finite map
 and what `rule-eval` reads of them (`Context.lean`), signed authorization
 trees, credentials and the host's matching of `require_auth` (`Auth.lean`),
 and calls, rollback, `require_auth` and `__check_auth` (`Host.lean`). They are
-written from `soroban-env-host` 27.0.1 (`auth.rs`, `host/frame.rs`,
-`host.rs`, `host/conversion.rs` and `builtin_contracts/account_contract.rs`)
+written from `soroban-env-host` 29.0.1 (`auth.rs`, `host/frame.rs`,
+`host.rs`, `host/conversion.rs`, `host/data_helper.rs`,
+`builtin_contracts/account_contract.rs` and
+`builtin_contracts/common_types.rs`)
 and they are part of the specification, as the denotations are. The theorems
 in `RuleCore.Theorems.Soroban` are about the models; that they describe the
 host rests on the models, and nothing proves the models equal to the host.
@@ -221,27 +223,34 @@ The models leave out, and nothing here tests:
 - time to live, archival and automatic restoration of entries, footprints, fees and resources;
 - the checks stellar-core makes on a transaction before the host runs it, such as which protocol admits which credentials and frozen keys (CAP-77);
 - Stellar accounts' ed25519 signatures, source-account credentials, `require_auth` inside `__check_auth`, `require_auth_for_args`, `authorize_as_current_contract` and contract creation as a call (a creation context is modelled, and the facade reads it, as data);
-- a key holding a muxed address in instance storage, which host 27.0.1 refuses only when it writes the instance back at the end of the call (the facade refuses every such key at once);
-- every protocol but 27.
+- a key holding a muxed address in instance storage, which host 29.0.1 refuses only when it writes the instance back at the end of the call (the facade refuses every such key at once);
+- executable tags (CAP-85), which the host takes as values and treats apart as storage keys, and which the facade refuses as keys and as values;
+- every protocol but 29.
 
 ## soroban-sdk and soroban-env-host
 
 `crates/soroban-facade`'s real implementation and the host harness build
-against soroban-sdk 27.0.6, which fixes soroban-env-host 27.0.1 and
-stellar-xdr 27.0.0 (protocol 27), the release set Stellar publishes for
-protocol 27 (`Cargo.lock`). The harness drives the host through
+against soroban-sdk 29.0.1, which fixes soroban-env-host 29.0.1 and
+stellar-xdr 28.0.0 (protocol 29, the protocol mainnet runs), as `Cargo.lock`
+records. The harness drives the host through
 soroban-sdk's testutils: native test contracts (`ContractFunctionSet`),
 `set_auths` and `try_invoke_contract`. That path shares storage, rollback
 within a transaction and enforcing authorization with the host function
 stellar-core calls (`e2e_invoke::invoke_host_function`), and it is trusted to
 behave as that path does for what the vectors exercise. A contract built at
 the pin runs on the host the network's protocol selects; nothing here runs the
-vectors on another host version.
+vectors on another host version yet.
+
+Building the facade's real implementation for `wasm32v1-none` outside
+stellar-cli needs `SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2` set,
+which CI sets for that build alone: soroban-sdk 29 refuses a wasm build
+without it, since it relies on the build system to shake a contract's spec.
+The facade exports no contract functions; a shell builds through stellar-cli.
 
 ### SDK items the real implementation calls
 
 `SdkHost` (`crates/soroban-facade/src/sdk.rs`) is the only code in the
-repository that calls the SDK. It calls:
+repository that calls the SDK. At soroban-sdk 29.0.1 it calls:
 
 | Item | Use |
 | --- | --- |
@@ -254,8 +263,9 @@ repository that calls the SDK. It calls:
 | `xdr::FromXdr::from_xdr` for `Val` and for `Address` (the host's `deserialize_from_bytes`) | The host value of a facade value, and the host address of a facade address. |
 
 The facade's own XDR writer and reader stand between these and its plain
-values. The host traps on XDR it cannot represent as a value, as it does for
-any contract.
+values, and a value whose XDR the reader does not read back is refused before
+`from_xdr`. The host traps on XDR it cannot represent as a value, as it does
+for any contract.
 
 ## The facade's conversion
 
@@ -264,8 +274,8 @@ any contract.
 (`auth_contexts`) `contextsOfVal`, and its conversion to `rule-eval`'s types
 (`val_to_rule_eval`, `to_rule_eval`) `Val.toChain` and `AuthFn.toChain`; the
 value and context vectors check each one against the model, and the host
-harness checks them against what the host gives `__check_auth`. Nothing
-proves them equal.
+harness checks them against what the host gives `__check_auth` and against
+SDK 29's reading of every context vector. Nothing proves them equal.
 
 ## The host harness
 
@@ -274,7 +284,8 @@ are trusted:
 
 - the signature payload it expects is SHA-256 (the `sha2` crate) of `stellar-xdr`'s encoding of the `HashIdPreimage` it builds from the model's preimage and the ledger's network id;
 - values pass between the vectors, the facade and the host through the facade's XDR and `stellar-xdr`'s reading and writing of it;
-- its native contracts run each step of a call or of `__check_auth` as the model's step says, and record what they see.
+- its native contracts run each step of a call or of `__check_auth` as the model's step says, and record what they see;
+- its reading of the context vectors takes SDK 29's `auth::Context` (`TryFromVal` and `IntoVal`) as the reading a shell's `__check_auth` makes, and a trap while reading as a refusal, as it is in a contract.
 
 A mistake in any of them shows up as a failing vector, unless it hides a
 difference between the model and the host in the same way on both sides.

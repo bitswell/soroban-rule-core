@@ -4,10 +4,11 @@
 //! Values cross between the facade and the SDK as XDR: a facade value is
 //! encoded with [`xdr::encode`] and the host deserializes it
 //! (`FromXdr`), and a host value is serialized by the host (`ToXdr`) and
-//! read with [`xdr::decode`]. The host traps on XDR it cannot represent as a
-//! value, as it does for any contract: a symbol with a character outside
-//! `[a-zA-Z0-9_]` or over 32 bytes, or a map whose keys are not in the
-//! host's order.
+//! read with [`xdr::decode`]. A facade value whose XDR [`xdr::decode`] does
+//! not read back is refused before it reaches the host. The host traps on XDR
+//! it cannot represent as a value, as it does for any contract: a symbol with
+//! a character outside `[a-zA-Z0-9_]` or over 32 bytes, or a map whose keys
+//! are not in the host's order.
 
 use alloc::vec;
 use alloc::vec::Vec;
@@ -31,10 +32,18 @@ impl<'a> SdkHost<'a> {
         Self { env }
     }
 
-    /// The host value for `v`.
+    /// The host value for `v`, or `None` when `v` is no value the facade
+    /// models: an `Other` holding XDR that [`xdr::decode`] does not read
+    /// back, such as an executable tag (CAP-85), a key the host lets a
+    /// contract put only in persistent storage, only with a Wasm hash, and
+    /// never remove.
     #[must_use]
     pub fn to_sdk(&self, v: &Val) -> Option<SdkVal> {
-        let b = Bytes::from_slice(self.env, &xdr::encode(v));
+        let bytes = xdr::encode(v);
+        if xdr::decode(&bytes).as_ref() != Some(v) {
+            return None;
+        }
+        let b = Bytes::from_slice(self.env, &bytes);
         SdkVal::from_xdr(self.env, &b).ok()
     }
 
