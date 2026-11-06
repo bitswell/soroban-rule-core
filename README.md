@@ -77,6 +77,15 @@ Every claim the repository makes is in [`claims.yaml`](claims.yaml), with its
 status (`proven`, `tested`, `measured`, `assumed` or `unproven`) and its
 evidence. `tools/check-claims` checks the evidence in CI.
 
+## Optional offline Cedar frontend
+
+[`tools/cedar-compile`](tools/cedar-compile/README.md) is a separate native
+workspace that compiles a strictly bounded, permit-only Cedar fragment into
+existing rules. It uses the official Cedar parser and a bounded differential
+corpus; the new compiler is **not formally proven**. Cedar stays outside the
+contract and extraction dependency graph. The prototype deliberately rejects
+wide integer ranges and unsupported constructs instead of weakening them.
+
 ## Exact authorization roots
 
 An ordinary `Rule` or `DocRule` may carry `auth_root: Some(AuthRoot { contract, function })`.
