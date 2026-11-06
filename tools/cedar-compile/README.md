@@ -61,7 +61,7 @@ permit (
 ```
 
 - Only `permit`, exact entity-literal heads and at most one `when` clause.
-  No clause is allowed for a zero-argument call. All policies are compiled;
+  Omitting the clause is allowed for a zero-argument call. All policies are compiled;
   their parser-assigned `policy0`, `policy1`, … IDs must exactly match the
   binding manifest. Rule indices follow those IDs in sorted order, independent
   of Cedar's policy iteration order. Reordering source changes that association.
