@@ -113,6 +113,21 @@ pub struct JsonRule {
     pub valid_until: Option<u32>,
     /// The generation the rule was issued under, a decimal `u64`, or `null`.
     pub generation: Option<String>,
+    pub auth_root: Option<JsonAuthRoot>,
+}
+
+#[derive(Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct JsonAuthRoot {
+    pub contract: String,
+    pub function: String,
+}
+
+pub fn decode_auth_root(root: &JsonAuthRoot) -> Result<rule_eval::AuthRoot, String> {
+    Ok(rule_eval::AuthRoot {
+        contract: decode_hex(&root.contract)?,
+        function: decode_hex(&root.function)?,
+    })
 }
 
 #[derive(Deserialize, Clone)]
@@ -426,6 +441,7 @@ pub fn decode_rules(rules: &[JsonRule]) -> Result<Vec<Rule>, String> {
                 cap: r.cap.as_ref().map(decode_cap).transpose()?,
                 valid_until: r.valid_until,
                 generation: r.generation.as_deref().map(decode_decimal).transpose()?,
+                auth_root: r.auth_root.as_ref().map(decode_auth_root).transpose()?,
             })
         })
         .collect()

@@ -18,7 +18,7 @@
 //!    `valid_until`, when it has one, is not before `now`: OpenZeppelin
 //!    refuses `valid_until < e.ledger().sequence()`), was issued under the
 //!    current `generation` when it carries one, and allows its context under
-//!    the authenticated signers ([`rule_allows`]);
+//!    the authenticated signers ([`rule_allows_in`]);
 //! 2. every authenticated signer is a signer of some chosen rule, as
 //!    OpenZeppelin refuses a signer that belongs to no selected rule with
 //!    `UnauthorizedSigner`;
@@ -32,14 +32,16 @@
 //! `authorize` returns. A refusal returns no records, so the stored ones stay
 //! as they were, the charges of earlier contexts in the batch included.
 //! [`allows`](crate::allows) and [`allows_all`](crate::allows_all) are the
-//! view of the same rules without caps, choices, time or generation: every
-//! batch `authorize` accepts, they allow.
+//! local screening view: they also ignore root constraints. Every accepted
+//! batch passes [`allows_batch`](crate::allows_batch), which checks the
+//! current entry's root as well as local conditions, but does not enforce
+//! caps, choices, time, generation or signer coverage.
 
 use alloc::vec::Vec;
 
 use crate::cap::{CapError, SpendRecord, check_spend, record_copy};
-use crate::context::Context;
-use crate::rule::{Cap, Rule, rule_allows};
+use crate::context::{Context, entry_root};
+use crate::rule::{Cap, Rule, rule_allows_in};
 use crate::signer::{Signer, signer_in};
 use crate::val::Val;
 
@@ -122,7 +124,7 @@ fn check_choices(
                 if stale(r, generation) {
                     return Err(Refusal::StaleGeneration);
                 }
-                if !rule_allows(r, &contexts[i], authenticated) {
+                if !rule_allows_in(r, entry_root(contexts), &contexts[i], authenticated) {
                     return Err(Refusal::NotAllowed);
                 }
             }

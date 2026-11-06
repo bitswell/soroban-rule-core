@@ -183,6 +183,16 @@ and `scoped` modules to the document vocabulary of
 Each one is proven injective, so two Rust values that differ never have the
 same meaning.
 
+Exact authorization-root requirements use the same concrete context denotation:
+`AuthRoot` maps both byte fields structurally and injectively. The optional field
+is preserved in rule and document denotations. `authorize` derives its root
+inside the pure evaluator from the first context of the input entry; the shell
+must supply the host-authenticated entry in its original order. The new root
+proofs do not establish that arbitrary caller-built batches came from the host.
+The existing host-model preorder result and real-host conformance remain the
+separate boundary for that ordering. This feature introduces no additional
+unchecked Lean declaration.
+
 ## The document's meaning
 
 `formal/RuleCore/Vocab/Document.lean` says what a document means:

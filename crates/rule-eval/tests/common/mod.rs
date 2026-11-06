@@ -41,6 +41,7 @@ pub fn signed_rule(
         cap: None,
         valid_until: None,
         generation: None,
+        auth_root: None,
     }
 }
 
@@ -141,6 +142,8 @@ pub fn rule_eq(x: &Rule, y: &Rule) -> bool {
         && cap_eq(&x.cap, &y.cap)
         && x.valid_until == y.valid_until
         && x.generation == y.generation
+        && x.auth_root.as_ref().map(|r| (&r.contract, &r.function))
+            == y.auth_root.as_ref().map(|r| (&r.contract, &r.function))
 }
 
 pub fn rules_eq(xs: &[Rule], ys: &[Rule]) -> bool {
@@ -304,6 +307,7 @@ impl RuleSpec {
             cap: None,
             valid_until: None,
             generation: None,
+            auth_root: None,
         }
     }
 }
@@ -519,6 +523,10 @@ pub fn copy_rule(r: &Rule) -> Rule {
         cap: copy_cap(&r.cap),
         valid_until: r.valid_until,
         generation: r.generation,
+        auth_root: r.auth_root.as_ref().map(|root| rule_eval::AuthRoot {
+            contract: root.contract.clone(),
+            function: root.function.clone(),
+        }),
     }
 }
 

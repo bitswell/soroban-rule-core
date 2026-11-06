@@ -1,5 +1,42 @@
 # Architecture
 
+## Exact authorization-entry roots
+
+Ordinary rules may additionally require an exact `AuthRoot` contract/function
+pair. This is the first context of the current account's host-authenticated
+entry, not the transaction root or an arbitrary ancestor. The Rust first pass
+derives it through `context::entry_root`, implemented with the pinned
+extraction's modeled `get(0)` operation. It conjoins `rule_allows_in` with the
+existing expiry and generation checks before validating signer coverage or
+charging any caps. No caller-supplied root parameter reaches `authorize`.
+
+The generic model adds `authRoot : Option (Ctx → Bool)` and `Rule.allowsIn`;
+chain denotation restricts it to exact byte comparisons. The first pass uses
+`a.contexts.head?`, and `RuleSet.allowsBatch` uses that same head for the whole
+batch. Local `allows`/`allowsAll` deliberately remain weaker screening views.
+In particular, the existing Soroban shell model's `checkRules` containment
+result is local screening; the new stateful root theorem is
+`Chain.RuleSet.authorize_exactRoot`. The host model's preorder-head result
+supplies the separate host-order fact. Real account integration must preserve
+that ordering and invoke the complete evaluator.
+
+The optional root is structural data in Rust and document/chain denotations.
+All copy, lowering and attenuation equivalence proofs retain it. Self-admin
+lowering and generated recovery rules remain unrestricted; input validators
+must reject root-bearing self-admin documents. Generic `Rule.Refines` now
+requires root-aware implication for every root. `AuthRoot.narrows_iff` proves
+that unrestricted-to-exact or an identical exact pair is precisely safe for
+this component, and `withRoot_traceNarrower` lifts that to complete traces.
+
+`accepts_allowsBatch`, `mem_charged_root`, and the extracted
+`accepts_allows_batch`/`charged_root` results connect accepted traces and every
+charge to the selected rule's root requirement. The regenerated extracted
+`authorize` and `runAuthorizations` agree with this model; the existing exact
+spending/window and failed-batch theorems are rechecked against these changed
+definitions. A game-only win authenticates and spends no transfer cap; a loss
+charges transfers in the same entry; a direct transfer or a game root in a
+separate entry cannot satisfy the restricted transfer rule.
+
 ## What the repository proves
 
 The goal is one containment chain. Anything an agent authorizes sits inside

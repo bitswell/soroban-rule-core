@@ -109,6 +109,7 @@ def Doc.lowerRule (d : Doc) (acct : Bytes) (gen : Option UInt64) (r : Rule) : Ch
   cap := r.cap.map Cap.lower
   validUntil := r.notAfterLedger.map lastLedger
   generation := gen
+  authRoot := r.effectiveRoot
 
 /-- The recovery rule on `acct`. -/
 def recoveryRule (acct : Bytes) : Chain.Rule where

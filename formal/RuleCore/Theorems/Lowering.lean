@@ -262,7 +262,7 @@ checks exactly when the document's installed rule validates it. -/
 theorem Doc.checkChoice_lower {d : Doc} (hv : d.Valid) (acct : Bytes) (gen : Option UInt64)
     (a : Chain.Authorization) (x : Context × UInt32) :
     (d.lowerRules acct gen ++ d.recoveryRules acct).denote.checkChoice a.auth a.now.toNat
-        a.generation.toNat (x.1, x.2.toNat) = .ok () ↔
+        a.generation.toNat a.contexts.head? (x.1, x.2.toNat) = .ok () ↔
       d.validates acct applyDocCheck gen a x = true := by
   rw [RuleCore.RuleSet.checkChoice_ok_iff, Chain.RuleSet.denote_get, Doc.lowerAll_eq_map,
     List.getElem?_map]
@@ -277,7 +277,13 @@ theorem Doc.checkChoice_lower {d : Doc} (hv : d.Valid) (acct : Bytes) (gen : Opt
         Bool.and_eq_true]
       have ha := Doc.lowerRule_allows hrv acct gen x.1 a.auth
       simp only [Chain.Rule.allows] at ha
+      simp only [RuleCore.Rule.allowsIn, Bool.and_eq_true]
       rw [ha]
+      have hroot : (d.lowerRule acct gen r).denote.rootMatches a.contexts.head? =
+          r.rootMatches a.contexts.head? := by
+        simp only [RuleCore.Rule.rootMatches, Chain.Rule.denote, Doc.lowerRule, Rule.rootMatches]
+        cases r.effectiveRoot <;> cases a.contexts.head? <;> rfl
+      rw [hroot]
       have he : (d.lowerRule acct gen r).denote.expired a.now.toNat = false ↔
           r.live a.now.toNat = true := by
         simp only [Chain.Rule.denote, Doc.lowerRule, RuleCore.Rule.expired, Rule.live]
@@ -303,9 +309,10 @@ theorem Doc.checkChoice_lower {d : Doc} (hv : d.Valid) (acct : Bytes) (gen : Opt
       simp only [Option.map_some, Option.some.injEq, exists_eq_left', Installed.lower]
       have ha := recoveryRule_allows acct x.1 a.auth
       simp only [Chain.Rule.allows] at ha
+      simp only [RuleCore.Rule.allowsIn, Bool.and_eq_true]
       rw [ha]
-      simp only [recoveryRule, Chain.Rule.denote, RuleCore.Rule.expired, RuleCore.Rule.stale,
-        Option.map_none, true_and, Bool.and_eq_true]
+      simp only [RuleCore.Rule.rootMatches, recoveryRule, Chain.Rule.denote, RuleCore.Rule.expired, RuleCore.Rule.stale,
+        Option.map_none, true_and]
       cases x.1 with
       | create w => simp [onAccount]
       | call contract function args => simp [onAccount, applyDocCheck]

@@ -494,7 +494,7 @@ theorem Rule.mem_restrictFunctions (r : Rule) (fs : List Bytes) (f : Bytes) :
 theorem Rule.denote_removeFunctions (r : Rule) (fs : List Bytes) :
     (r.removeFunctions fs).denote = r.denote.restrictScope (notCalling fs) := by
   simp only [Rule.denote, RuleCore.Rule.restrictScope, RuleCore.Rule.mk.injEq]
-  refine ⟨?_, rfl, rfl, rfl, rfl, rfl, rfl⟩
+  refine ⟨?_, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
   funext c
   cases c with
   | call contract function args =>
@@ -506,7 +506,7 @@ theorem Rule.denote_removeFunctions (r : Rule) (fs : List Bytes) :
 theorem Rule.denote_restrictFunctions (r : Rule) (fs : List Bytes) :
     (r.restrictFunctions fs).denote = r.denote.restrictScope (calling fs) := by
   simp only [Rule.denote, RuleCore.Rule.restrictScope, RuleCore.Rule.mk.injEq]
-  refine ⟨?_, rfl, rfl, rfl, rfl, rfl, rfl⟩
+  refine ⟨?_, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
   funext c
   cases c with
   | call contract function args =>

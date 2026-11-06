@@ -108,6 +108,7 @@ fn creations_reach_rule_eval_as_creations() {
         cap: None,
         valid_until: None,
         generation: None,
+        auth_root: None,
     };
     let contexts = contexts_to_rule_eval(&creations());
     for c in &contexts {

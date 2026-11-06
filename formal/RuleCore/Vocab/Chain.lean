@@ -18,6 +18,11 @@ generation (a `u64`) are the rule's own, the last two read as natural numbers.
 A creation has no arguments, every scope is false on it, and so no rule allows
 a creation.
 
+An optional `authRoot` carries an exact contract/function pair at this entry's
+root. `Rule.denote` maps it to the generic root predicate. Local `allows` and
+`allowsAll` ignore it; `allowsIn`, `allowsBatch` and `authorize` enforce it.
+The full authorization derives that root from its own contexts' head.
+
 A rule's functions are a list (`only`), or every function except a list
 (`anyExcept`). The wildcard, every function on the contract, is `anyExcept []`
 (`Functions.any`). Removing functions from a list drops them; removing them
@@ -187,6 +192,34 @@ structure Cap where
   amountArg : UInt32
   deriving DecidableEq, Repr
 
+/-- An exact contract/function pair at this account's authorization root. -/
+structure AuthRoot where
+  contract : Bytes
+  function : Bytes
+  deriving DecidableEq, Repr
+
+def AuthRoot.matches (r : AuthRoot) : Context → Bool
+  | .call contract function _ => decide (contract = r.contract) && decide (function = r.function)
+  | .create _ => false
+
+/-- Optional exact requirement evaluated on an optional entry root. -/
+def AuthRoot.matchesOpt (requirement : Option AuthRoot) (root : Option Context) : Bool :=
+  match requirement with
+  | none => true
+  | some expected => match root with
+    | some c => expected.matches c
+    | none => false
+
+/-- Narrowing of the root component alone; an exact parent requires the
+same exact child. Other rule constraints must be checked independently. -/
+def AuthRoot.narrows (child parent : Option AuthRoot) : Bool :=
+  match parent with
+  | none => true
+  | some expected => match child with
+    | some actual => decide (actual.contract = expected.contract) &&
+        decide (actual.function = expected.function)
+    | none => false
+
 structure Rule where
   contract : Bytes
   functions : Functions
@@ -196,6 +229,7 @@ structure Rule where
   cap : Option Cap := none
   validUntil : Option UInt32 := none
   generation : Option UInt64 := none
+  authRoot : Option AuthRoot := none
   deriving DecidableEq, Repr
 
 abbrev RuleSet := List Rule
@@ -239,7 +273,8 @@ def Cap.denote (k : Cap) : RuleCap Context :=
 def Rule.denote (r : Rule) : RuleCore.Rule Context Signer :=
   { scope := r.scope, conds := r.conds.map Cond.denote, signers := r.signers,
     threshold := r.threshold.toNat, cap := r.cap.map Cap.denote,
-    validUntil := r.validUntil.map (·.toNat), generation := r.generation.map (·.toNat) }
+    validUntil := r.validUntil.map (·.toNat), generation := r.generation.map (·.toNat),
+    authRoot := r.authRoot.map AuthRoot.matches }
 
 def RuleSet.denote (rs : RuleSet) : RuleCore.RuleSet Context Signer :=
   .ofRules (rs.map Rule.denote)
@@ -257,6 +292,16 @@ def RuleSet.allows (rs : RuleSet) (c : Context) (auth : List Signer) : Bool :=
 
 def RuleSet.allowsAll (rs : RuleSet) (cs : List Context) (auth : List Signer) : Bool :=
   rs.denote.allowsAll cs auth
+
+def Rule.allowsIn (r : Rule) (root : Option Context) (c : Context) (auth : List Signer) : Bool :=
+  r.denote.allowsIn root c auth
+
+def RuleSet.allowsIn (rs : RuleSet) (root : Option Context) (c : Context)
+    (auth : List Signer) : Bool :=
+  rs.denote.allowsIn root c auth
+
+def RuleSet.allowsBatch (rs : RuleSet) (cs : List Context) (auth : List Signer) : Bool :=
+  rs.denote.allowsBatch cs auth
 
 def RuleSet.narrower (rs' rs : RuleSet) : Prop :=
   rs'.denote.narrower rs.denote

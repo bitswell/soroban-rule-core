@@ -183,7 +183,7 @@ theorem RuleSet.authorize_generation_none {rs : Chain.RuleSet}
     rs.authorize records { a with generation := g } = rs.authorize records a := by
   have hc : rs.denote.checkChoice a.auth a.now.toNat g.toNat =
       rs.denote.checkChoice a.auth a.now.toNat a.generation.toNat := by
-    funext x
+    funext root x
     unfold RuleCore.RuleSet.checkChoice
     cases hx : rs.denote.rules[x.2]? with
     | none => rfl

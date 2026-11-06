@@ -97,13 +97,13 @@ def encodeOpt {α : Type} (f : α → Json) : Option α → Json
   | none => .null
 
 def encodeDocRule (r : Document.Rule) : Json :=
-  .obj [
+  .obj ([
     ("scope", encodeScope r.scope),
     ("principals", encodePrincipals r.principals),
     ("functions", encodeOpt encodeBytesList r.functions),
     ("args", encodeOpt (fun cs => .arr (cs.map encodeArg)) r.args),
     ("not_after_ledger", encodeOpt (fun x => .num x.toNat) r.notAfterLedger),
-    ("cap", encodeOpt encodeDocCap r.cap)]
+    ("cap", encodeOpt encodeDocCap r.cap)] ++ encodeRootField r.authRoot)
 
 def encodeDecl (sd : SignerDecl) : Json :=
   .obj [("id", .str (hex sd.id)), ("signer", encodeSigner sd.signer)]
@@ -364,8 +364,21 @@ def scopedRecovery : Trace where
   under := some (scopeAdmin, 0)
   authorizations := []
 
+def exactAuthRoot : Trace where
+  name := "document-exact-root"
+  description := "Root-bearing document lowering and encoding preserve the exact pair; a game win has no charge, a loss charges and a separate direct transfer is refused."
+  doc := adminDoc [
+    { ciRule (some ["guess"]) with scope := .contract (s "game") },
+    { capped (ciRule (some ["transfer"])) with authRoot := some ⟨s "game", s "guess"⟩ }]
+  account := acct
+  authorizations := [
+    authAt [.call (s "game") (s "guess") []] [1] 500,
+    authAt [.call (s "game") (s "guess") [], transferOf 4] [1, 2] 501,
+    authAt [transferOf 1] [2] 502,
+    authAt [.call (s "game") (s "guess") [], transferOf 6] [1, 2] 503]
+
 def named : List Trace := [
-  cappedApprove, cappedNoFunctions, extraSigner, notAfterLedger, stringInLong, constraintFree,
+  exactAuthRoot,   cappedApprove, cappedNoFunctions, extraSigner, notAfterLedger, stringInLong, constraintFree,
   stringPrefix, predicates, thresholds, withRecovery, scopedIssued,
   scopedRefused "self-admin" "the account, by a self-admin scope" .selfAdmin,
   scopedRefused "account" "the account's address" (.contract acct),

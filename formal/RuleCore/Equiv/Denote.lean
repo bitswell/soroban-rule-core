@@ -90,6 +90,9 @@ def denoteCap (c : rule_eval.rule.Cap) : Chain.Cap where
   period := denoteU32 c.period
   amountArg := denoteU32 c.amount_arg
 
+def denoteAuthRoot (r : rule_eval.rule.AuthRoot) : Chain.AuthRoot :=
+  ⟨denoteBytes r.contract, denoteBytes r.function⟩
+
 def denoteRule (r : rule_eval.rule.Rule) : Chain.Rule where
   contract := denoteBytes r.contract
   functions := denoteFunctions r.functions
@@ -99,6 +102,7 @@ def denoteRule (r : rule_eval.rule.Rule) : Chain.Rule where
   cap := r.cap.map denoteCap
   validUntil := r.valid_until.map denoteU32
   generation := r.generation.map denoteU64
+  authRoot := r.auth_root.map denoteAuthRoot
 
 /-- The rules of a Rust slice or vector of rules, as a chain rule set. -/
 def denoteRules (rules : List rule_eval.rule.Rule) : Chain.RuleSet := rules.map denoteRule
@@ -227,10 +231,17 @@ theorem denoteCap_injective : Function.Injective denoteCap := by
   simp only [rule_eval.rule.Cap.mk.injEq]
   exact ⟨i128_bv_injective hl, denoteU32_injective hp, denoteU32_injective ha⟩
 
+theorem denoteAuthRoot_injective : Function.Injective denoteAuthRoot := by
+  intro a b h
+  simp only [denoteAuthRoot, Chain.AuthRoot.mk.injEq] at h
+  cases a; cases b
+  simp only [rule_eval.rule.AuthRoot.mk.injEq]
+  exact ⟨denoteBytes_injective h.1, denoteBytes_injective h.2⟩
+
 theorem denoteRule_injective : Function.Injective denoteRule := by
   intro a b h
   simp only [denoteRule, Chain.Rule.mk.injEq] at h
-  obtain ⟨hc, hf, hk, hs, ht, hcap, hv, hg⟩ := h
+  obtain ⟨hc, hf, hk, hs, ht, hcap, hv, hg, hroot⟩ := h
   cases a
   cases b
   simp only [rule_eval.rule.Rule.mk.injEq]
@@ -238,7 +249,7 @@ theorem denoteRule_injective : Function.Injective denoteRule := by
     alloc.vec.Vec.ext _ _ ((List.map_injective_iff.mpr denoteCond_injective).eq_iff.mp hk),
     alloc.vec.Vec.ext _ _ (denoteSigners_injective hs), denoteU32_injective ht,
     Option.map_injective denoteCap_injective hcap, Option.map_injective denoteU32_injective hv,
-    Option.map_injective denoteU64_injective hg⟩
+    Option.map_injective denoteU64_injective hg, Option.map_injective denoteAuthRoot_injective hroot⟩
 
 theorem denoteRules_injective : Function.Injective denoteRules :=
   List.map_injective_iff.mpr denoteRule_injective

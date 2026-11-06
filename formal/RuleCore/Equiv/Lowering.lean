@@ -524,8 +524,10 @@ theorem lower_rule_eq {d : Document.Doc} {signers : Slice rule_eval.document.Sig
   obtain ⟨k, hk, hkv⟩ := lower_cap_eq r.cap
   obtain ⟨v, hv, hvv⟩ := last_ledger_eq r.not_after_ledger
   refine ⟨{ contract := c, functions := f, conds := cs, signers := ss, threshold := t,
-            cap := k, valid_until := v, generation := gen }, ?_, ?_⟩
+            cap := k, valid_until := v, generation := gen,
+            auth_root := match r.scope with | .Contract _ => r.auth_root | .SelfAdmin => none }, ?_, ?_⟩
   · simp only [rule_eval.lowering.lower_rule, hids, hss, ht, hc, hf, hcs, hk, hv, bind_ok]
+    cases r.scope <;> simp [auth_root_copy_eq]
   · have hnamed : ss.val.map denoteSigner = d.named (denoteDocRule r).principals := by
       rw [hssv, hidsv]
       rfl
@@ -535,9 +537,11 @@ theorem lower_rule_eq {d : Document.Doc} {signers : Slice rule_eval.document.Sig
     simp only [denoteRule, Document.Doc.lowerRule, denoteSigners, hcv, hfv, hcsv, hnamed, hkv,
       hvv]
     congr 1
-    rw [htv, hlen]
-    simp only [denoteDocRule, Document.Doc.threshold]
-    cases r.principals <;> rfl
+    · rw [htv, hlen]
+      simp only [denoteDocRule, Document.Doc.threshold]
+      cases r.principals <;> rfl
+    · simp only [Document.Rule.effectiveRoot, denoteDocRule, denoteScope]
+      cases r.scope <;> rfl
 
 theorem lower_rules_loop_eq {d : Document.Doc} {signers : Slice rule_eval.document.SignerDecl}
     (hs : d.signers = signers.val.map denoteDecl) (rules : Slice rule_eval.document.DocRule)
@@ -581,7 +585,7 @@ theorem recovery_rule_eq (account : Slice Std.U8) :
   refine ⟨{ contract := ⟨account⟩,
             functions := .Only ⟨Array.to_slice (Array.make 1#usize [v])⟩,
             conds := alloc.vec.Vec.new _, signers := alloc.vec.Vec.new _, threshold := 0#u32,
-            cap := none, valid_until := none, generation := none }, ?_, ?_⟩
+            cap := none, valid_until := none, generation := none, auth_root := none }, ?_, ?_⟩
   · simp only [rule_eval.lowering.recovery_rule, bytes_copy_eq, hv, lift, bind_ok,
       bytes_list_copy_eq]
   · simp only [denoteRule, Document.recoveryRule, denoteFunctions, alloc.vec.Vec.val,

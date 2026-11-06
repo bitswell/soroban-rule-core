@@ -16,8 +16,8 @@ use crate::bytes::{
     bytes_copy, bytes_list_copy, bytes_list_extend, bytes_list_within, bytes_list_without,
 };
 use crate::rule::{
-    Cap, Cond, Functions, Rule, cap_copy, cap_option_copy, cap_valid, cond_copy, conds_copy,
-    functions_copy, rule_copy,
+    Cap, Cond, Functions, Rule, auth_root_copy, cap_copy, cap_option_copy, cap_valid, cond_copy,
+    conds_copy, functions_copy, rule_copy,
 };
 use crate::signer::{Signer, signers_copy, signers_without};
 
@@ -136,6 +136,7 @@ fn rule_without_functions(r: &Rule, functions: &[Vec<u8>]) -> Rule {
         cap: cap_option_copy(&r.cap),
         valid_until: r.valid_until,
         generation: r.generation,
+        auth_root: auth_root_copy(&r.auth_root),
     }
 }
 
@@ -187,6 +188,7 @@ fn rule_within_functions(r: &Rule, functions: &[Vec<u8>]) -> Rule {
         cap: cap_option_copy(&r.cap),
         valid_until: r.valid_until,
         generation: r.generation,
+        auth_root: auth_root_copy(&r.auth_root),
     }
 }
 
@@ -229,6 +231,7 @@ fn rule_without_signers(r: &Rule, signers: &[Signer]) -> Rule {
         cap: cap_option_copy(&r.cap),
         valid_until: r.valid_until,
         generation: r.generation,
+        auth_root: auth_root_copy(&r.auth_root),
     }
 }
 

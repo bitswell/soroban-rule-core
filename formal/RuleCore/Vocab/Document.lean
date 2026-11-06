@@ -40,7 +40,8 @@ authorization. It does not mention the lowering.
 * A rule stops authorizing at its not-after ledger: it authorizes at a ledger
   `now` only when `now` is before it.
 
-`Doc.allows` is the meaning without time, generation or caps. `Doc.authorize`
+`Doc.allows` is local screening without roots, time, generation or caps.
+`Doc.authorize` additionally checks ordinary rules' exact entry-root constraints. `Doc.authorize`
 checks an authorization as OpenZeppelin's `do_check_auth` does over the rules
 installed for the document (`Doc.installed`): one rule per context, each live
 and allowing its context, every authenticated signer named by a chosen rule,
@@ -113,6 +114,7 @@ structure Rule where
   /-- The ledger at which the rule stops authorizing. -/
   notAfterLedger : Option UInt32 := none
   cap : Option Cap := none
+  authRoot : Option Chain.AuthRoot := none
   deriving DecidableEq, Repr
 
 /-- A declared signer: the id rules name it by, and the signer. -/
@@ -236,6 +238,20 @@ def Doc.allows (d : Doc) (acct : Bytes) (c : Context) (auth : List Signer) : Boo
 
 /-! ## Authorization -/
 
+/-- Self-administration retains its unrestricted eligibility. Validators
+reject root constraints on self-admin input; the total semantics ignores them. -/
+def Rule.effectiveRoot (r : Rule) : Option Chain.AuthRoot :=
+  match r.scope with
+  | .contract _ => r.authRoot
+  | .selfAdmin => none
+
+def Rule.rootMatches (r : Rule) (root : Option Context) : Bool :=
+  match r.effectiveRoot with
+  | none => true
+  | some expected => match root with
+    | some c => expected.matches c
+    | none => false
+
 /-- Rule `r` authorizes at ledger `now`: it has no not-after ledger, or `now` is
 before it. -/
 def Rule.live (r : Rule) (now : Nat) : Bool :=
@@ -269,7 +285,7 @@ def Doc.validates (d : Doc) (acct : Bytes) (ctl : Context → List Signer → Bo
   match d.installed[x.2.toNat]? with
   | some (.rule r) =>
     r.live a.now.toNat && (issued.all fun g => decide (g = a.generation)) &&
-      d.ruleAllows acct r x.1 a.auth
+      (r.rootMatches a.contexts.head? && d.ruleAllows acct r x.1 a.auth)
   | some .recovery => onAccount acct x.1 && ctl x.1 a.auth
   | none => false
 
