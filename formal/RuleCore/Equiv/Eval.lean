@@ -1,5 +1,6 @@
 import RuleCore.Equiv.Denote
 import RuleCore.Equiv.Loop
+import RuleCore.Theorems.AuthRoot
 
 /-!
 # Evaluation: the extracted evaluator agrees with the model
@@ -446,6 +447,53 @@ theorem rule_allows_eq (r : rule_eval.rule.Rule) (c : rule_eval.context.Context)
     · have : bytesOf contract.val ≠ bytesOf r.contract.val := fun h => hc (bytesOf_inj.mp h)
       simp [hc, this]
 
+theorem auth_root_matches_eq (requirement : Option rule_eval.rule.AuthRoot)
+    (root : Option rule_eval.context.Context) :
+    rule_eval.rule.auth_root_matches requirement root =
+      ok (Chain.AuthRoot.matchesOpt (requirement.map denoteAuthRoot) (root.map denoteContext)) := by
+  cases requirement with
+  | none => simp [rule_eval.rule.auth_root_matches, Chain.AuthRoot.matchesOpt]
+  | some r =>
+    cases root with
+    | none => simp [rule_eval.rule.auth_root_matches, Chain.AuthRoot.matchesOpt]
+    | some c =>
+      cases c with
+      | Create w => rfl
+      | Call contract function args =>
+        simp only [rule_eval.rule.auth_root_matches, bytes_eq_eq, vec_deref_val, bind_ok,
+          Option.map_some, denoteContext, denoteAuthRoot, Chain.AuthRoot.matchesOpt,
+          Chain.AuthRoot.matches]
+        by_cases hc : contract.val = r.contract.val <;>
+          simp [hc, denoteBytes, bytesOf_inj]
+
+theorem auth_root_narrows_eq (child parent : Option rule_eval.rule.AuthRoot) :
+    rule_eval.rule.auth_root_narrows child parent =
+      ok (Chain.AuthRoot.narrows (child.map denoteAuthRoot) (parent.map denoteAuthRoot)) := by
+  cases parent with
+  | none => rfl
+  | some p =>
+    cases child with
+    | none => rfl
+    | some c =>
+      simp only [rule_eval.rule.auth_root_narrows, bytes_eq_eq, vec_deref_val, bind_ok,
+        Option.map_some, denoteAuthRoot, Chain.AuthRoot.narrows]
+      by_cases hc : c.contract.val = p.contract.val <;>
+        simp [hc, denoteBytes, bytesOf_inj]
+
+theorem rule_allows_in_eq (r : rule_eval.rule.Rule) (root : Option rule_eval.context.Context)
+    (c : rule_eval.context.Context) (authenticated : Slice rule_eval.signer.Signer) :
+    rule_eval.rule.rule_allows_in r root c authenticated =
+      ok ((denoteRule r).allowsIn (root.map denoteContext) (denoteContext c)
+        (denoteSigners authenticated.val)) := by
+  simp only [rule_eval.rule.rule_allows_in, auth_root_matches_eq, bind_ok,
+    Chain.Rule.allowsIn, RuleCore.Rule.allowsIn, Chain.Rule.rootMatches_eq]
+  change (if Chain.AuthRoot.matchesOpt (r.auth_root.map denoteAuthRoot) (root.map denoteContext)
+    then rule_eval.rule.rule_allows r c authenticated else ok false) =
+    ok (Chain.AuthRoot.matchesOpt (r.auth_root.map denoteAuthRoot) (root.map denoteContext) &&
+      (denoteRule r).allows (denoteContext c) (denoteSigners authenticated.val))
+  cases Chain.AuthRoot.matchesOpt (r.auth_root.map denoteAuthRoot) (root.map denoteContext) <;>
+    simp [rule_allows_eq]
+
 theorem allows_eq (rules : Slice rule_eval.rule.Rule) (c : rule_eval.context.Context)
     (authenticated : Slice rule_eval.signer.Signer) :
     rule_eval.rule_set.allows rules c authenticated =
@@ -484,5 +532,55 @@ theorem allows_all_eq (rules : Slice rule_eval.rule.Rule)
   · intro i hi
     have : ¬ i.val < cs.length := by simp only [Slice.length]; omega
     simp [rule_eval.rule_set.allows_all_loop.body, this]
+
+/-- The batch root getter is total and reads only index zero of this entry. -/
+theorem entry_root_eq (contexts : Slice rule_eval.context.Context) :
+    rule_eval.context.entry_root contexts = ok contexts.val.head? := by
+  simp [rule_eval.context.entry_root, slice_get_eq]
+  cases contexts.val <;> rfl
+
+theorem allows_in_eq (rules : Slice rule_eval.rule.Rule) (root : Option rule_eval.context.Context)
+    (c : rule_eval.context.Context) (authenticated : Slice rule_eval.signer.Signer) :
+    rule_eval.rule_set.allows_in rules root c authenticated =
+      ok ((denoteRules rules.val).allowsIn (root.map denoteContext) (denoteContext c)
+        (denoteSigners authenticated.val)) := by
+  unfold rule_eval.rule_set.allows_in rule_eval.rule_set.allows_in_loop
+  rw [loop_any rules.val
+    (fun r => (denoteRule r).allowsIn (root.map denoteContext) (denoteContext c)
+      (denoteSigners authenticated.val))]
+  · simp [Chain.RuleSet.allowsIn, RuleCore.RuleSet.allowsIn, Chain.RuleSet.denote, RuleCore.RuleSet.ofRules, denoteRules,
+      List.any_map, Function.comp_def, Chain.Rule.allowsIn]
+  · intro i hi
+    obtain ⟨j, hj, hj'⟩ := incr_eq rules i hi
+    refine ⟨j, hj', ?_⟩
+    simp only [rule_eval.rule_set.allows_in_loop.body, slice_len_lt, hi, ↓reduceIte,
+      index_usize_eq _ _ hi, rule_allows_in_eq, bind_ok, hj]
+    cases (denoteRule rules.val[i.val]).allowsIn (root.map denoteContext) (denoteContext c)
+      (denoteSigners authenticated.val) <;> simp
+  · intro i hi
+    have : ¬ i.val < rules.length := by simp only [Slice.length]; omega
+    simp [rule_eval.rule_set.allows_in_loop.body, this]
+
+theorem allows_batch_eq (rules : Slice rule_eval.rule.Rule)
+    (cs : Slice rule_eval.context.Context) (authenticated : Slice rule_eval.signer.Signer) :
+    rule_eval.rule_set.allows_batch rules cs authenticated =
+      ok ((denoteRules rules.val).allowsBatch (cs.val.map denoteContext)
+        (denoteSigners authenticated.val)) := by
+  unfold rule_eval.rule_set.allows_batch rule_eval.rule_set.allows_batch_loop
+  rw [loop_all cs.val
+    (fun c => (denoteRules rules.val).allowsIn ((cs.val.map denoteContext).head?)
+      (denoteContext c) (denoteSigners authenticated.val))]
+  · simp [Chain.RuleSet.allowsBatch, RuleCore.RuleSet.allowsBatch, Chain.RuleSet.allowsIn,
+      List.all_map, Function.comp_def]
+  · intro i hi
+    obtain ⟨j, hj, hj'⟩ := incr_eq cs i hi
+    refine ⟨j, hj', ?_⟩
+    simp only [rule_eval.rule_set.allows_batch_loop.body, slice_len_lt, hi, ↓reduceIte,
+      index_usize_eq _ _ hi, entry_root_eq, allows_in_eq, bind_ok, hj, List.head?_map]
+    cases (denoteRules rules.val).allowsIn (cs.val.head?.map denoteContext)
+      (denoteContext cs.val[i.val]) (denoteSigners authenticated.val) <;> simp
+  · intro i hi
+    have : ¬ i.val < cs.length := by simp only [Slice.length]; omega
+    simp [rule_eval.rule_set.allows_batch_loop.body, this]
 
 end RuleCore.Equiv

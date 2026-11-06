@@ -220,9 +220,15 @@ theorem functions_copy_eq (fs : rule_eval.rule.Functions) :
     rule_eval.rule.functions_copy fs = ok fs := by
   cases fs <;> simp [rule_eval.rule.functions_copy, bytes_list_copy_deref]
 
+theorem auth_root_copy_eq (r : Option rule_eval.rule.AuthRoot) :
+    rule_eval.rule.auth_root_copy r = ok r := by
+  cases r with
+  | none => rfl
+  | some r => simp [rule_eval.rule.auth_root_copy, bytes_copy_deref]
+
 theorem rule_copy_eq (r : rule_eval.rule.Rule) : rule_eval.rule.rule_copy r = ok r := by
   simp [rule_eval.rule.rule_copy, bytes_copy_deref, functions_copy_eq, conds_copy_deref,
-    signers_copy_deref, cap_option_copy_eq]
+    signers_copy_deref, cap_option_copy_eq, auth_root_copy_eq]
 
 /-! ## Removing functions from a rule -/
 
@@ -465,7 +471,7 @@ theorem rule_without_functions_eq (r : rule_eval.rule.Rule)
   obtain ⟨fs, hfs, hv⟩ := functions_without_eq r.functions functions h
   refine ⟨{ r with functions := fs }, ?_, ?_⟩
   · simp [rule_eval.attenuate.rule_without_functions, bytes_copy_deref, hfs, conds_copy_deref,
-      signers_copy_deref, cap_option_copy_eq]
+      signers_copy_deref, cap_option_copy_eq, auth_root_copy_eq]
   · simp only [denoteRule, Chain.Rule.removeFunctions, hv]
 
 theorem rule_without_functions_fail {r : rule_eval.rule.Rule}
@@ -483,7 +489,7 @@ theorem rule_within_functions_eq (r : rule_eval.rule.Rule)
   obtain ⟨fs, hfs, hv⟩ := functions_within_eq r.functions functions
   refine ⟨{ r with functions := fs }, ?_, ?_⟩
   · simp [rule_eval.attenuate.rule_within_functions, bytes_copy_deref, hfs, conds_copy_deref,
-      signers_copy_deref, cap_option_copy_eq]
+      signers_copy_deref, cap_option_copy_eq, auth_root_copy_eq]
   · simp only [denoteRule, Chain.Rule.restrictFunctions, hv]
 
 /-! ## Removing signers from a rule -/
@@ -542,7 +548,7 @@ theorem rule_without_signers_eq (r : rule_eval.rule.Rule)
   obtain ⟨ss, hss, hv⟩ := signers_without_eq (alloc.vec.Vec.deref r.signers) signers
   refine ⟨{ r with signers := ss }, ?_, ?_⟩
   · simp [rule_eval.attenuate.rule_without_signers, bytes_copy_deref, functions_copy_eq,
-      conds_copy_deref, hss, cap_option_copy_eq]
+      conds_copy_deref, hss, cap_option_copy_eq, auth_root_copy_eq]
   · simp only [denoteRule, Chain.Rule.removeSigners, hv, vec_deref_val,
       denote_filter_signerInList]
 

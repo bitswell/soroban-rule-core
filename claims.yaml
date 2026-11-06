@@ -27,11 +27,12 @@ claims:
 
   - id: model.semantics
     claim: >-
-      A rule allows a context under the authenticated signers exactly when its
+      The local screening helper allows a context under authenticated signers exactly when its
       scope matches, every one of its conditions holds and its signer
       requirement holds; a rule set allows a context exactly when some rule
       does; a batch is allowed exactly when every context in it is, under one
-      list of authenticated signers.
+      list of authenticated signers. This local screening ignores authorization-root
+      constraints; root-aware batch acceptance is specified separately.
     status: proven
     evidence:
       - theorem: RuleCore.Rule.allows_iff
@@ -607,6 +608,78 @@ claims:
       - theorem: RuleCore.Chain.RuleSet.authorize_allowsAll
       - theorem: RuleCore.Authorization.map_fst_chosen
       - theorem: RuleCore.forM_except_ok_iff
+
+  - id: authorize.exact-root
+    claim: >-
+      Every accepted entry passes root-aware screening. Every selected exact-root
+      rule sees its contract/function pair at the head of this same entry, and
+      every charge in a trace comes from a selected call in an accepted entry
+      whose root that rule accepts. Failed entries contribute no charges.
+    status: proven
+    evidence:
+      - theorem: RuleCore.RuleSet.authorize_chosen_root
+      - theorem: RuleCore.RuleSet.authorize_allowsBatch
+      - theorem: RuleCore.RuleSet.accepts_allowsBatch
+      - theorem: RuleCore.RuleSet.mem_charged_root
+      - theorem: RuleCore.Chain.RuleSet.authorize_exactRoot
+      - theorem: RuleCore.RuleSet.spent_eq_recorded
+      - theorem: RuleCore.RuleSet.step_of_error
+
+  - id: authorize.root-narrowing
+    claim: >-
+      Root-component narrowing is exactly implication of acceptance of every
+      optional root: an exact parent requires the same exact child. Narrowing
+      the root of an installed rule preserves complete accepted traces, choices
+      and cap-record correspondence. Existing attenuation retains the root.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Chain.AuthRoot.narrows_iff
+      - theorem: RuleCore.Chain.AuthRoot.exact_iff
+      - theorem: RuleCore.Chain.Rule.withRoot_refines
+      - theorem: RuleCore.Chain.RuleSet.withRoot_traceNarrower
+      - theorem: RuleCore.RuleSet.attenuateAll_traceNarrower
+
+  - id: equiv.exact-root
+    claim: >-
+      The extracted root getter, exact matcher, root narrowing check and
+      root-aware per-call and batch predicates agree with the structural model
+      and terminate without a new unchecked declaration. Full extracted
+      authorization and runs agree with the updated root-aware model, including
+      root-aware accepted traces and the provenance of spending charges.
+    status: proven
+    evidence:
+      - theorem: RuleCore.Equiv.entry_root_eq
+      - theorem: RuleCore.Equiv.auth_root_matches_eq
+      - theorem: RuleCore.Equiv.auth_root_narrows_eq
+      - theorem: RuleCore.Equiv.rule_allows_in_eq
+      - theorem: RuleCore.Equiv.allows_batch_eq
+      - theorem: RuleCore.Equiv.auth_root_copy_eq
+      - theorem: RuleCore.Equiv.denoteAuthRoot_injective
+      - theorem: RuleCore.Equiv.authorize_eq
+      - theorem: RuleCore.Extracted.authorize_allows_batch
+      - theorem: RuleCore.Extracted.accepts_allows_batch
+      - theorem: RuleCore.Extracted.charged_root
+      - theorem: RuleCore.Extracted.runAuthorizations_eq
+      - theorem: RuleCore.Extracted.runAuthorizations_window
+
+  - id: rust.exact-root
+    claim: >-
+      Pure Rust regressions cover exact/wrong/missing/creation roots, direct
+      transfer refusal, separate entries, win/loss authentication and cap use,
+      conjunctive checks, aggregate and failed-batch charging, deliberate empty
+      and mismatch behavior, root change/drop rejection, copy/reindex retention
+      and ordinary versus self-admin/recovery lowering.
+    status: tested
+    evidence:
+      - test: rule-eval/auth_root::exact_root_wrong_contract_function_missing_and_creation
+      - test: rule-eval/auth_root::win_authenticates_without_charge_loss_charges_and_direct_transfer_is_refused
+      - test: rule-eval/auth_root::wrong_root_and_reordered_entry_refuse_even_with_an_independent_root_rule
+      - test: rule-eval/auth_root::root_check_remains_conjunctive_with_all_existing_checks
+      - test: rule-eval/auth_root::aggregation_and_late_failure_return_no_charges
+      - test: rule-eval/auth_root::empty_and_mismatched_batches_keep_the_deliberate_existing_semantics
+      - test: rule-eval/auth_root::every_attenuation_retains_surviving_roots_including_reindexing
+      - test: rule-eval/auth_root::lowering_retains_ordinary_roots_and_preserves_admin_recovery_eligibility
+      - test: rule-eval/auth_root::changing_or_dropping_an_exact_root_is_not_certified_narrowing
 
   - id: authorize.refusal-changes-nothing
     claim: >-

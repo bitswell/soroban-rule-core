@@ -390,8 +390,31 @@ def stepTraces : List Trace := [
     rules := derive (.dropRule 0)
     authorizations := stepRun 2 0 1 }]
 
+/-- One entry's exact root cannot be borrowed by another entry. Charges
+accumulate only after every selected root-aware rule passes. -/
+def exactAuthRoot : Trace where
+  name := "authorize-exact-root"
+  description := "Exact account authorization root: win/loss, independent entries, wrong/reordered roots and atomic cap aggregation."
+  rules := [
+    { rule "game" ["guess"] [] with signers := [sAlice], threshold := 1 },
+    { capped100 with signers := [sAlice], threshold := 1, authRoot := some ⟨s "game", s "guess"⟩ },
+    { rule "other" ["guess"] [] with signers := [sAlice], threshold := 1 },
+    { rule "game" ["other"] [] with signers := [sAlice], threshold := 1 }]
+  authorizations := [
+    auth [call "game" "guess" []] [0] 1 [],
+    auth [call "game" "guess" []] [0] 1 [sAlice],
+    auth [transfer 1] [1] 2 [sAlice],
+    auth [call "other" "guess" [], transfer 1] [2, 1] 2 [sAlice],
+    auth [call "game" "other" [], transfer 1] [3, 1] 2 [sAlice],
+    auth [transfer 1, call "game" "guess" []] [1, 0] 2 [sAlice],
+    auth [call "game" "guess" [], transfer 20, transfer 30] [0, 1, 1] 2 [sAlice],
+    auth [call "game" "guess" [], transfer 40, transfer 20] [0, 1, 1] 3 [sAlice],
+    auth [call "game" "guess" [], transfer 50] [0, 1] 4 [sAlice],
+    auth [] [] 4 [],
+    auth [] [] 4 [sAlice]]
+
 def named : List Trace := [
-  batchSameRule, choicesMismatch, recordsMismatch, noSuchRule, notAllowed, missingAmount,
+  exactAuthRoot,   batchSameRule, choicesMismatch, recordsMismatch, noSuchRule, notAllowed, missingAmount,
   windowRolls, refusalDiscardsBatch, choicesBeforeCharges, capRefusals, capOverflow, historyFull,
   ownRecords, ledgerZero, emptyBatch, expired, staleGeneration, unauthorizedSigner,
   refusalOrder] ++ stepTraces

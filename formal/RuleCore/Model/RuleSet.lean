@@ -13,6 +13,12 @@ and a list of conditions. Each condition is a predicate on the context it is
 evaluated against, so a condition belongs to its rule and only ever reads the
 arguments of a call that rule's scope matched.
 
+An optional `authRoot` predicate constrains the entry's root independently of
+local conditions. `Rule.allowsIn` checks both; `RuleSet.allowsBatch` derives the
+root from the same batch's head. Missing roots fail every present predicate.
+The local `allows` and `allowsAll` helpers deliberately ignore root constraints
+and cannot establish root-aware authorization on their own.
+
 A rule also names its signers and a threshold. An authorization carries the
 signers it authenticated, one list for every context it covers, and a rule's
 signer requirement holds when at least `threshold` distinct signers of the
@@ -57,6 +63,7 @@ structure Rule (Ctx Sig : Type) where
   cap : Option (RuleCap Ctx) := none  -- the rule's spending cap, if it has one
   validUntil : Option Nat := none     -- the last ledger it authorizes in, if any
   generation : Option Nat := none     -- the generation it was issued under, if any
+  authRoot : Option (Ctx → Bool) := none -- optional predicate on the entry root
 
 /-- Rule `r` has expired at ledger `now`: it has a last ledger before `now`. -/
 def Rule.expired (r : Rule Ctx Sig) (now : Nat) : Bool :=
@@ -93,6 +100,28 @@ def RuleSet.allows (rs : RuleSet Ctx Sig) (c : Ctx) (auth : List Sig) : Bool :=
 
 def RuleSet.allowsAll (rs : RuleSet Ctx Sig) (cs : List Ctx) (auth : List Sig) : Bool :=
   cs.all (rs.allows · auth)
+
+/-- The entry root satisfies the rule's optional root constraint. Missing
+roots cannot satisfy a constraint. Local `allows` deliberately ignores it. -/
+def Rule.rootMatches (r : Rule Ctx Sig) (root : Option Ctx) : Bool :=
+  match r.authRoot with
+  | none => true
+  | some p => match root with
+    | some c => p c
+    | none => false
+
+/-- Root-aware screening, excluding state, choices and signer coverage. -/
+def Rule.allowsIn (r : Rule Ctx Sig) (root : Option Ctx) (c : Ctx) (auth : List Sig) : Bool :=
+  r.rootMatches root && r.allows c auth
+
+def RuleSet.allowsIn (rs : RuleSet Ctx Sig) (root : Option Ctx) (c : Ctx)
+    (auth : List Sig) : Bool :=
+  rs.any (·.allowsIn root c auth)
+
+/-- Stateless screening of one entry, deriving its root from that same batch.
+An empty batch passes, but authorizes no operation. -/
+def RuleSet.allowsBatch (rs : RuleSet Ctx Sig) (cs : List Ctx) (auth : List Sig) : Bool :=
+  cs.all (rs.allowsIn cs.head? · auth)
 
 def RuleSet.narrower (rs' rs : RuleSet Ctx Sig) : Prop :=
   ∀ c auth, rs'.allows c auth = true → rs.allows c auth = true

@@ -15,3 +15,10 @@ pub enum Context {
     /// A contract creation.
     Create { wasm_hash: Vec<u8> },
 }
+
+/// This entry's root. The pinned extraction models `get`, while `first`
+/// currently translates to an unchecked external declaration.
+#[allow(clippy::get_first)]
+pub(crate) fn entry_root(contexts: &[Context]) -> Option<&Context> {
+    contexts.get(0)
+}

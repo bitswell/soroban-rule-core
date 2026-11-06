@@ -45,6 +45,13 @@ pub struct Cap {
     pub amount_arg: u32,
 }
 
+/// An exact contract/function requirement on this account's authorization root.
+/// The root is the first context of the current host-authenticated entry.
+pub struct AuthRoot {
+    pub contract: Vec<u8>,
+    pub function: Vec<u8>,
+}
+
 /// A rule: calls to `contract` whose function is in `functions` and whose
 /// arguments satisfy every condition in `conds`, authorized by at least
 /// `threshold` distinct signers of `signers`, and spending within `cap` when
@@ -70,6 +77,10 @@ pub struct Rule {
     /// [`rule_allows`] does not read it; [`authorize`](crate::authorize)
     /// refuses the rule when the current generation is another.
     pub generation: Option<u64>,
+    /// An exact requirement on the authorization entry's first context.
+    /// Local screening helpers ignore it; [`rule_allows_in`] and
+    /// [`authorize`](crate::authorize) enforce it.
+    pub auth_root: Option<AuthRoot>,
 }
 
 /// Whether `limits` may be added to a rule: a positive limit and a nonzero
@@ -128,9 +139,10 @@ fn conds_hold(conds: &[Cond], args: &[Val]) -> bool {
 /// signers: it is a call to the rule's contract, the rule's functions match
 /// its function, every condition holds on its arguments, and at least the
 /// rule's threshold of its distinct signers are authenticated. No rule allows
-/// a creation. The rule's expiry and generation are not read: this is the
-/// view without time or generation that [`authorize`](crate::authorize)
-/// refines.
+/// a creation. Root constraints, caps, expiry and generation are not read.
+/// This is local screening, not authorization of an entry. Use
+/// [`rule_allows_in`] for explicit-root screening or [`authorize`](crate::authorize)
+/// for the complete batch decision.
 #[must_use]
 pub fn rule_allows(r: &Rule, ctx: &Context, authenticated: &[Signer]) -> bool {
     match ctx {
@@ -146,6 +158,64 @@ pub fn rule_allows(r: &Rule, ctx: &Context, authenticated: &[Signer]) -> bool {
         }
         Context::Create { .. } => false,
     }
+}
+
+/// Whether the current entry's root satisfies this optional requirement.
+/// An exact requirement refuses missing and creation roots. Arguments are
+/// deliberately not part of the requirement.
+#[must_use]
+pub fn auth_root_matches(requirement: &Option<AuthRoot>, root: Option<&Context>) -> bool {
+    match requirement {
+        None => true,
+        Some(expected) => match root {
+            Some(Context::Call {
+                contract, function, ..
+            }) => bytes_eq(contract, &expected.contract) && bytes_eq(function, &expected.function),
+            _ => false,
+        },
+    }
+}
+
+/// Whether the child's root requirement is at least as restrictive as the
+/// parent's: an unrestricted parent accepts any child; an exact parent
+/// requires that same exact child. This checks only the root component,
+/// not any of the rule's other conditions or spending state.
+#[must_use]
+pub fn auth_root_narrows(child: &Option<AuthRoot>, parent: &Option<AuthRoot>) -> bool {
+    match parent {
+        None => true,
+        Some(expected) => match child {
+            Some(actual) => {
+                bytes_eq(&actual.contract, &expected.contract)
+                    && bytes_eq(&actual.function, &expected.function)
+            }
+            None => false,
+        },
+    }
+}
+
+/// Local call and signer screening plus an explicit authorization-root check.
+/// This does not enforce caps, time, generation, choices or signer coverage.
+/// Full authorization derives the root itself from its input batch.
+#[must_use]
+pub fn rule_allows_in(
+    r: &Rule,
+    root: Option<&Context>,
+    ctx: &Context,
+    authenticated: &[Signer],
+) -> bool {
+    auth_root_matches(&r.auth_root, root) && rule_allows(r, ctx, authenticated)
+}
+
+/// A fresh copy of the optional exact root requirement.
+pub(crate) fn auth_root_copy(requirement: &Option<AuthRoot>) -> Option<AuthRoot> {
+    if let Some(expected) = requirement {
+        return Some(AuthRoot {
+            contract: bytes_copy(&expected.contract),
+            function: bytes_copy(&expected.function),
+        });
+    }
+    None
 }
 
 /// A fresh copy of `cond`.
@@ -205,5 +275,6 @@ pub(crate) fn rule_copy(r: &Rule) -> Rule {
         cap: cap_option_copy(&r.cap),
         valid_until: r.valid_until,
         generation: r.generation,
+        auth_root: auth_root_copy(&r.auth_root),
     }
 }

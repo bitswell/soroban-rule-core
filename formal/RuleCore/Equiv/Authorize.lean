@@ -197,7 +197,7 @@ theorem check_choices_loop_eq (rules : Slice rule_eval.rule.Rule)
       denoteChecked res =
         ((chosenOf contexts choices).drop i.val).forM
           ((denoteRules rules.val).denote.checkChoice (denoteSigners authenticated.val) now.val
-            generation.val) := by
+            generation.val (contexts.val.head?.map denoteContext)) := by
   unfold rule_eval.authorize.check_choices_loop
   rw [loop]
   by_cases hlt : i.val < contexts.length
@@ -228,13 +228,13 @@ theorem check_choices_loop_eq (rules : Slice rule_eval.rule.Rule)
           · simp [denoteChecked, denoteRefusal, List.forM, RuleSet.checkChoice, denoteRules,
               List.getElem?_map, hr, hexp, hst]
         | false =>
-          cases ha : (denoteRule r).allows (denoteContext contexts.val[i.val])
+          cases ha : (denoteRule r).allowsIn (contexts.val.head?.map denoteContext) (denoteContext contexts.val[i.val])
               (denoteSigners authenticated.val) with
           | false =>
             refine ⟨.Err .NotAllowed, ?_, ?_⟩
             · simp [rule_eval.authorize.check_choices_loop.body, hlt, slice_get_eq, hget, lift,
-                hr, expired_eq, hexp, stale_eq, hst, index_usize_eq _ _ hlt, rule_allows_eq, ha]
-            · have ha' : (denoteRule r).denote.allows (denoteContext contexts.val[i.val])
+                hr, expired_eq, hexp, stale_eq, hst, index_usize_eq _ _ hlt, rule_allows_in_eq, entry_root_eq, ha]
+            · have ha' : (denoteRule r).denote.allowsIn (contexts.val.head?.map denoteContext) (denoteContext contexts.val[i.val])
                   (denoteSigners authenticated.val) = false := ha
               simp [denoteChecked, denoteRefusal, List.forM, RuleSet.checkChoice,
                 denoteRules, List.getElem?_map, hr, hexp, hst, ha']
@@ -247,11 +247,11 @@ theorem check_choices_loop_eq (rules : Slice rule_eval.rule.Rule)
             · have hb : rule_eval.authorize.check_choices_loop.body rules contexts choices
                   authenticated now generation i = ok (cont j) := by
                 simp [rule_eval.authorize.check_choices_loop.body, hlt, slice_get_eq, hget, lift,
-                  hr, expired_eq, hexp, stale_eq, hst, index_usize_eq _ _ hlt, rule_allows_eq,
+                  hr, expired_eq, hexp, stale_eq, hst, index_usize_eq _ _ hlt, rule_allows_in_eq, entry_root_eq,
                   ha, hj]
               rw [hb, bind_ok]
               exact hres
-            · have ha' : (denoteRule r).denote.allows (denoteContext contexts.val[i.val])
+            · have ha' : (denoteRule r).denote.allowsIn (contexts.val.head?.map denoteContext) (denoteContext contexts.val[i.val])
                   (denoteSigners authenticated.val) = true := ha
               rw [hden, hj']
               simp [List.forM, RuleSet.checkChoice, denoteRules, List.getElem?_map, hr, hexp, hst,
@@ -512,7 +512,7 @@ theorem authorize_eq (rules : Slice rule_eval.rule.Rule)
       else
         (chosenOf contexts choices).forM
             ((denoteRules rules.val).denote.checkChoice (denoteSigners authenticated.val) now.val
-              generation.val) >>=
+              generation.val (contexts.val.head?.map denoteContext)) >>=
           fun _ => (denoteRules rules.val).denote.checkSigners (denoteSigners authenticated.val)
               (choices.val.map (·.val)) >>=
             fun _ => (chosenOf contexts choices).foldlM

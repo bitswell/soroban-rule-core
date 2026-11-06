@@ -77,6 +77,54 @@ Every claim the repository makes is in [`claims.yaml`](claims.yaml), with its
 status (`proven`, `tested`, `measured`, `assumed` or `unproven`) and its
 evidence. `tools/check-claims` checks the evidence in CI.
 
+## Exact authorization roots
+
+An ordinary `Rule` or `DocRule` may carry `auth_root: Some(AuthRoot { contract, function })`.
+Both fields compare exact bytes. `authorize(rules, records, contexts, choices,
+authenticated, now, generation)` derives the root from `contexts.first()` in the
+current account's host-authenticated authorization entry. It checks the selected
+rule's root requirement together with its existing local conditions before any
+cap charge. Missing, creation, wrong-contract and wrong-function roots cannot
+satisfy an exact requirement. This is an entry root, not the transaction's outer
+call, an arbitrary ancestor, or a root asserted by the client.
+
+A capped XLM-transfer rule restricted to `game.guess` can authorize a loss in
+`[game.guess, token.transfer]`, with one valid selected rule per context and the
+usual authenticated signers. A game-only win authenticates without charging the
+transfer cap. A direct `[token.transfer]` entry is refused even under the cap;
+a game call authorized in another entry cannot satisfy its requirement. Repeated
+transfer contexts aggregate under the same cap, and a refused batch returns no
+updated records.
+
+`allows_batch` performs root-aware screening of one complete entry; it still
+omits choices, cap charging, time, generation and extraneous-signer checks.
+`rule_allows_in` screens one context against an explicit root. Existing
+`rule_allows`, `allows` and `allows_all` remain local screening helpers and ignore
+root constraints. They must not be used to approve root-constrained batches.
+The full decision is `authorize`. Empty batches keep their existing no-operation
+semantics, including shape and extraneous-signer checks.
+
+Every existing attenuation/copy operation preserves surviving root constraints,
+including rule dropping and choice reindexing. `auth_root_narrows(child, parent)`
+checks only this component: unrestricted to exact narrows, retaining the exact
+pair narrows, and erasing or changing an exact pair does not. Other conditions and
+spending constraints require their own narrowing checks.
+
+Ordinary document lowering retains the requirement. Self-admin and generated
+recovery rules remain unrestricted to preserve eligibility. A document validator
+must reject root constraints on self-admin input; this library's total lowering
+ignores that field for self-admin even on unvalidated input. Rust struct literals
+must explicitly initialize the new optional field. JSON schemas, canonical
+commitments, storage compatibility and real-host entry tests belong to the
+integrating account/compiler. This crate does not provide those migrations.
+
+The new formal results are in `formal/RuleCore/Theorems/AuthRoot.lean`: exact
+matching, root-component implication, accepted-trace screening, root-preserving
+trace inclusion and provenance of every charge. They complement the existing
+spending correspondence and failed-batch preservation theorems under the updated
+root-aware evaluator. The conformance generator includes both authorization and
+document root traces; unrestricted legacy vectors keep their original bytes.
+
 ## What is proven
 
 Each statement below is a Lean theorem checked by the kernel. Every one

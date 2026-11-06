@@ -60,6 +60,7 @@ def denoteDocRule (r : rule_eval.document.DocRule) : Document.Rule where
   args := r.args.map fun cs => cs.val.map denoteArg
   notAfterLedger := r.not_after_ledger.map denoteU32
   cap := r.cap.map denoteDocCap
+  authRoot := r.auth_root.map denoteAuthRoot
 
 def denoteDecl (s : rule_eval.document.SignerDecl) : Document.SignerDecl :=
   ⟨denoteBytes s.id, denoteSigner s.signer⟩
@@ -135,14 +136,15 @@ theorem denoteDocCap_injective : Function.Injective denoteDocCap := by
 theorem denoteDocRule_injective : Function.Injective denoteDocRule := by
   intro a b h
   simp only [denoteDocRule, Document.Rule.mk.injEq] at h
-  obtain ⟨hs, hp, hf, ha, hn, hc⟩ := h
+  obtain ⟨hs, hp, hf, ha, hn, hc, hroot⟩ := h
   cases a
   cases b
   simp only [rule_eval.document.DocRule.mk.injEq]
   exact ⟨denoteScope_injective hs, denotePrincipals_injective hp,
     Option.map_injective (fun _ _ e => vec_map_inj denoteBytes_injective e) hf,
     Option.map_injective (fun _ _ e => vec_map_inj denoteArg_injective e) ha,
-    Option.map_injective denoteU32_injective hn, Option.map_injective denoteDocCap_injective hc⟩
+    Option.map_injective denoteU32_injective hn, Option.map_injective denoteDocCap_injective hc,
+    Option.map_injective denoteAuthRoot_injective hroot⟩
 
 theorem denoteDecl_injective : Function.Injective denoteDecl := by
   intro a b h

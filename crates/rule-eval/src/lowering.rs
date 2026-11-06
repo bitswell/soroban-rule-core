@@ -29,7 +29,7 @@ use alloc::vec::Vec;
 
 use crate::bytes::{bytes_copy, bytes_eq, bytes_in, bytes_list_copy};
 use crate::document::{ArgConstraint, Doc, DocCap, DocRule, Pred, Principals, Scope, SignerDecl};
-use crate::rule::{Cap, Cond, Functions, Rule};
+use crate::rule::{Cap, Cond, Functions, Rule, auth_root_copy};
 use crate::signer::{Signer, signer_copy};
 use crate::val::Val;
 
@@ -260,6 +260,10 @@ fn lower_rule(
         cap: lower_cap(&r.cap),
         valid_until: last_ledger(r.not_after_ledger),
         generation,
+        auth_root: match &r.scope {
+            Scope::Contract(_) => auth_root_copy(&r.auth_root),
+            Scope::SelfAdmin => None,
+        },
     }
 }
 
@@ -293,6 +297,7 @@ pub fn recovery_rule(account: &[u8]) -> Rule {
         cap: None,
         valid_until: None,
         generation: None,
+        auth_root: None,
     }
 }
 

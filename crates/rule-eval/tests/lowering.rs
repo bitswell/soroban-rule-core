@@ -41,6 +41,7 @@ fn decls() -> Vec<SignerDecl> {
 fn doc_rule(functions: Option<&[&str]>) -> DocRule {
     DocRule {
         scope: Scope::Contract(b(TOKEN)),
+        auth_root: None,
         principals: Principals::All(vec![b("ci")]),
         functions: functions.map(|fs| fs.iter().map(|f| b(f)).collect()),
         args: None,

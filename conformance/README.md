@@ -917,3 +917,17 @@ A case is a call whose outcome the host test asserts. `agree` counts the
 cases where the model gives the host test's outcome (and, where the test
 counts consumed nonces, the same count); the generator refuses to write
 anything when `disagree` would not be 0.
+
+
+### Exact authorization-root vectors
+
+Rules and document rules may include `auth_root: {"contract": "<hex>",
+"function": "<hex>"}`. The generator omits this key for unrestricted rules,
+preserving every existing vector's bytes. The runner decodes the optional field
+and denies unknown fields. This conformance format is not an account storage or
+policy-document migration format.
+
+`authorize-exact-root.json` checks entry-local roots, authenticated wins, capped
+losses, wrong/reordered roots, direct transfers and atomic aggregate charging.
+`document-exact-root.json` additionally checks that document lowering and the
+vector encoding retain the exact requirement.

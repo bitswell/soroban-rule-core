@@ -13,6 +13,7 @@
 
 use alloc::vec::Vec;
 
+use crate::rule::AuthRoot;
 use crate::signer::Signer;
 
 /// Where a document rule applies.
@@ -69,6 +70,10 @@ pub struct DocRule {
     /// The ledger at which the rule stops authorizing, if it has one.
     pub not_after_ledger: Option<u32>,
     pub cap: Option<DocCap>,
+    /// Optional exact authorization root for ordinary contract rules.
+    /// Self-admin lowering ignores this field to preserve eligibility;
+    /// document validators must reject it on self-admin input.
+    pub auth_root: Option<AuthRoot>,
 }
 
 /// A declared signer: the id rules name it by, and the signer.

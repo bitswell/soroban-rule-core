@@ -41,3 +41,5 @@ import RuleCore.Theorems.Lowering
 import RuleCore.Theorems.Scoped
 import RuleCore.Theorems.ExtractedLowering
 import RuleCore.Theorems.Soroban
+
+import RuleCore.Theorems.AuthRoot

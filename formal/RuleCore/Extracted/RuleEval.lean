@@ -138,12 +138,12 @@ structure rule.Cap where
   amount_arg : Std.U32
 
 /-- [rule_eval::rule::cap_copy]:
-    Source: 'crates/rule-eval/src/rule.rs', lines 181:0-187:1 -/
+    Source: 'crates/rule-eval/src/rule.rs', lines 251:0-257:1 -/
 def rule.cap_copy (limits : rule.Cap) : Result rule.Cap := do
   ok limits
 
 /-- [rule_eval::rule::cap_option_copy]:
-    Source: 'crates/rule-eval/src/rule.rs', lines 190:0-195:1 -/
+    Source: 'crates/rule-eval/src/rule.rs', lines 260:0-265:1 -/
 def rule.cap_option_copy
   (limits : Option rule.Cap) : Result (Option rule.Cap) := do
   match limits with
@@ -239,7 +239,7 @@ inductive rule.Cond where
 | ArgStrPrefix : Std.U32 → alloc.vec.Vec Std.U8 → rule.Cond
 
 /-- [rule_eval::rule::cond_copy]:
-    Source: 'crates/rule-eval/src/rule.rs', lines 152:0-159:1 -/
+    Source: 'crates/rule-eval/src/rule.rs', lines 222:0-229:1 -/
 def rule.cond_copy (cond : rule.Cond) : Result rule.Cond := do
   match cond with
   | rule.Cond.ArgEq index v =>
@@ -256,7 +256,7 @@ def rule.cond_copy (cond : rule.Cond) : Result rule.Cond := do
     ok (rule.Cond.ArgStrPrefix index v)
 
 /-- [rule_eval::rule::conds_copy]: loop body 0:
-    Source: 'crates/rule-eval/src/rule.rs', lines 173:4-176:5 -/
+    Source: 'crates/rule-eval/src/rule.rs', lines 243:4-246:5 -/
 @[rust_loop_body]
 def rule.conds_copy_loop.body
   (conds : Slice rule.Cond) (out : alloc.vec.Vec rule.Cond) (i : Std.Usize) :
@@ -274,7 +274,7 @@ def rule.conds_copy_loop.body
   else ok (done out)
 
 /-- [rule_eval::rule::conds_copy]: loop 0:
-    Source: 'crates/rule-eval/src/rule.rs', lines 173:4-176:5 -/
+    Source: 'crates/rule-eval/src/rule.rs', lines 243:4-246:5 -/
 @[rust_loop]
 def rule.conds_copy_loop
   (conds : Slice rule.Cond) (out : alloc.vec.Vec rule.Cond) (i : Std.Usize) :
@@ -285,7 +285,7 @@ def rule.conds_copy_loop
     (out, i)
 
 /-- [rule_eval::rule::conds_copy]:
-    Source: 'crates/rule-eval/src/rule.rs', lines 170:0-178:1 -/
+    Source: 'crates/rule-eval/src/rule.rs', lines 240:0-248:1 -/
 @[reducible]
 def rule.conds_copy
   (conds : Slice rule.Cond) : Result (alloc.vec.Vec rule.Cond) := do
@@ -342,7 +342,7 @@ def bytes.bytes_list_copy
     0#usize
 
 /-- [rule_eval::rule::functions_copy]:
-    Source: 'crates/rule-eval/src/rule.rs', lines 162:0-167:1 -/
+    Source: 'crates/rule-eval/src/rule.rs', lines 232:0-237:1 -/
 def rule.functions_copy
   (functions : rule.Functions) : Result rule.Functions := do
   match functions with
@@ -355,8 +355,28 @@ def rule.functions_copy
     let v ← bytes.bytes_list_copy s
     ok (rule.Functions.Only v)
 
+/-- [rule_eval::rule::AuthRoot]
+    Source: 'crates/rule-eval/src/rule.rs', lines 50:0-53:1
+    Visibility: public -/
+structure rule.AuthRoot where
+  contract : alloc.vec.Vec Std.U8
+  function : alloc.vec.Vec Std.U8
+
+/-- [rule_eval::rule::auth_root_copy]:
+    Source: 'crates/rule-eval/src/rule.rs', lines 211:0-219:1 -/
+def rule.auth_root_copy
+  (requirement : Option rule.AuthRoot) : Result (Option rule.AuthRoot) := do
+  match requirement with
+  | none => ok none
+  | some expected =>
+    let s := alloc.vec.Vec.deref expected.contract
+    let v ← bytes.bytes_copy s
+    let s1 := alloc.vec.Vec.deref expected.function
+    let v1 ← bytes.bytes_copy s1
+    ok (some { contract := v, function := v1 })
+
 /-- [rule_eval::rule::Rule]
-    Source: 'crates/rule-eval/src/rule.rs', lines 53:0-73:1
+    Source: 'crates/rule-eval/src/rule.rs', lines 60:0-84:1
     Visibility: public -/
 structure rule.Rule where
   contract : alloc.vec.Vec Std.U8
@@ -367,9 +387,10 @@ structure rule.Rule where
   cap : Option rule.Cap
   valid_until : Option Std.U32
   generation : Option Std.U64
+  auth_root : Option rule.AuthRoot
 
 /-- [rule_eval::rule::rule_copy]:
-    Source: 'crates/rule-eval/src/rule.rs', lines 198:0-209:1 -/
+    Source: 'crates/rule-eval/src/rule.rs', lines 268:0-280:1 -/
 def rule.rule_copy (r : rule.Rule) : Result rule.Rule := do
   let s := alloc.vec.Vec.deref r.contract
   let v ← bytes.bytes_copy s
@@ -379,11 +400,17 @@ def rule.rule_copy (r : rule.Rule) : Result rule.Rule := do
   let s2 := alloc.vec.Vec.deref r.signers
   let v2 ← signer.signers_copy s2
   let o ← rule.cap_option_copy r.cap
+  let o1 ← rule.auth_root_copy r.auth_root
   ok
     {
       r
         with
-        contract := v, functions := f, conds := v1, signers := v2, cap := o
+        contract := v,
+        functions := f,
+        conds := v1,
+        signers := v2,
+        cap := o,
+        auth_root := o1
     }
 
 /-- [rule_eval::attenuate::drop_rule]: loop body 0:
@@ -690,7 +717,7 @@ def attenuate.functions_without
     ok (rule.Functions.Only v)
 
 /-- [rule_eval::attenuate::rule_without_functions]:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 129:0-140:1 -/
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 129:0-141:1 -/
 def attenuate.rule_without_functions
   (r : rule.Rule) (functions : Slice (alloc.vec.Vec Std.U8)) :
   Result rule.Rule
@@ -703,11 +730,17 @@ def attenuate.rule_without_functions
   let s2 := alloc.vec.Vec.deref r.signers
   let v2 ← signer.signers_copy s2
   let o ← rule.cap_option_copy r.cap
+  let o1 ← rule.auth_root_copy r.auth_root
   ok
     {
       r
         with
-        contract := v, functions := f, conds := v1, signers := v2, cap := o
+        contract := v,
+        functions := f,
+        conds := v1,
+        signers := v2,
+        cap := o,
+        auth_root := o1
     }
 
 /-- [rule_eval::attenuate::remove_functions]: loop body 0:
@@ -822,7 +855,7 @@ def bytes.bytes_list_within
     Std.U8)) 0#usize
 
 /-- [rule_eval::attenuate::functions_within]:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 172:0-177:1 -/
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 173:0-178:1 -/
 def attenuate.functions_within
   (current : rule.Functions) (functions : Slice (alloc.vec.Vec Std.U8)) :
   Result rule.Functions
@@ -838,7 +871,7 @@ def attenuate.functions_within
     ok (rule.Functions.Only v)
 
 /-- [rule_eval::attenuate::rule_within_functions]:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 180:0-191:1 -/
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 181:0-193:1 -/
 def attenuate.rule_within_functions
   (r : rule.Rule) (functions : Slice (alloc.vec.Vec Std.U8)) :
   Result rule.Rule
@@ -851,15 +884,21 @@ def attenuate.rule_within_functions
   let s2 := alloc.vec.Vec.deref r.signers
   let v2 ← signer.signers_copy s2
   let o ← rule.cap_option_copy r.cap
+  let o1 ← rule.auth_root_copy r.auth_root
   ok
     {
       r
         with
-        contract := v, functions := f, conds := v1, signers := v2, cap := o
+        contract := v,
+        functions := f,
+        conds := v1,
+        signers := v2,
+        cap := o,
+        auth_root := o1
     }
 
 /-- [rule_eval::attenuate::restrict_functions]: loop body 0:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 160:4-167:5
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 161:4-168:5
     Visibility: public -/
 @[rust_loop_body]
 def attenuate.restrict_functions_loop.body
@@ -888,7 +927,7 @@ def attenuate.restrict_functions_loop.body
   else ok (done out)
 
 /-- [rule_eval::attenuate::restrict_functions]: loop 0:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 160:4-167:5
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 161:4-168:5
     Visibility: public -/
 @[rust_loop]
 def attenuate.restrict_functions_loop
@@ -902,7 +941,7 @@ def attenuate.restrict_functions_loop
     (out, i)
 
 /-- [rule_eval::attenuate::restrict_functions]:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 149:0-169:1
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 150:0-170:1
     Visibility: public -/
 def attenuate.restrict_functions
   (rules : Slice rule.Rule) (index : Std.U32)
@@ -1033,7 +1072,7 @@ def signer.signers_without
     0#usize
 
 /-- [rule_eval::attenuate::rule_without_signers]:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 222:0-233:1 -/
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 224:0-236:1 -/
 def attenuate.rule_without_signers
   (r : rule.Rule) (signers : Slice signer.Signer) : Result rule.Rule := do
   let s := alloc.vec.Vec.deref r.contract
@@ -1044,15 +1083,21 @@ def attenuate.rule_without_signers
   let s2 := alloc.vec.Vec.deref r.signers
   let v2 ← signer.signers_without s2 signers
   let o ← rule.cap_option_copy r.cap
+  let o1 ← rule.auth_root_copy r.auth_root
   ok
     {
       r
         with
-        contract := v, functions := f, conds := v1, signers := v2, cap := o
+        contract := v,
+        functions := f,
+        conds := v1,
+        signers := v2,
+        cap := o,
+        auth_root := o1
     }
 
 /-- [rule_eval::attenuate::remove_signers]: loop body 0:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 210:4-217:5
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 212:4-219:5
     Visibility: public -/
 @[rust_loop_body]
 def attenuate.remove_signers_loop.body
@@ -1081,7 +1126,7 @@ def attenuate.remove_signers_loop.body
   else ok (done out)
 
 /-- [rule_eval::attenuate::remove_signers]: loop 0:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 210:4-217:5
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 212:4-219:5
     Visibility: public -/
 @[rust_loop]
 def attenuate.remove_signers_loop
@@ -1095,7 +1140,7 @@ def attenuate.remove_signers_loop
     (out, i)
 
 /-- [rule_eval::attenuate::remove_signers]:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 199:0-219:1
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 201:0-221:1
     Visibility: public -/
 def attenuate.remove_signers
   (rules : Slice rule.Rule) (index : Std.U32) (signers : Slice signer.Signer) :
@@ -1113,7 +1158,7 @@ def attenuate.remove_signers
     ok (core.result.Result.Ok out)
 
 /-- [rule_eval::attenuate::raise_threshold]: loop body 0:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 258:4-265:5
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 261:4-268:5
     Visibility: public -/
 @[rust_loop_body]
 def attenuate.raise_threshold_loop.body
@@ -1136,7 +1181,7 @@ def attenuate.raise_threshold_loop.body
   else ok (done out)
 
 /-- [rule_eval::attenuate::raise_threshold]: loop 0:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 258:4-265:5
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 261:4-268:5
     Visibility: public -/
 @[rust_loop]
 def attenuate.raise_threshold_loop
@@ -1150,7 +1195,7 @@ def attenuate.raise_threshold_loop
     (out, i)
 
 /-- [rule_eval::attenuate::raise_threshold]:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 242:0-267:1
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 245:0-270:1
     Visibility: public -/
 def attenuate.raise_threshold
   (rules : Slice rule.Rule) (index : Std.U32) (threshold : Std.U32) :
@@ -1174,7 +1219,7 @@ def attenuate.raise_threshold
       ok (core.result.Result.Ok out)
 
 /-- [rule_eval::rule::cap_valid]:
-    Source: 'crates/rule-eval/src/rule.rs', lines 79:0-81:1
+    Source: 'crates/rule-eval/src/rule.rs', lines 90:0-92:1
     Visibility: public -/
 def rule.cap_valid (limits : rule.Cap) : Result Bool := do
   if limits.limit > 0#i128
@@ -1182,7 +1227,7 @@ def rule.cap_valid (limits : rule.Cap) : Result Bool := do
   else ok false
 
 /-- [rule_eval::attenuate::add_cap]: loop body 0:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 289:4-296:5
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 292:4-299:5
     Visibility: public -/
 @[rust_loop_body]
 def attenuate.add_cap_loop.body
@@ -1208,7 +1253,7 @@ def attenuate.add_cap_loop.body
   else ok (done out)
 
 /-- [rule_eval::attenuate::add_cap]: loop 0:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 289:4-296:5
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 292:4-299:5
     Visibility: public -/
 @[rust_loop]
 def attenuate.add_cap_loop
@@ -1221,7 +1266,7 @@ def attenuate.add_cap_loop
     (out, i)
 
 /-- [rule_eval::attenuate::add_cap]:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 277:0-298:1
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 280:0-301:1
     Visibility: public -/
 def attenuate.add_cap
   (rules : Slice rule.Rule) (index : Std.U32) (new_cap : rule.Cap) :
@@ -1249,7 +1294,7 @@ def attenuate.add_cap
       ok (core.result.Result.Err attenuate.AttenuationError.CapPresent)
 
 /-- [rule_eval::attenuate::lower_cap_limit]: loop body 0:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 330:4-339:5
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 333:4-342:5
     Visibility: public -/
 @[rust_loop_body]
 def attenuate.lower_cap_limit_loop.body
@@ -1279,7 +1324,7 @@ def attenuate.lower_cap_limit_loop.body
   else ok (done out)
 
 /-- [rule_eval::attenuate::lower_cap_limit]: loop 0:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 330:4-339:5
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 333:4-342:5
     Visibility: public -/
 @[rust_loop]
 def attenuate.lower_cap_limit_loop
@@ -1293,7 +1338,7 @@ def attenuate.lower_cap_limit_loop
     (out, i)
 
 /-- [rule_eval::attenuate::lower_cap_limit]:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 308:0-341:1
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 311:0-344:1
     Visibility: public -/
 def attenuate.lower_cap_limit
   (rules : Slice rule.Rule) (index : Std.U32) (limit : Std.I128) :
@@ -1322,7 +1367,7 @@ def attenuate.lower_cap_limit
           ok (core.result.Result.Ok out)
 
 /-- [rule_eval::attenuate::lengthen_cap_period]: loop body 0:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 370:4-379:5
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 373:4-382:5
     Visibility: public -/
 @[rust_loop_body]
 def attenuate.lengthen_cap_period_loop.body
@@ -1352,7 +1397,7 @@ def attenuate.lengthen_cap_period_loop.body
   else ok (done out)
 
 /-- [rule_eval::attenuate::lengthen_cap_period]: loop 0:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 370:4-379:5
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 373:4-382:5
     Visibility: public -/
 @[rust_loop]
 def attenuate.lengthen_cap_period_loop
@@ -1366,7 +1411,7 @@ def attenuate.lengthen_cap_period_loop
     (out, i)
 
 /-- [rule_eval::attenuate::lengthen_cap_period]:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 351:0-381:1
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 354:0-384:1
     Visibility: public -/
 def attenuate.lengthen_cap_period
   (rules : Slice rule.Rule) (index : Std.U32) (period : Std.U32) :
@@ -1393,7 +1438,7 @@ def attenuate.lengthen_cap_period
         ok (core.result.Result.Ok out)
 
 /-- [rule_eval::attenuate::extends_validity]:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 385:0-390:1 -/
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 388:0-393:1 -/
 def attenuate.extends_validity
   (r : rule.Rule) (valid_until : Std.U32) : Result Bool := do
   match r.valid_until with
@@ -1401,7 +1446,7 @@ def attenuate.extends_validity
   | some current => ok (valid_until > current)
 
 /-- [rule_eval::attenuate::lower_valid_until]: loop body 0:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 416:4-423:5
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 419:4-426:5
     Visibility: public -/
 @[rust_loop_body]
 def attenuate.lower_valid_until_loop.body
@@ -1425,7 +1470,7 @@ def attenuate.lower_valid_until_loop.body
   else ok (done out)
 
 /-- [rule_eval::attenuate::lower_valid_until]: loop 0:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 416:4-423:5
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 419:4-426:5
     Visibility: public -/
 @[rust_loop]
 def attenuate.lower_valid_until_loop
@@ -1439,7 +1484,7 @@ def attenuate.lower_valid_until_loop
     (out, i)
 
 /-- [rule_eval::attenuate::lower_valid_until]:
-    Source: 'crates/rule-eval/src/attenuate.rs', lines 400:0-425:1
+    Source: 'crates/rule-eval/src/attenuate.rs', lines 403:0-428:1
     Visibility: public -/
 def attenuate.lower_valid_until
   (rules : Slice rule.Rule) (index : Std.U32) (valid_until : Std.U32) :
@@ -1475,7 +1520,7 @@ inductive cap.CapError where
 | HistoryFull : cap.CapError
 
 /-- [rule_eval::authorize::Refusal]
-    Source: 'crates/rule-eval/src/authorize.rs', lines 47:0-69:1
+    Source: 'crates/rule-eval/src/authorize.rs', lines 49:0-71:1
     Visibility: public -/
 @[discriminant isize]
 inductive authorize.Refusal where
@@ -1502,7 +1547,7 @@ inductive context.Context where
 | Create : alloc.vec.Vec Std.U8 → context.Context
 
 /-- [rule_eval::authorize::spend_amount]:
-    Source: 'crates/rule-eval/src/authorize.rs', lines 73:0-81:1 -/
+    Source: 'crates/rule-eval/src/authorize.rs', lines 75:0-83:1 -/
 def authorize.spend_amount
   (limits : rule.Cap) (ctx : context.Context) : Result (Option Std.I128) := do
   match ctx with
@@ -1526,18 +1571,44 @@ def authorize.spend_amount
   | context.Context.Create _ => ok none
 
 /-- [rule_eval::authorize::expired]:
-    Source: 'crates/rule-eval/src/authorize.rs', lines 85:0-90:1 -/
+    Source: 'crates/rule-eval/src/authorize.rs', lines 87:0-92:1 -/
 def authorize.expired (r : rule.Rule) (now : Std.U32) : Result Bool := do
   match r.valid_until with
   | none => ok false
   | some last => ok (last < now)
 
 /-- [rule_eval::authorize::stale]:
-    Source: 'crates/rule-eval/src/authorize.rs', lines 93:0-98:1 -/
+    Source: 'crates/rule-eval/src/authorize.rs', lines 95:0-100:1 -/
 def authorize.stale (r : rule.Rule) (generation : Std.U64) : Result Bool := do
   match r.generation with
   | none => ok false
   | some issued => ok (issued != generation)
+
+/-- [rule_eval::rule::auth_root_matches]:
+    Source: 'crates/rule-eval/src/rule.rs', lines 167:0-177:1
+    Visibility: public -/
+def rule.auth_root_matches
+  (requirement : Option rule.AuthRoot) (root : Option context.Context) :
+  Result Bool
+  := do
+  match requirement with
+  | none => ok true
+  | some expected =>
+    match root with
+    | none => ok false
+    | some c =>
+      match c with
+      | context.Context.Call contract function _ =>
+        let s := alloc.vec.Vec.deref contract
+        let s1 := alloc.vec.Vec.deref expected.contract
+        let b ← bytes.bytes_eq s s1
+        if b
+        then
+          let s2 := alloc.vec.Vec.deref function
+          let s3 := alloc.vec.Vec.deref expected.function
+          bytes.bytes_eq s2 s3
+        else ok false
+      | context.Context.Create _ => ok false
 
 /-- [rule_eval::signer::signer_in_first]: loop body 0:
     Source: 'crates/rule-eval/src/signer.rs', lines 43:4-53:1 -/
@@ -1823,7 +1894,7 @@ def bytes.bytes_starts_with
   bytes.bytes_starts_with_loop s «prefix» 0#usize
 
 /-- [rule_eval::rule::cond_holds]:
-    Source: 'crates/rule-eval/src/rule.rs', lines 85:0-104:1
+    Source: 'crates/rule-eval/src/rule.rs', lines 96:0-115:1
     Visibility: public -/
 def rule.cond_holds
   (cond : rule.Cond) (args : Slice val.Val) : Result Bool := do
@@ -1884,7 +1955,7 @@ def rule.cond_holds
       | val.Val.Other _ => ok false
 
 /-- [rule_eval::rule::conds_hold]: loop body 0:
-    Source: 'crates/rule-eval/src/rule.rs', lines 118:4-125:1 -/
+    Source: 'crates/rule-eval/src/rule.rs', lines 129:4-136:1 -/
 @[rust_loop_body]
 def rule.conds_hold_loop.body
   (conds : Slice rule.Cond) (args : Slice val.Val) (i : Std.Usize) :
@@ -1902,7 +1973,7 @@ def rule.conds_hold_loop.body
   else ok (done true)
 
 /-- [rule_eval::rule::conds_hold]: loop 0:
-    Source: 'crates/rule-eval/src/rule.rs', lines 118:4-125:1 -/
+    Source: 'crates/rule-eval/src/rule.rs', lines 129:4-136:1 -/
 @[rust_loop]
 def rule.conds_hold_loop
   (conds : Slice rule.Cond) (args : Slice val.Val) (i : Std.Usize) :
@@ -1913,14 +1984,14 @@ def rule.conds_hold_loop
     i
 
 /-- [rule_eval::rule::conds_hold]:
-    Source: 'crates/rule-eval/src/rule.rs', lines 116:0-125:1 -/
+    Source: 'crates/rule-eval/src/rule.rs', lines 127:0-136:1 -/
 @[reducible]
 def rule.conds_hold
   (conds : Slice rule.Cond) (args : Slice val.Val) : Result Bool := do
   rule.conds_hold_loop conds args 0#usize
 
 /-- [rule_eval::rule::functions_match]:
-    Source: 'crates/rule-eval/src/rule.rs', lines 108:0-113:1
+    Source: 'crates/rule-eval/src/rule.rs', lines 119:0-124:1
     Visibility: public -/
 def rule.functions_match
   (functions : rule.Functions) (function : Slice Std.U8) : Result Bool := do
@@ -1934,7 +2005,7 @@ def rule.functions_match
     bytes.bytes_in function s
 
 /-- [rule_eval::rule::rule_allows]:
-    Source: 'crates/rule-eval/src/rule.rs', lines 135:0-149:1
+    Source: 'crates/rule-eval/src/rule.rs', lines 147:0-161:1
     Visibility: public -/
 def rule.rule_allows
   (r : rule.Rule) (ctx : context.Context) (authenticated : Slice signer.Signer)
@@ -1964,8 +2035,28 @@ def rule.rule_allows
     else ok false
   | context.Context.Create _ => ok false
 
+/-- [rule_eval::rule::rule_allows_in]:
+    Source: 'crates/rule-eval/src/rule.rs', lines 201:0-208:1
+    Visibility: public -/
+def rule.rule_allows_in
+  (r : rule.Rule) (root : Option context.Context) (ctx : context.Context)
+  (authenticated : Slice signer.Signer) :
+  Result Bool
+  := do
+  let b ← rule.auth_root_matches r.auth_root root
+  if b
+  then rule.rule_allows r ctx authenticated
+  else ok false
+
+/-- [rule_eval::context::entry_root]:
+    Source: 'crates/rule-eval/src/context.rs', lines 22:0-24:1 -/
+def context.entry_root
+  (contexts : Slice context.Context) : Result (Option context.Context) := do
+  core.slice.Slice.get (core.slice.index.SliceIndexUsizeSlice context.Context)
+    contexts 0#usize
+
 /-- [rule_eval::authorize::check_choices]: loop body 0:
-    Source: 'crates/rule-eval/src/authorize.rs', lines 112:4-134:1 -/
+    Source: 'crates/rule-eval/src/authorize.rs', lines 114:4-136:1 -/
 @[rust_loop_body]
 def authorize.check_choices_loop.body
   (rules : Slice rule.Rule) (contexts : Slice context.Context)
@@ -2000,8 +2091,9 @@ def authorize.check_choices_loop.body
             ok (done (core.result.Result.Err
               authorize.Refusal.StaleGeneration))
           else
+            let o2 ← context.entry_root contexts
             let c ← Slice.index_usize contexts i
-            let b2 ← rule.rule_allows r c authenticated
+            let b2 ← rule.rule_allows_in r o2 c authenticated
             if b2
             then let i2 ← i + 1#usize
                  ok (cont i2)
@@ -2010,7 +2102,7 @@ def authorize.check_choices_loop.body
   else ok (done (core.result.Result.Ok ()))
 
 /-- [rule_eval::authorize::check_choices]: loop 0:
-    Source: 'crates/rule-eval/src/authorize.rs', lines 112:4-134:1 -/
+    Source: 'crates/rule-eval/src/authorize.rs', lines 114:4-136:1 -/
 @[rust_loop]
 def authorize.check_choices_loop
   (rules : Slice rule.Rule) (contexts : Slice context.Context)
@@ -2024,7 +2116,7 @@ def authorize.check_choices_loop
     i
 
 /-- [rule_eval::authorize::check_choices]:
-    Source: 'crates/rule-eval/src/authorize.rs', lines 103:0-134:1 -/
+    Source: 'crates/rule-eval/src/authorize.rs', lines 105:0-136:1 -/
 @[reducible]
 def authorize.check_choices
   (rules : Slice rule.Rule) (contexts : Slice context.Context)
@@ -2036,7 +2128,7 @@ def authorize.check_choices
     generation 0#usize
 
 /-- [rule_eval::authorize::signer_chosen]: loop body 0:
-    Source: 'crates/rule-eval/src/authorize.rs', lines 139:4-148:1 -/
+    Source: 'crates/rule-eval/src/authorize.rs', lines 141:4-150:1 -/
 @[rust_loop_body]
 def authorize.signer_chosen_loop.body
   (s : signer.Signer) (rules : Slice rule.Rule) (choices : Slice Std.U32)
@@ -2064,7 +2156,7 @@ def authorize.signer_chosen_loop.body
   else ok (done false)
 
 /-- [rule_eval::authorize::signer_chosen]: loop 0:
-    Source: 'crates/rule-eval/src/authorize.rs', lines 139:4-148:1 -/
+    Source: 'crates/rule-eval/src/authorize.rs', lines 141:4-150:1 -/
 @[rust_loop]
 def authorize.signer_chosen_loop
   (s : signer.Signer) (rules : Slice rule.Rule) (choices : Slice Std.U32)
@@ -2076,7 +2168,7 @@ def authorize.signer_chosen_loop
     i
 
 /-- [rule_eval::authorize::signer_chosen]:
-    Source: 'crates/rule-eval/src/authorize.rs', lines 137:0-148:1 -/
+    Source: 'crates/rule-eval/src/authorize.rs', lines 139:0-150:1 -/
 @[reducible]
 def authorize.signer_chosen
   (s : signer.Signer) (rules : Slice rule.Rule) (choices : Slice Std.U32) :
@@ -2085,7 +2177,7 @@ def authorize.signer_chosen
   authorize.signer_chosen_loop s rules choices 0#usize
 
 /-- [rule_eval::authorize::signers_chosen]: loop body 0:
-    Source: 'crates/rule-eval/src/authorize.rs', lines 154:4-161:1 -/
+    Source: 'crates/rule-eval/src/authorize.rs', lines 156:4-163:1 -/
 @[rust_loop_body]
 def authorize.signers_chosen_loop.body
   (authenticated : Slice signer.Signer) (rules : Slice rule.Rule)
@@ -2104,7 +2196,7 @@ def authorize.signers_chosen_loop.body
   else ok (done true)
 
 /-- [rule_eval::authorize::signers_chosen]: loop 0:
-    Source: 'crates/rule-eval/src/authorize.rs', lines 154:4-161:1 -/
+    Source: 'crates/rule-eval/src/authorize.rs', lines 156:4-163:1 -/
 @[rust_loop]
 def authorize.signers_chosen_loop
   (authenticated : Slice signer.Signer) (rules : Slice rule.Rule)
@@ -2117,7 +2209,7 @@ def authorize.signers_chosen_loop
     i
 
 /-- [rule_eval::authorize::signers_chosen]:
-    Source: 'crates/rule-eval/src/authorize.rs', lines 152:0-161:1 -/
+    Source: 'crates/rule-eval/src/authorize.rs', lines 154:0-163:1 -/
 @[reducible]
 def authorize.signers_chosen
   (authenticated : Slice signer.Signer) (rules : Slice rule.Rule)
@@ -2193,7 +2285,7 @@ def cap.record_copy (record : cap.SpendRecord) : Result cap.SpendRecord := do
   ok { record with history := v }
 
 /-- [rule_eval::authorize::records_copy]: loop body 0:
-    Source: 'crates/rule-eval/src/authorize.rs', lines 167:4-170:5 -/
+    Source: 'crates/rule-eval/src/authorize.rs', lines 169:4-172:5 -/
 @[rust_loop_body]
 def authorize.records_copy_loop.body
   (records : Slice cap.SpendRecord) (out : alloc.vec.Vec cap.SpendRecord)
@@ -2212,7 +2304,7 @@ def authorize.records_copy_loop.body
   else ok (done out)
 
 /-- [rule_eval::authorize::records_copy]: loop 0:
-    Source: 'crates/rule-eval/src/authorize.rs', lines 167:4-170:5 -/
+    Source: 'crates/rule-eval/src/authorize.rs', lines 169:4-172:5 -/
 @[rust_loop]
 def authorize.records_copy_loop
   (records : Slice cap.SpendRecord) (out : alloc.vec.Vec cap.SpendRecord)
@@ -2224,7 +2316,7 @@ def authorize.records_copy_loop
     (out, i)
 
 /-- [rule_eval::authorize::records_copy]:
-    Source: 'crates/rule-eval/src/authorize.rs', lines 164:0-172:1 -/
+    Source: 'crates/rule-eval/src/authorize.rs', lines 166:0-174:1 -/
 @[reducible]
 def authorize.records_copy
   (records : Slice cap.SpendRecord) :
@@ -2352,7 +2444,7 @@ def cap.check_spend
           ok (core.result.Result.Err cap.CapError.Overflow)
 
 /-- [rule_eval::authorize::charge_all]: loop body 0:
-    Source: 'crates/rule-eval/src/authorize.rs', lines 186:4-215:1 -/
+    Source: 'crates/rule-eval/src/authorize.rs', lines 188:4-217:1 -/
 @[rust_loop_body]
 def authorize.charge_all_loop.body
   (rules : Slice rule.Rule) (contexts : Slice context.Context)
@@ -2410,7 +2502,7 @@ def authorize.charge_all_loop.body
   else ok (done (core.result.Result.Ok out))
 
 /-- [rule_eval::authorize::charge_all]: loop 0:
-    Source: 'crates/rule-eval/src/authorize.rs', lines 186:4-215:1 -/
+    Source: 'crates/rule-eval/src/authorize.rs', lines 188:4-217:1 -/
 @[rust_loop]
 def authorize.charge_all_loop
   (rules : Slice rule.Rule) (contexts : Slice context.Context)
@@ -2424,7 +2516,7 @@ def authorize.charge_all_loop
     (out, i)
 
 /-- [rule_eval::authorize::charge_all]:
-    Source: 'crates/rule-eval/src/authorize.rs', lines 177:0-215:1 -/
+    Source: 'crates/rule-eval/src/authorize.rs', lines 179:0-217:1 -/
 def authorize.charge_all
   (rules : Slice rule.Rule) (records : Slice cap.SpendRecord)
   (contexts : Slice context.Context) (choices : Slice Std.U32) (now : Std.U32)
@@ -2435,7 +2527,7 @@ def authorize.charge_all
   authorize.charge_all_loop rules contexts choices now out 0#usize
 
 /-- [rule_eval::authorize::authorize]:
-    Source: 'crates/rule-eval/src/authorize.rs', lines 237:0-261:1
+    Source: 'crates/rule-eval/src/authorize.rs', lines 239:0-263:1
     Visibility: public -/
 def authorize.authorize
   (rules : Slice rule.Rule) (records : Slice cap.SpendRecord)
@@ -2865,7 +2957,7 @@ def cap.empty_record : Result cap.SpendRecord := do
   ok { history := (alloc.vec.Vec.new cap.SpendEntry), total := 0#i128 }
 
 /-- [rule_eval::document::Scope]
-    Source: 'crates/rule-eval/src/document.rs', lines 19:0-24:1
+    Source: 'crates/rule-eval/src/document.rs', lines 20:0-25:1
     Visibility: public -/
 @[discriminant isize]
 inductive document.Scope where
@@ -2873,7 +2965,7 @@ inductive document.Scope where
 | SelfAdmin : document.Scope
 
 /-- [rule_eval::document::Principals]
-    Source: 'crates/rule-eval/src/document.rs', lines 27:0-32:1
+    Source: 'crates/rule-eval/src/document.rs', lines 28:0-33:1
     Visibility: public -/
 @[discriminant isize]
 inductive document.Principals where
@@ -2884,7 +2976,7 @@ inductive document.Principals where
   document.Principals
 
 /-- [rule_eval::document::Pred]
-    Source: 'crates/rule-eval/src/document.rs', lines 35:0-46:1
+    Source: 'crates/rule-eval/src/document.rs', lines 36:0-47:1
     Visibility: public -/
 @[discriminant isize]
 inductive document.Pred where
@@ -2895,21 +2987,21 @@ inductive document.Pred where
 | U32Eq : Std.U32 → document.Pred
 
 /-- [rule_eval::document::ArgConstraint]
-    Source: 'crates/rule-eval/src/document.rs', lines 49:0-52:1
+    Source: 'crates/rule-eval/src/document.rs', lines 50:0-53:1
     Visibility: public -/
 structure document.ArgConstraint where
   index : Std.U32
   pred : document.Pred
 
 /-- [rule_eval::document::DocCap]
-    Source: 'crates/rule-eval/src/document.rs', lines 56:0-59:1
+    Source: 'crates/rule-eval/src/document.rs', lines 57:0-60:1
     Visibility: public -/
 structure document.DocCap where
   limit : Std.I128
   period_ledgers : Std.U32
 
 /-- [rule_eval::document::DocRule]
-    Source: 'crates/rule-eval/src/document.rs', lines 62:0-72:1
+    Source: 'crates/rule-eval/src/document.rs', lines 63:0-77:1
     Visibility: public -/
 structure document.DocRule where
   scope : document.Scope
@@ -2918,30 +3010,31 @@ structure document.DocRule where
   args : Option (alloc.vec.Vec document.ArgConstraint)
   not_after_ledger : Option Std.U32
   cap : Option document.DocCap
+  auth_root : Option rule.AuthRoot
 
 /-- [rule_eval::document::SignerDecl]
-    Source: 'crates/rule-eval/src/document.rs', lines 75:0-78:1
+    Source: 'crates/rule-eval/src/document.rs', lines 80:0-83:1
     Visibility: public -/
 structure document.SignerDecl where
   id : alloc.vec.Vec Std.U8
   signer : signer.Signer
 
 /-- [rule_eval::document::ZkFactor]
-    Source: 'crates/rule-eval/src/document.rs', lines 81:0-84:1
+    Source: 'crates/rule-eval/src/document.rs', lines 86:0-89:1
     Visibility: public -/
 structure document.ZkFactor where
   adapter : alloc.vec.Vec Std.U8
   pool : alloc.vec.Vec Std.U8
 
 /-- [rule_eval::document::Recovery]
-    Source: 'crates/rule-eval/src/document.rs', lines 88:0-91:1
+    Source: 'crates/rule-eval/src/document.rs', lines 93:0-96:1
     Visibility: public -/
 structure document.Recovery where
   controller : alloc.vec.Vec Std.U8
   zk : Option document.ZkFactor
 
 /-- [rule_eval::document::Doc]
-    Source: 'crates/rule-eval/src/document.rs', lines 95:0-99:1
+    Source: 'crates/rule-eval/src/document.rs', lines 100:0-104:1
     Visibility: public -/
 structure document.Doc where
   signers : alloc.vec.Vec document.SignerDecl
@@ -2949,7 +3042,7 @@ structure document.Doc where
   recovery : Option document.Recovery
 
 /-- [rule_eval::_]
-    Source: 'crates/rule-eval/src/lib.rs', lines 163:0-163:41 -/
+    Source: 'crates/rule-eval/src/lib.rs', lines 172:0-172:41 -/
 @[global_simps, irreducible]
 def «_» : Result Unit := massert (core.num.Usize.BITS >= 32#u32)
 
@@ -3335,7 +3428,7 @@ def lowering.last_ledger
               ok (some i)
 
 /-- [rule_eval::lowering::lower_rule]:
-    Source: 'crates/rule-eval/src/lowering.rs', lines 246:0-264:1 -/
+    Source: 'crates/rule-eval/src/lowering.rs', lines 246:0-268:1 -/
 def lowering.lower_rule
   (r : document.DocRule) (signers : Slice document.SignerDecl)
   (account : Slice Std.U8) (generation : Option Std.U64) :
@@ -3350,20 +3443,37 @@ def lowering.lower_rule
   let v1 ← lowering.lower_conds r.args r.cap account
   let o ← lowering.lower_cap r.cap
   let o1 ← lowering.last_ledger r.not_after_ledger
-  ok
-    {
-      contract := v,
-      functions := f,
-      conds := v1,
-      signers := rule_signers,
-      threshold,
-      cap := o,
-      valid_until := o1,
-      generation
-    }
+  match r.scope with
+  | document.Scope.Contract _ =>
+    let o2 ← rule.auth_root_copy r.auth_root
+    ok
+      {
+        contract := v,
+        functions := f,
+        conds := v1,
+        signers := rule_signers,
+        threshold,
+        cap := o,
+        valid_until := o1,
+        generation,
+        auth_root := o2
+      }
+  | document.Scope.SelfAdmin =>
+    ok
+      {
+        contract := v,
+        functions := f,
+        conds := v1,
+        signers := rule_signers,
+        threshold,
+        cap := o,
+        valid_until := o1,
+        generation,
+        auth_root := none
+      }
 
 /-- [rule_eval::lowering::lower_rules]: loop body 0:
-    Source: 'crates/rule-eval/src/lowering.rs', lines 276:4-279:5 -/
+    Source: 'crates/rule-eval/src/lowering.rs', lines 280:4-283:5 -/
 @[rust_loop_body]
 def lowering.lower_rules_loop.body
   (rules : Slice document.DocRule) (signers : Slice document.SignerDecl)
@@ -3383,7 +3493,7 @@ def lowering.lower_rules_loop.body
   else ok (done out)
 
 /-- [rule_eval::lowering::lower_rules]: loop 0:
-    Source: 'crates/rule-eval/src/lowering.rs', lines 276:4-279:5 -/
+    Source: 'crates/rule-eval/src/lowering.rs', lines 280:4-283:5 -/
 @[rust_loop]
 def lowering.lower_rules_loop
   (rules : Slice document.DocRule) (signers : Slice document.SignerDecl)
@@ -3397,7 +3507,7 @@ def lowering.lower_rules_loop
     (out, i)
 
 /-- [rule_eval::lowering::lower_rules]:
-    Source: 'crates/rule-eval/src/lowering.rs', lines 268:0-281:1 -/
+    Source: 'crates/rule-eval/src/lowering.rs', lines 272:0-285:1 -/
 @[reducible]
 def lowering.lower_rules
   (rules : Slice document.DocRule) (signers : Slice document.SignerDecl)
@@ -3408,7 +3518,7 @@ def lowering.lower_rules
     rule.Rule) 0#usize
 
 /-- [rule_eval::lowering::recovery_rule]:
-    Source: 'crates/rule-eval/src/lowering.rs', lines 286:0-297:1
+    Source: 'crates/rule-eval/src/lowering.rs', lines 290:0-302:1
     Visibility: public -/
 def lowering.recovery_rule (account : Slice Std.U8) : Result rule.Rule := do
   let v ← bytes.bytes_copy account
@@ -3424,11 +3534,12 @@ def lowering.recovery_rule (account : Slice Std.U8) : Result rule.Rule := do
       threshold := 0#u32,
       cap := none,
       valid_until := none,
-      generation := none
+      generation := none,
+      auth_root := none
     }
 
 /-- [rule_eval::lowering::with_recovery]:
-    Source: 'crates/rule-eval/src/lowering.rs', lines 300:0-304:1 -/
+    Source: 'crates/rule-eval/src/lowering.rs', lines 305:0-309:1 -/
 def lowering.with_recovery
   (rules : alloc.vec.Vec rule.Rule) (account : Slice Std.U8) :
   Result (alloc.vec.Vec rule.Rule)
@@ -3437,7 +3548,7 @@ def lowering.with_recovery
   alloc.vec.Vec.push rules r
 
 /-- [rule_eval::lowering::lower]:
-    Source: 'crates/rule-eval/src/lowering.rs', lines 310:0-316:1
+    Source: 'crates/rule-eval/src/lowering.rs', lines 315:0-321:1
     Visibility: public -/
 def lowering.lower
   (d : document.Doc) (account : Slice Std.U8) :
@@ -3450,8 +3561,31 @@ def lowering.lower
   | none => ok out
   | some _ => lowering.with_recovery out account
 
+/-- [rule_eval::rule::auth_root_narrows]:
+    Source: 'crates/rule-eval/src/rule.rs', lines 184:0-195:1
+    Visibility: public -/
+def rule.auth_root_narrows
+  (child : Option rule.AuthRoot) (parent : Option rule.AuthRoot) :
+  Result Bool
+  := do
+  match parent with
+  | none => ok true
+  | some expected =>
+    match child with
+    | none => ok false
+    | some actual =>
+      let s := alloc.vec.Vec.deref actual.contract
+      let s1 := alloc.vec.Vec.deref expected.contract
+      let b ← bytes.bytes_eq s s1
+      if b
+      then
+        let s2 := alloc.vec.Vec.deref actual.function
+        let s3 := alloc.vec.Vec.deref expected.function
+        bytes.bytes_eq s2 s3
+      else ok false
+
 /-- [rule_eval::rule_set::allows]: loop body 0:
-    Source: 'crates/rule-eval/src/rule_set.rs', lines 12:4-19:1
+    Source: 'crates/rule-eval/src/rule_set.rs', lines 13:4-20:1
     Visibility: public -/
 @[rust_loop_body]
 def rule_set.allows_loop.body
@@ -3471,7 +3605,7 @@ def rule_set.allows_loop.body
   else ok (done false)
 
 /-- [rule_eval::rule_set::allows]: loop 0:
-    Source: 'crates/rule-eval/src/rule_set.rs', lines 12:4-19:1
+    Source: 'crates/rule-eval/src/rule_set.rs', lines 13:4-20:1
     Visibility: public -/
 @[rust_loop]
 def rule_set.allows_loop
@@ -3484,7 +3618,7 @@ def rule_set.allows_loop
     i
 
 /-- [rule_eval::rule_set::allows]:
-    Source: 'crates/rule-eval/src/rule_set.rs', lines 10:0-19:1
+    Source: 'crates/rule-eval/src/rule_set.rs', lines 11:0-20:1
     Visibility: public -/
 @[reducible]
 def rule_set.allows
@@ -3537,6 +3671,94 @@ def rule_set.allows_all
   Result Bool
   := do
   rule_set.allows_all_loop rules contexts authenticated 0#usize
+
+/-- [rule_eval::rule_set::allows_in]: loop body 0:
+    Source: 'crates/rule-eval/src/rule_set.rs', lines 63:4-70:1 -/
+@[rust_loop_body]
+def rule_set.allows_in_loop.body
+  (rules : Slice rule.Rule) (root : Option context.Context)
+  (ctx : context.Context) (authenticated : Slice signer.Signer) (i : Std.Usize)
+  :
+  Result (ControlFlow Std.Usize Bool)
+  := do
+  let i1 := Slice.len rules
+  if i < i1
+  then
+    let r ← Slice.index_usize rules i
+    let b ← rule.rule_allows_in r root ctx authenticated
+    if b
+    then ok (done true)
+    else let i2 ← i + 1#usize
+         ok (cont i2)
+  else ok (done false)
+
+/-- [rule_eval::rule_set::allows_in]: loop 0:
+    Source: 'crates/rule-eval/src/rule_set.rs', lines 63:4-70:1 -/
+@[rust_loop]
+def rule_set.allows_in_loop
+  (rules : Slice rule.Rule) (root : Option context.Context)
+  (ctx : context.Context) (authenticated : Slice signer.Signer) (i : Std.Usize)
+  :
+  Result Bool
+  := do
+  loop
+    (fun i1 => rule_set.allows_in_loop.body rules root ctx authenticated i1)
+    i
+
+/-- [rule_eval::rule_set::allows_in]:
+    Source: 'crates/rule-eval/src/rule_set.rs', lines 56:0-70:1 -/
+@[reducible]
+def rule_set.allows_in
+  (rules : Slice rule.Rule) (root : Option context.Context)
+  (ctx : context.Context) (authenticated : Slice signer.Signer) :
+  Result Bool
+  := do
+  rule_set.allows_in_loop rules root ctx authenticated 0#usize
+
+/-- [rule_eval::rule_set::allows_batch]: loop body 0:
+    Source: 'crates/rule-eval/src/rule_set.rs', lines 46:4-53:1
+    Visibility: public -/
+@[rust_loop_body]
+def rule_set.allows_batch_loop.body
+  (rules : Slice rule.Rule) (contexts : Slice context.Context)
+  (authenticated : Slice signer.Signer) (i : Std.Usize) :
+  Result (ControlFlow Std.Usize Bool)
+  := do
+  let i1 := Slice.len contexts
+  if i < i1
+  then
+    let o ← context.entry_root contexts
+    let c ← Slice.index_usize contexts i
+    let b ← rule_set.allows_in rules o c authenticated
+    if b
+    then let i2 ← i + 1#usize
+         ok (cont i2)
+    else ok (done false)
+  else ok (done true)
+
+/-- [rule_eval::rule_set::allows_batch]: loop 0:
+    Source: 'crates/rule-eval/src/rule_set.rs', lines 46:4-53:1
+    Visibility: public -/
+@[rust_loop]
+def rule_set.allows_batch_loop
+  (rules : Slice rule.Rule) (contexts : Slice context.Context)
+  (authenticated : Slice signer.Signer) (i : Std.Usize) :
+  Result Bool
+  := do
+  loop
+    (fun i1 => rule_set.allows_batch_loop.body rules contexts authenticated i1)
+    i
+
+/-- [rule_eval::rule_set::allows_batch]:
+    Source: 'crates/rule-eval/src/rule_set.rs', lines 44:0-53:1
+    Visibility: public -/
+@[reducible]
+def rule_set.allows_batch
+  (rules : Slice rule.Rule) (contexts : Slice context.Context)
+  (authenticated : Slice signer.Signer) :
+  Result Bool
+  := do
+  rule_set.allows_batch_loop rules contexts authenticated 0#usize
 
 /-- [rule_eval::scoped::ScopeError]
     Source: 'crates/rule-eval/src/scoped.rs', lines 21:0-26:1
