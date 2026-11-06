@@ -1,0 +1,34 @@
+name: Offline Cedar prototype
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compiler:
+    name: Cedar fragment and differential corpus
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install tooling compiler
+        run: rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: tools/cedar-compile -> target
+      - name: Format and lint isolated tooling
+        run: |
+          cargo +1.99.0 fmt --manifest-path tools/cedar-compile/Cargo.toml --check
+          cargo +1.99.0 clippy --manifest-path tools/cedar-compile/Cargo.toml --all-targets --locked -- -D warnings
+      - name: Compile examples and compare decisions
+        run: CARGO_TARGET_DIR=tools/cedar-compile/target bash tools/cedar-compile/check.sh
+      - name: Contract dependency isolation
+        run: |
+          cargo +1.99.0 tree --locked -p rule-eval --edges normal > /tmp/rule-eval-deps
+          test "$(wc -l < /tmp/rule-eval-deps)" -eq 1
+          cargo +1.99.0 tree --locked -p soroban-facade --all-features --edges normal > /tmp/facade-deps
+          if grep -q 'cedar-policy' /tmp/facade-deps; then exit 1; fi
