@@ -3,7 +3,8 @@
 //! A [`Rule`] names one contract, the [`Functions`] it matches there (a list,
 //! or every function except a list), a list of conditions on the arguments
 //! of the call it matches, a list of [`Signer`]s, a threshold and,
-//! optionally, a spending [`Cap`], a last ledger and a generation. An
+//! optionally, a spending [`Cap`], a last ledger, a generation and an exact
+//! [`AuthRoot`] contract/function constraint. An
 //! authorization carries the signers it authenticated, one list for every
 //! context it covers. A rule allows a [`Context`] under those signers when the
 //! call matches, every condition holds, and at least `threshold` distinct
@@ -27,6 +28,7 @@
 //!   cap : Option (RuleCap Ctx) := none  -- the rule's spending cap, if it has one
 //!   validUntil : Option Nat := none     -- the last ledger it authorizes in, if any
 //!   generation : Option Nat := none     -- the generation it was issued under, if any
+//!   authRoot : Option (Ctx → Bool) := none -- requirement on the entry root
 //!
 //! def Rule.present (r : Rule Ctx Sig) (auth : List Sig) : List Sig :=
 //!   r.signers.eraseDups.filter (· ∈ auth)
@@ -46,15 +48,19 @@
 //!   cs.all (rs.allows · auth)
 //! ```
 //!
-//! [`allows`] and [`allows_all`] evaluate a rule set, without caps, time or
-//! generation. [`authorize`] is the stateful check: an authorization names
+//! [`allows`] and [`allows_all`] screen local contexts without root constraints,
+//! caps, time or generation. [`allows_batch`] checks local conditions and
+//! exact root constraints against the first context of this one entry. [`authorize`] is the stateful check: an authorization names
 //! one rule per context, as OpenZeppelin's smart account does, each chosen
 //! rule must be unexpired at the current ledger, belong to the current
 //! generation when it carries one, and allow its context, every
 //! authenticated signer must be a signer of some chosen rule, and the
 //! context's amount is charged to the record of each chosen rule with a cap;
 //! it returns the records after every charge or a [`Refusal`] that changes
-//! nothing. Every batch it accepts, [`allows_all`] allows.
+//! nothing. Every batch it accepts, [`allows_batch`] allows. The root always
+//! comes from the batch itself; no root from another entry can satisfy it.
+//! [`auth_root_narrows`] checks only implication of the optional root component;
+//! complete narrowing must retain all the other rule and spending checks.
 //!
 //! [`drop_rule`], [`add_cond`], [`remove_functions`], [`restrict_functions`],
 //! [`remove_signers`], [`raise_threshold`], [`add_cap`], [`lower_cap_limit`],
@@ -154,8 +160,11 @@ pub use document::{
     ArgConstraint, Doc, DocCap, DocRule, Pred, Principals, Recovery, Scope, SignerDecl, ZkFactor,
 };
 pub use lowering::{AMOUNT_ARG, MAX_STRING_LEN, lower, recovery_rule, u32_xdr};
-pub use rule::{Cap, Cond, Functions, Rule, cap_valid, cond_holds, functions_match, rule_allows};
-pub use rule_set::{allows, allows_all};
+pub use rule::{
+    AuthRoot, Cap, Cond, Functions, Rule, auth_root_matches, auth_root_narrows, cap_valid,
+    cond_holds, functions_match, rule_allows, rule_allows_in,
+};
+pub use rule_set::{allows, allows_all, allows_batch};
 pub use scoped::{ScopeError, excluded, lower_scoped};
 pub use signer::{Signer, signer_eq, signer_in, signers_met};
 pub use val::{Val, val_eq, val_in};

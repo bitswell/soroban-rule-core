@@ -20,7 +20,7 @@ authenticated signers, before it enforces any policy:
 1. in context order, every chosen rule exists (`noSuchRule`), has not expired
    at `now` (`expired`), was issued under the current generation when it
    carries one (`staleGeneration`), and allows its context under the
-   authenticated signers (`notAllowed`);
+   authenticated signers and its root predicate at this batch's head (`notAllowed`);
 2. every authenticated signer is a signer of some chosen rule
    (`unauthorizedSigner`);
 3. in context order, every context whose chosen rule has a cap names an
@@ -122,12 +122,12 @@ variable [DecidableEq Sig]
 `now` in generation `gen`: the rule exists, has not expired, is not stale, and
 allows the context under `auth`. -/
 def RuleSet.checkChoice (rs : RuleSet Ctx Sig) (auth : List Sig) (now gen : Nat)
-    (x : Ctx × Nat) : Except Refusal Unit :=
+    (root : Option Ctx) (x : Ctx × Nat) : Except Refusal Unit :=
   match rs.rules[x.2]? with
   | some r =>
     if r.expired now then .error .expired
     else if r.stale gen then .error .staleGeneration
-    else if r.allows x.1 auth then .ok () else .error .notAllowed
+    else if r.allowsIn root x.1 auth then .ok () else .error .notAllowed
   | none => .error .noSuchRule
 
 /-- Signer `s` is a signer of some rule that `choices` names. -/
@@ -149,7 +149,7 @@ def RuleSet.authorize (rs : RuleSet Ctx Sig) (records : List Cap.Record)
   if a.choices.length ≠ a.contexts.length then .error .choicesMismatch
   else if records.length ≠ rs.rules.length then .error .recordsMismatch
   else do
-    a.chosen.forM (rs.checkChoice a.auth a.now a.generation)
+    a.chosen.forM (rs.checkChoice a.auth a.now a.generation a.contexts.head?)
     rs.checkSigners a.auth a.choices
     a.chosen.foldlM (rs.charge a.now) records
 

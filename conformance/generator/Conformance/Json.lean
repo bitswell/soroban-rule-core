@@ -161,8 +161,16 @@ def encodeFunctions : Functions → Json
   | .only listed => tagged "only" (encodeBytesList listed)
   | .anyExcept removed => tagged "any_except" (encodeBytesList removed)
 
+def encodeAuthRoot (r : AuthRoot) : Json :=
+  .obj [("contract", .str (hex r.contract)), ("function", .str (hex r.function))]
+
+/-- Omit unrestricted roots to preserve the existing vector bytes. -/
+def encodeRootField : Option AuthRoot → List (String × Json)
+  | none => []
+  | some r => [("auth_root", encodeAuthRoot r)]
+
 def encodeRule (r : Rule) : Json :=
-  .obj [
+  .obj ([
     ("contract", .str (hex r.contract)),
     ("functions", encodeFunctions r.functions),
     ("conds", .arr (r.conds.map encodeCond)),
@@ -176,7 +184,7 @@ def encodeRule (r : Rule) : Json :=
       | none => .null),
     ("generation", match r.generation with
       | some g => .str (toString g.toNat)
-      | none => .null)]
+      | none => .null)] ++ encodeRootField r.authRoot)
 
 def encodeRuleSet (rs : RuleSet) : Json :=
   .arr (rs.map encodeRule)

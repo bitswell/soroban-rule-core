@@ -90,6 +90,21 @@ theorem authorize_allows_all {rules : Slice rule_eval.rule.Rule}
   simp only [denoteAuthorized] at hd
   exact congrArg ok (Chain.RuleSet.authorize_allowsAll hd.symm)
 
+/-- Full extracted acceptance implies root-aware screening of this same
+entry. The root-free `allows_all` theorem above is only a weaker projection. -/
+theorem authorize_allows_batch {rules : Slice rule_eval.rule.Rule}
+    {records : Slice rule_eval.cap.SpendRecord} {contexts : Slice rule_eval.context.Context}
+    {choices : Slice Std.U32} {authenticated : Slice rule_eval.signer.Signer} {now : Std.U32}
+    {generation : Std.U64} {out : alloc.vec.Vec rule_eval.cap.SpendRecord}
+    (h : rule_eval.authorize.authorize rules records contexts choices authenticated now
+      generation = ok (.Ok out)) :
+    rule_eval.rule_set.allows_batch rules contexts authenticated = ok true := by
+  obtain ⟨res, hres, hd⟩ := authorize_eq rules records contexts choices authenticated now generation
+  obtain rfl := Result.ok_injective (h.symm.trans hres)
+  rw [allows_batch_eq]
+  simp only [denoteAuthorized] at hd
+  exact congrArg ok (RuleCore.RuleSet.authorize_allowsBatch hd.symm)
+
 /-! ## Runs -/
 
 /-- One authorization's arguments, as Rust values. -/
@@ -220,6 +235,35 @@ theorem accepts_iff (rules : Slice rule_eval.rule.Rule)
     cases res with
     | Ok out => exact ⟨out, hres⟩
     | Err e => simp [denoteAuthorized] at hd
+
+/-- Every entry of an accepted extracted trace passes the extracted
+root-aware batch predicate. -/
+theorem accepts_allows_batch (rules : Slice rule_eval.rule.Rule)
+    (records : alloc.vec.Vec rule_eval.cap.SpendRecord) (auths : List AuthCall)
+    (h : Accepts rules records auths) :
+    ∀ a ∈ auths, rule_eval.rule_set.allows_batch rules a.contexts a.authenticated = ok true := by
+  have hm := (accepts_iff rules records auths).mp h
+  intro a ha
+  rw [allows_batch_eq]
+  exact congrArg ok (RuleCore.RuleSet.accepts_allowsBatch hm a.denote.denote
+    (List.mem_map_of_mem ha))
+
+/-- Each charge in the spending trace used by `runAuthorizations_window`
+comes from an entry whose root the selected rule accepts. The run and this
+trace are related by `runAuthorizations_eq` and the model's `spent_eq_recorded`;
+refused entries do not contribute charges. -/
+theorem charged_root (rules : Slice rule_eval.rule.Rule) {j : Nat} {r : rule_eval.rule.Rule}
+    (hr : rules.val[j]? = some r) (k : RuleCap Chain.Context)
+    (records : alloc.vec.Vec rule_eval.cap.SpendRecord) (auths : List AuthCall) {x : Cap.Call}
+    (h : x ∈ (denoteRules rules.val).denote.charged k j (records.val.map denoteRecord)
+      (auths.map fun a => a.denote.denote)) :
+    ∃ a ∈ auths, (denoteRule r).denote.rootMatches a.denote.contexts.head? = true := by
+  have hr' : (denoteRules rules.val).denote.rules[j]? = some (denoteRule r).denote := by
+    simp [denoteRules, Chain.RuleSet.denote, hr]
+  obtain ⟨a, ha, hroot, -⟩ := RuleCore.RuleSet.mem_charged_root hr' k h
+  obtain ⟨b, hb, he⟩ := List.mem_map.mp ha
+  subst a
+  exact ⟨b, hb, hroot⟩
 
 /-! ## Window safety -/
 

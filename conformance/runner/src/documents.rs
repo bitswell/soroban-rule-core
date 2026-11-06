@@ -92,6 +92,7 @@ pub struct JsonDocRule {
     pub args: Option<Vec<JsonArg>>,
     pub not_after_ledger: Option<u32>,
     pub cap: Option<JsonDocCap>,
+    pub auth_root: Option<crate::JsonAuthRoot>,
 }
 
 #[derive(Deserialize)]
@@ -218,6 +219,11 @@ fn decode_pred(p: &JsonPred) -> Result<Pred, String> {
 
 fn decode_doc_rule(r: &JsonDocRule) -> Result<DocRule, String> {
     Ok(DocRule {
+        auth_root: r
+            .auth_root
+            .as_ref()
+            .map(crate::decode_auth_root)
+            .transpose()?,
         scope: match &r.scope {
             JsonScope::Contract(a) => Scope::Contract(decode_hex(a)?),
             JsonScope::SelfAdmin => Scope::SelfAdmin,

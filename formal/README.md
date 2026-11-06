@@ -14,6 +14,31 @@ and the theorems relating them. The Lake package is `rule-core`
 | `RuleCore/Theorems/` | The theorems below, including the Soroban models' theorems (`Soroban.lean`) and the model's theorems carried over to the translation (`Extracted.lean`, `ExtractedCap.lean`, `ExtractedAuthorize.lean`, `ExtractedBudget.lean`, `ExtractedLowering.lean`), the cap theorems (`Cap.lean`), the authorization theorems (`Authorize.lean`), the budget theorems (`Budget.lean`), compile soundness (`Lowering.lean`), scoped documents, the generation and the chain (`Scoped.lean`), and kernel-checked examples of concrete verdicts. |
 | `RuleCore/Axioms.lean` | The axioms each theorem depends on, pinned under `#guard_msgs`. |
 
+## Root-aware authorization
+
+The generic rule has an optional predicate `authRoot : Option (Ctx → Bool)`.
+`Rule.allowsIn` conjoins that predicate on the entry's optional root with the
+existing local `Rule.allows`; `RuleSet.authorize` always supplies
+`a.contexts.head?`. `RuleSet.allowsBatch` uses the same head for every context.
+The local `allows`/`allowsAll` theorems remain screening results and do not prove
+root-aware batch acceptance on their own.
+
+The chain vocabulary restricts this predicate to one exact `AuthRoot` contract
+and function. `AuthRoot.narrows_iff` proves the structural narrowing check is
+exactly implication of root acceptance, including a missing root.
+`RuleSet.withRoot_traceNarrower` lifts it to accepted traces with cap state;
+all existing attenuation steps preserve the optional root. The generic
+`Rule.Refines` premise now requires `allowsIn` implication for every root.
+`RuleSet.accepts_allowsBatch` and `RuleSet.mem_charged_root` connect accepted
+traces and every recorded charge to this same entry root. The existing
+`spent_eq_recorded`, window and refusal-preservation proofs use this updated
+authorization semantics.
+
+`Document.Rule.effectiveRoot` retains ordinary roots and leaves self-admin
+unrestricted. Generated recovery rules also have no root constraint. The total
+document semantics agrees with lowering even for an unvalidated self-admin
+constraint; input validators must reject that unsupported field.
+
 ## Building
 
 ```sh

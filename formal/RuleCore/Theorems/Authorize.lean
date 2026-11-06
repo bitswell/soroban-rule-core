@@ -137,10 +137,10 @@ section
 variable [DecidableEq Sig]
 
 theorem RuleSet.checkChoice_ok_iff (rs : RuleSet Ctx Sig) (auth : List Sig) (now gen : Nat)
-    (x : Ctx × Nat) :
-    rs.checkChoice auth now gen x = .ok () ↔
+    (root : Option Ctx) (x : Ctx × Nat) :
+    rs.checkChoice auth now gen root x = .ok () ↔
       ∃ r, rs.rules[x.2]? = some r ∧ r.expired now = false ∧ r.stale gen = false ∧
-        r.allows x.1 auth = true := by
+        r.allowsIn root x.1 auth = true := by
   unfold RuleSet.checkChoice
   split <;> rename_i h
   · split <;> rename_i he
@@ -183,7 +183,7 @@ theorem RuleSet.authorize_eq_ok_iff (rs : RuleSet Ctx Sig) (records records' : L
     (a : Authorization Ctx Sig) :
     rs.authorize records a = .ok records' ↔
       a.choices.length = a.contexts.length ∧ records.length = rs.rules.length ∧
-        (∀ x ∈ a.chosen, rs.checkChoice a.auth a.now a.generation x = .ok ()) ∧
+        (∀ x ∈ a.chosen, rs.checkChoice a.auth a.now a.generation a.contexts.head? x = .ok ()) ∧
         rs.checkSigners a.auth a.choices = .ok () ∧
         a.chosen.foldlM (rs.charge a.now) records = .ok records' := by
   unfold RuleSet.authorize
@@ -191,7 +191,7 @@ theorem RuleSet.authorize_eq_ok_iff (rs : RuleSet Ctx Sig) (records records' : L
   · by_cases hr : records.length = rs.rules.length
     · simp only [hc, hr, ne_eq, not_true_eq_false, ↓reduceIte, true_and]
       rw [← forM_except_ok_iff]
-      cases hf : a.chosen.forM (rs.checkChoice a.auth a.now a.generation) with
+      cases hf : a.chosen.forM (rs.checkChoice a.auth a.now a.generation a.contexts.head?) with
       | error e => simp [bind, Except.bind]
       | ok u =>
         cases u
@@ -210,8 +210,9 @@ theorem RuleSet.authorize_chosen {rs : RuleSet Ctx Sig} {records records' : List
     ∀ x ∈ a.chosen, ∃ r, rs.rules[x.2]? = some r ∧ r.allows x.1 a.auth = true := by
   obtain ⟨-, -, hk, -, -⟩ := (rs.authorize_eq_ok_iff records records' a).mp h
   intro x hx
-  obtain ⟨r, hr, -, -, ha⟩ := (rs.checkChoice_ok_iff a.auth a.now a.generation x).mp (hk x hx)
-  exact ⟨r, hr, ha⟩
+  obtain ⟨r, hr, -, -, ha⟩ := (rs.checkChoice_ok_iff a.auth a.now a.generation a.contexts.head? x).mp (hk x hx)
+  simp only [Rule.allowsIn, Bool.and_eq_true] at ha
+  exact ⟨r, hr, ha.2⟩
 
 /-- Soundness of the stateful check: a rule set that accepts an authorization
 allows its whole batch under its signers. -/
@@ -226,6 +227,30 @@ theorem RuleSet.authorize_allowsAll {rs : RuleSet Ctx Sig} {records records' : L
   obtain ⟨r, hr, ha⟩ := RuleSet.authorize_chosen h x hx
   exact (RuleSet.allows_iff rs x.1 a.auth).mpr ⟨r, List.mem_of_getElem? hr, ha⟩
 
+/-- Every chosen rule satisfies the root constraint of this same entry. -/
+theorem RuleSet.authorize_chosen_root {rs : RuleSet Ctx Sig} {records records' : List Cap.Record}
+    {a : Authorization Ctx Sig} (h : rs.authorize records a = .ok records') :
+    ∀ x ∈ a.chosen, ∃ r, rs.rules[x.2]? = some r ∧
+      r.allowsIn a.contexts.head? x.1 a.auth = true := by
+  obtain ⟨-, -, hk, -, -⟩ := (rs.authorize_eq_ok_iff records records' a).mp h
+  intro x hx
+  obtain ⟨r, hr, -, -, ha⟩ :=
+    (rs.checkChoice_ok_iff a.auth a.now a.generation a.contexts.head? x).mp (hk x hx)
+  exact ⟨r, hr, ha⟩
+
+/-- Accepted batches pass root-aware screening; the root is derived from
+this entry's contexts, never from another authorization. -/
+theorem RuleSet.authorize_allowsBatch {rs : RuleSet Ctx Sig} {records records' : List Cap.Record}
+    {a : Authorization Ctx Sig} (h : rs.authorize records a = .ok records') :
+    rs.allowsBatch a.contexts a.auth = true := by
+  obtain ⟨hc, -, -, -, -⟩ := (rs.authorize_eq_ok_iff records records' a).mp h
+  apply List.all_eq_true.mpr
+  intro c hcm
+  rw [← Authorization.map_fst_chosen hc, List.mem_map] at hcm
+  obtain ⟨x, hx, rfl⟩ := hcm
+  obtain ⟨r, hr, ha⟩ := RuleSet.authorize_chosen_root h x hx
+  exact List.any_eq_true.mpr ⟨r, List.mem_of_getElem? hr, ha⟩
+
 /-- Every rule an accepted authorization chooses is current: it has not
 expired at the authorization's ledger, and it is not stale in its
 generation. -/
@@ -235,7 +260,7 @@ theorem RuleSet.authorize_current {rs : RuleSet Ctx Sig} {records records' : Lis
       r.stale a.generation = false := by
   obtain ⟨-, -, hk, -, -⟩ := (rs.authorize_eq_ok_iff records records' a).mp h
   intro x hx
-  obtain ⟨r, hr, he, hs, -⟩ := (rs.checkChoice_ok_iff a.auth a.now a.generation x).mp (hk x hx)
+  obtain ⟨r, hr, he, hs, -⟩ := (rs.checkChoice_ok_iff a.auth a.now a.generation a.contexts.head? x).mp (hk x hx)
   exact ⟨r, hr, he, hs⟩
 
 omit [DecidableEq Sig] in
@@ -775,17 +800,17 @@ def Rule.Current (r : Rule Ctx Sig) (now gen : Nat) : Prop :=
 not, carries a cap at least as narrow, is current at no ledger and in no
 generation where `r` is not, and lists no signer that `r` does not. -/
 def Rule.Refines (r' r : Rule Ctx Sig) : Prop :=
-  (∀ c auth, r'.allows c auth = true → r.allows c auth = true) ∧
+  (∀ root c auth, r'.allowsIn root c auth = true → r.allowsIn root c auth = true) ∧
     RuleCap.NarrowerOpt r'.cap r.cap ∧
     (∀ now gen, r'.Current now gen → r.Current now gen) ∧
     ∀ s ∈ r'.signers, s ∈ r.signers
 
 theorem Rule.Refines.refl (r : Rule Ctx Sig) : r.Refines r :=
-  ⟨fun _ _ h => h, RuleCap.NarrowerOpt.refl r.cap, fun _ _ h => h, fun _ h => h⟩
+  ⟨fun _ _ _ h => h, RuleCap.NarrowerOpt.refl r.cap, fun _ _ h => h, fun _ h => h⟩
 
 theorem Rule.Refines.trans {r'' r' r : Rule Ctx Sig} (h₁ : r''.Refines r') (h₂ : r'.Refines r) :
     r''.Refines r :=
-  ⟨fun c auth h => h₂.1 c auth (h₁.1 c auth h), h₁.2.1.trans h₂.2.1,
+  ⟨fun root c auth h => h₂.1 root c auth (h₁.1 root c auth h), h₁.2.1.trans h₂.2.1,
     fun now gen h => h₂.2.2.1 now gen (h₁.2.2.1 now gen h),
     fun s h => h₂.2.2.2 s (h₁.2.2.2 s h)⟩
 
@@ -794,8 +819,12 @@ refines the other. -/
 theorem Rule.Refines.of_eq {r' r : Rule Ctx Sig}
     (ha : ∀ c auth, r'.allows c auth = true → r.allows c auth = true) (hc : r'.cap = r.cap)
     (hv : r'.validUntil = r.validUntil) (hg : r'.generation = r.generation)
-    (hs : r'.signers = r.signers) : r'.Refines r := by
-  refine ⟨ha, hc ▸ RuleCap.NarrowerOpt.refl r'.cap, fun now gen h => ?_, fun s h => hs ▸ h⟩
+    (hs : r'.signers = r.signers) (hroot : r'.authRoot = r.authRoot) : r'.Refines r := by
+  have haIn : ∀ root c auth, r'.allowsIn root c auth = true → r.allowsIn root c auth = true := by
+    intro root c auth h
+    simp only [Rule.allowsIn, Bool.and_eq_true] at h ⊢
+    exact ⟨by simpa [Rule.rootMatches, hroot] using h.1, ha c auth h.2⟩
+  refine ⟨haIn, hc ▸ RuleCap.NarrowerOpt.refl r'.cap, fun now gen h => ?_, fun s h => hs ▸ h⟩
   simpa [Rule.Current, Rule.expired, Rule.stale, hv, hg] using h
 
 /-- `rs'` refines `rs` along `f`: `f` sends the rules of `rs'` one to one to
@@ -968,11 +997,11 @@ theorem RuleSet.Refines.authorize {rs' rs : RuleSet Ctx Sig} {f : Nat → Nat}
     intro y hy
     obtain ⟨x, hx, rfl⟩ := List.mem_map.mp hy
     obtain ⟨r', hr', he, hs, ha⟩ :=
-      (rs'.checkChoice_ok_iff a.auth a.now a.generation x).mp (hk x hx)
+      (rs'.checkChoice_ok_iff a.auth a.now a.generation a.contexts.head? x).mp (hk x hx)
     obtain ⟨r, hr, hRr⟩ := hR.2 x.2 r' hr'
     obtain ⟨he', hs'⟩ := hRr.2.2.1 a.now a.generation ⟨he, hs⟩
-    exact (rs.checkChoice_ok_iff a.auth a.now a.generation _).mpr
-      ⟨r, hr, he', hs', hRr.1 x.1 a.auth ha⟩
+    exact (rs.checkChoice_ok_iff a.auth a.now a.generation a.contexts.head? _).mpr
+      ⟨r, hr, he', hs', hRr.1 a.contexts.head? x.1 a.auth ha⟩
   · rw [RuleSet.checkSigners_ok_iff]
     intro s hsm
     obtain ⟨j, hj, r', hr', hsr⟩ :=
@@ -1034,18 +1063,28 @@ theorem RuleSet.TraceNarrower.trans {rs'' rs' rs : RuleSet Ctx Sig} {g f : Nat �
   rw [he] at this
   exact this
 
+/-- Local narrowing lifts to root-aware narrowing when the root constraint
+is retained exactly. -/
+theorem Rule.allowsIn_of_local {r' r : Rule Ctx Sig}
+    (hroot : r'.authRoot = r.authRoot)
+    (ha : ∀ c auth, r'.allows c auth = true → r.allows c auth = true)
+    (root : Option Ctx) (c : Ctx) (auth : List Sig)
+    (h : r'.allowsIn root c auth = true) : r.allowsIn root c auth = true := by
+  simp only [Rule.allowsIn, Bool.and_eq_true] at h ⊢
+  exact ⟨by simpa [Rule.rootMatches, hroot] using h.1, ha c auth h.2⟩
+
 /-! ### Each step refines -/
 
 theorem Rule.refines_addCond (r : Rule Ctx Sig) (p : Ctx → Bool) : (r.addCond p).Refines r :=
-  Rule.Refines.of_eq (fun _ _ h => Rule.allows_of_allows_addCond h) rfl rfl rfl rfl
+  Rule.Refines.of_eq (fun _ _ h => Rule.allows_of_allows_addCond h) rfl rfl rfl rfl rfl
 
 theorem Rule.refines_restrictScope (r : Rule Ctx Sig) (s : Ctx → Bool) :
     (r.restrictScope s).Refines r :=
-  Rule.Refines.of_eq (fun _ _ h => Rule.allows_of_allows_restrictScope h) rfl rfl rfl rfl
+  Rule.Refines.of_eq (fun _ _ h => Rule.allows_of_allows_restrictScope h) rfl rfl rfl rfl rfl
 
 theorem Rule.refines_removeSigners (r : Rule Ctx Sig) (ss : List Sig) :
     (r.removeSigners ss).Refines r :=
-  ⟨fun _ _ h => Rule.allows_of_allows_removeSigners h, RuleCap.NarrowerOpt.refl r.cap,
+  ⟨Rule.allowsIn_of_local rfl (fun _ _ h => Rule.allows_of_allows_removeSigners h), RuleCap.NarrowerOpt.refl r.cap,
     fun _ _ h => h, fun _ h => (List.mem_filter.mp h).1⟩
 
 theorem RuleSet.modifyRule_refines {rs rs' : RuleSet Ctx Sig} {i : Nat}
@@ -1085,7 +1124,7 @@ theorem RuleSet.raiseThreshold_refines {rs rs' : RuleSet Ctx Sig} {i k : Nat}
       cases h
       exact RuleSet.Refines.set hr (Rule.Refines.of_eq
         (fun _ _ hc => Rule.allows_of_allows_threshold_le (Nat.le_of_not_lt hk) hc)
-        rfl rfl rfl rfl)
+        rfl rfl rfl rfl rfl)
   · cases h
 
 theorem RuleSet.addCap_refines {rs rs' : RuleSet Ctx Sig} {i : Nat} {k : RuleCap Ctx}
@@ -1098,7 +1137,7 @@ theorem RuleSet.addCap_refines {rs rs' : RuleSet Ctx Sig} {i : Nat} {k : RuleCap
     · rename_i hc
       split at h
       · cases h
-        exact RuleSet.Refines.set hr ⟨fun _ _ hc => hc, by simp [RuleCap.NarrowerOpt, hc],
+        exact RuleSet.Refines.set hr ⟨fun _ _ _ hc => hc, by simp [RuleCap.NarrowerOpt, hc],
           fun _ _ h => h, fun _ h => h⟩
       · cases h
   · cases h
@@ -1116,7 +1155,7 @@ theorem RuleSet.lowerCapLimit_refines {rs rs' : RuleSet Ctx Sig} {i : Nat} {limi
         split at h
         · cases h
         · cases h
-          refine RuleSet.Refines.set hr ⟨fun _ _ hc => hc, ?_, fun _ _ h => h, fun _ h => h⟩
+          refine RuleSet.Refines.set hr ⟨fun _ _ _ hc => hc, ?_, fun _ _ h => h, fun _ h => h⟩
           show RuleCap.NarrowerOpt (some (k.withLimit limit)) r.cap
           rw [hc]
           exact ⟨rfl, Int.not_lt.mp hl, Nat.le_refl _⟩
@@ -1134,7 +1173,7 @@ theorem RuleSet.lengthenCapPeriod_refines {rs rs' : RuleSet Ctx Sig} {i period :
       · cases h
       · rename_i hp
         cases h
-        refine RuleSet.Refines.set hr ⟨fun _ _ hc => hc, ?_, fun _ _ h => h, fun _ h => h⟩
+        refine RuleSet.Refines.set hr ⟨fun _ _ _ hc => hc, ?_, fun _ _ h => h, fun _ h => h⟩
         show RuleCap.NarrowerOpt (some (k.withPeriod period)) r.cap
         rw [hc]
         exact ⟨rfl, Int.le_refl _, Nat.le_of_not_lt hp⟩
@@ -1145,7 +1184,7 @@ theorem RuleSet.lowerValidUntil_refines {rs rs' : RuleSet Ctx Sig} {i v : Nat}
     (h : rs.lowerValidUntil i v = .ok rs') : rs'.Refines rs fun j => j := by
   have hcur : ∀ (r : Rule Ctx Sig), (∀ last, r.validUntil = some last → v ≤ last) →
       ({ r with validUntil := some v } : Rule Ctx Sig).Refines r := fun r hv =>
-    ⟨fun _ _ hc => hc, RuleCap.NarrowerOpt.refl r.cap, fun now gen ⟨he, hs⟩ => by
+    ⟨fun _ _ _ hc => hc, RuleCap.NarrowerOpt.refl r.cap, fun now gen ⟨he, hs⟩ => by
       refine ⟨(Rule.expired_eq_false_iff r now).mpr fun last hl => ?_, hs⟩
       have := (Rule.expired_eq_false_iff _ now).mp he v rfl
       exact Nat.le_trans this (hv last hl), fun _ h => h⟩
