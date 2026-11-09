@@ -41,14 +41,14 @@ authorization. It does not mention the lowering.
   `now` only when `now` is before it.
 
 `Doc.allows` is local screening without roots, time, generation or caps.
-`Doc.authorize` additionally checks ordinary rules' exact entry-root constraints. `Doc.authorize`
+`Doc.checkAuth` additionally checks ordinary rules' exact entry-root constraints. `Doc.checkAuth`
 checks an authorization as OpenZeppelin's `do_check_auth` does over the rules
 installed for the document (`Doc.installed`): one rule per context, each live
 and allowing its context, every authenticated signer named by a chosen rule,
 then each capped rule's spend charged with the cap model of
 `RuleCore.Model.Cap`, which mirrors OpenZeppelin's spending-limit policy. The
 recovery rule, installed when the document configures recovery, is checked by
-the recovery controller against its own state; `Doc.authorize` takes that
+the recovery controller against its own state; `Doc.checkAuth` takes that
 check as a parameter `ctl`.
 
 ## Validity
@@ -328,7 +328,7 @@ def Doc.charge (d : Doc) (now : Nat) (records : List RuleCore.Cap.Record)
 record per installed rule, or `none` when it is refused. `ctl` is the recovery
 controller's check of the recovery rule's contexts, and `issued` the generation
 a scoped document was issued under. -/
-def Doc.authorize (d : Doc) (acct : Bytes) (ctl : Context → List Signer → Bool)
+def Doc.checkAuth (d : Doc) (acct : Bytes) (ctl : Context → List Signer → Bool)
     (issued : Option UInt64) (records : List RuleCore.Cap.Record) (a : Chain.Authorization) :
     Option (List RuleCore.Cap.Record) :=
   if a.choices.length = a.contexts.length ∧ records.length = d.installed.length ∧

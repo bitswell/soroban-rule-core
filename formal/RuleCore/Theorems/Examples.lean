@@ -157,22 +157,22 @@ def grant : Rule :=
 def call0 : Context := .call token transfer []
 
 /-- At its last ledger, in its generation, signed by alice: authorized. -/
-example : RuleSet.authorize [grant] [.empty] ⟨[call0], [0], [alice], 10, 3⟩ = .ok [.empty] :=
+example : RuleSet.checkAuth [grant] [.empty] ⟨[call0], [0], [alice], 10, 3⟩ = .ok [.empty] :=
   rfl
 
 /-- One ledger later: expired. -/
-example : RuleSet.authorize [grant] [.empty] ⟨[call0], [0], [alice], 11, 3⟩ =
+example : RuleSet.checkAuth [grant] [.empty] ⟨[call0], [0], [alice], 11, 3⟩ =
     .error .expired :=
   rfl
 
 /-- After the generation moves on: stale. -/
-example : RuleSet.authorize [grant] [.empty] ⟨[call0], [0], [alice], 10, 4⟩ =
+example : RuleSet.checkAuth [grant] [.empty] ⟨[call0], [0], [alice], 10, 4⟩ =
     .error .staleGeneration :=
   rfl
 
 /-- A further authenticated signer that belongs to no chosen rule is refused,
 though alice alone meets the threshold. -/
-example : RuleSet.authorize [grant] [.empty] ⟨[call0], [0], [alice, bob], 10, 3⟩ =
+example : RuleSet.checkAuth [grant] [.empty] ⟨[call0], [0], [alice, bob], 10, 3⟩ =
     .error .unauthorizedSigner :=
   rfl
 

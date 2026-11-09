@@ -511,6 +511,22 @@ info: 'RuleCore.Chain.RuleSet.authorize_signers' depends on axioms: [propext, Cl
 ---
 info: 'RuleCore.Chain.RuleSet.authorize_validUntil' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
+info: 'RuleCore.Chain.RuleSet.checkAuthAll_denote' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Chain.RuleSet.checkAuth_allowsAll' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Chain.RuleSet.checkAuth_contexts_nil_of_stale' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Chain.RuleSet.checkAuth_exactRoot' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Chain.RuleSet.checkAuth_generation' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Chain.RuleSet.checkAuth_not_chosen_of_stale' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Chain.RuleSet.checkAuth_signers' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Chain.RuleSet.checkAuth_validUntil' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Chain.RuleSet.denote_addCap' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Chain.RuleSet.denote_addCond' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -597,6 +613,8 @@ info: 'RuleCore.Chain.Val.string_ne_symbol' depends on axioms: [propext]
 ---
 info: 'RuleCore.Document.Account.adminRules_authorize_generation' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
+info: 'RuleCore.Document.Account.adminRules_checkAuth_generation' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Document.Account.chain' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Document.Account.chain_after_recovery' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -621,6 +639,14 @@ info: 'RuleCore.Document.Doc.authorize_of_recovery_none' depends on axioms: [pro
 ---
 info: 'RuleCore.Document.Doc.charge_lower' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
+info: 'RuleCore.Document.Doc.checkAuth_eq_some_iff' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.checkAuth_lowerAll' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.checkAuth_mono' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.checkAuth_of_recovery_none' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Document.Doc.checkChoice_lower' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Document.Doc.foldlM_charge_lower' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -643,6 +669,8 @@ info: 'RuleCore.Document.Doc.lowerScoped_attenuateAll_excluded' depends on axiom
 ---
 info: 'RuleCore.Document.Doc.lowerScoped_authorize' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
+info: 'RuleCore.Document.Doc.lowerScoped_checkAuth' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Document.Doc.lowerScoped_contract' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Document.Doc.lowerScoped_eq_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -658,6 +686,12 @@ info: 'RuleCore.Document.Doc.lower_authorize' depends on axioms: [propext, Class
 info: 'RuleCore.Document.Doc.lower_authorize_of_check' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Document.Doc.lower_authorize_of_recovery_none' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.lower_checkAuth' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.lower_checkAuth_of_check' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.Doc.lower_checkAuth_of_recovery_none' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Document.Doc.lower_generation' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
@@ -686,6 +720,8 @@ info: 'RuleCore.Document.Rule.signed_lowerRule' depends on axioms: [propext, Cla
 info: 'RuleCore.Document.RuleSet.allows_eq_any' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Document.RuleSet.authorize_generation_none' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Document.RuleSet.checkAuth_generation_none' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Document.amountCond_holds' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
@@ -814,6 +850,8 @@ info: 'RuleCore.Equiv.charge_nil' depends on axioms: [propext, Classical.choice,
 info: 'RuleCore.Equiv.charge_set' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.charged_loop_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Equiv.check_auth_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Equiv.check_chain_loop_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
@@ -1401,6 +1439,22 @@ info: 'RuleCore.Extracted.chain_trace' depends on axioms: [propext, Classical.ch
 ---
 info: 'RuleCore.Extracted.charged_root' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
+info: 'RuleCore.Extracted.checkAuthAll_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.check_auth_allows_all' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.check_auth_allows_batch' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.check_auth_contexts_nil_of_stale' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.check_auth_generation' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.check_auth_not_chosen_of_stale' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.check_auth_signers' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.check_auth_valid_until' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Extracted.check_spend_before_newest' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Extracted.check_spend_negative' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -1449,6 +1503,8 @@ info: 'RuleCore.Extracted.lower_authorize' depends on axioms: [propext, Classica
 ---
 info: 'RuleCore.Extracted.lower_cap_limit_narrower' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
+info: 'RuleCore.Extracted.lower_check_auth' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.Extracted.lower_generation' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Extracted.lower_scoped_allows' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -1456,6 +1512,8 @@ info: 'RuleCore.Extracted.lower_scoped_allows' depends on axioms: [propext, Clas
 info: 'RuleCore.Extracted.lower_scoped_allows_excluded' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Extracted.lower_scoped_authorize' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.Extracted.lower_scoped_check_auth' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.Extracted.lower_scoped_generation' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
@@ -1613,6 +1671,10 @@ info: 'RuleCore.RuleSet.Refines.authorizeAll' depends on axioms: [propext, Class
 ---
 info: 'RuleCore.RuleSet.Refines.charge' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
+info: 'RuleCore.RuleSet.Refines.checkAuth' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
+info: 'RuleCore.RuleSet.Refines.checkAuthAll' depends on axioms: [propext, Classical.choice, Quot.sound]
+---
 info: 'RuleCore.RuleSet.Refines.foldlM_charge' depends on axioms: [propext, Classical.choice, Quot.sound]
 ---
 info: 'RuleCore.RuleSet.Refines.refl' depends on axioms: [propext]
@@ -1718,6 +1780,30 @@ info: 'RuleCore.RuleSet.charge_get_ne' depends on axioms: [propext]
 info: 'RuleCore.RuleSet.charge_length' depends on axioms: [propext]
 ---
 info: 'RuleCore.RuleSet.charge_of_cap_none' depends on axioms: [propext]
+---
+info: 'RuleCore.RuleSet.checkAuth_allowsAll' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.RuleSet.checkAuth_allowsBatch' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.RuleSet.checkAuth_chosen' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.RuleSet.checkAuth_chosen_root' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.RuleSet.checkAuth_contexts_nil_of_stale' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.RuleSet.checkAuth_current' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.RuleSet.checkAuth_eq_ok_iff' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.RuleSet.checkAuth_generation' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.RuleSet.checkAuth_length' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.RuleSet.checkAuth_not_chosen_of_stale' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.RuleSet.checkAuth_signers' depends on axioms: [propext, Quot.sound]
+---
+info: 'RuleCore.RuleSet.checkAuth_validUntil' depends on axioms: [propext, Quot.sound]
 ---
 info: 'RuleCore.RuleSet.checkChoice_ok_iff' depends on axioms: [propext, Quot.sound]
 ---

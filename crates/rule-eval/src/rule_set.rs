@@ -21,7 +21,7 @@ pub fn allows(rules: &[Rule], ctx: &Context, authenticated: &[Signer]) -> bool {
 
 /// Local-context screening for every context; ignores root constraints,
 /// caps, choices, time, generation and signer coverage. Use [`allows_batch`]
-/// for root-aware screening and [`authorize`](crate::authorize) for the full
+/// for root-aware screening and [`check_auth`](crate::check_auth) for the full
 /// decision. Empty batches pass this screening.
 #[must_use]
 pub fn allows_all(rules: &[Rule], contexts: &[Context], authenticated: &[Signer]) -> bool {
@@ -39,7 +39,7 @@ pub fn allows_all(rules: &[Rule], contexts: &[Context], authenticated: &[Signer]
 /// rule whose local conditions and exact root constraint both hold. The root
 /// is always this batch's first context; other entries cannot supply it.
 /// Empty batches pass. Caps, choices, time, generation and signer coverage
-/// remain the responsibility of [`authorize`](crate::authorize).
+/// remain the responsibility of [`check_auth`](crate::check_auth).
 #[must_use]
 pub fn allows_batch(rules: &[Rule], contexts: &[Context], authenticated: &[Signer]) -> bool {
     let mut i = 0;

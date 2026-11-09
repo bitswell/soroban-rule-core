@@ -1,4 +1,4 @@
-//! Checks `rule-eval`'s lowering and `authorize` against the document traces.
+//! Checks `rule-eval`'s lowering and `check_auth` against the document traces.
 //!
 //! A document trace (see `conformance/README.md`) holds a document, the
 //! account it belongs to, optionally the admin document it is issued under as
@@ -7,7 +7,7 @@
 //! verdict the document's meaning gives on the records the authorizations
 //! before it left. [`check`] lowers the document with [`lower`] or
 //! [`lower_scoped`] under the set [`excluded`] takes from the admin document,
-//! compares the rules, runs the authorizations through [`authorize`] and
+//! compares the rules, runs the authorizations through [`check_auth`] and
 //! reports the first difference.
 
 use std::fs;
@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 
 use rule_eval::{
     ArgConstraint, Doc, DocCap, DocRule, Pred, Principals, Recovery, Scope, ScopeError, SignerDecl,
-    SpendRecord, ZkFactor, authorize, empty_record, excluded, lower, lower_scoped,
+    SpendRecord, ZkFactor, check_auth, empty_record, excluded, lower, lower_scoped,
 };
 use serde::Deserialize;
 
@@ -393,7 +393,7 @@ pub fn check(trace: &Trace) -> Result<(), String> {
             .collect::<Result<Vec<_>, _>>()?;
         let authenticated = decode_signers(&a.authenticated)?;
         let generation: u64 = decode_decimal(&a.generation)?;
-        let got = authorize(
+        let got = check_auth(
             &rules,
             &records,
             &batch,

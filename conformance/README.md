@@ -1,7 +1,7 @@
 # conformance
 
 Test vectors for rule-set evaluation and attenuation, traces of the
-spending-cap check, traces of `authorize`, traces of the budget tree and
+spending-cap check, traces of `check_auth`, traces of the budget tree and
 traces of documents, computed by the Lean model in `formal/`, and a runner that checks `rule-eval` against them. Any other implementation of the same rules
 (Perch's smart account, the grant signer) can run the same vectors as a
 differential test.
@@ -33,11 +33,11 @@ every expected result with the chain vocabulary's own functions,
 writes each case to `<name>.json`. The cap traces (`Conformance/Caps.lean`) are
 computed with `RuleCore.Cap.Params.check` and written to `caps/<name>.json`, and
 the authorization traces (`Conformance/Authorize.lean`) with
-`RuleCore.Chain.RuleSet.authorize` and written to `authorize/<name>.json`, and
+`RuleCore.Chain.RuleSet.checkAuth` and written to `authorize/<name>.json`, and
 the budget traces (`Conformance/Budget.lean`) with `RuleCore.Budget.Op.apply`
 and written to `budget/<name>.json`, and the document traces
 (`Conformance/Documents.lean`) with `RuleCore.Document.Doc.lower`,
-`Doc.lowerScoped`, `Doc.excluded` and `Doc.authorize` and written to
+`Doc.lowerScoped`, `Doc.excluded` and `Doc.checkAuth` and written to
 `documents/<name>.json`. The Soroban vectors (`Conformance/Soroban/`) are
 computed with the Soroban models' own functions, `Val.xdr`, `Val.toChain`,
 `Val.storable`, `contextsOfVal`, `AuthFn.toChain`, `Op.apply` and `Tx.run`,
@@ -125,7 +125,7 @@ reported. Its cap tests (`tests/caps.rs`) check that `check_spend` reproduces
 every outcome and record of every trace, that the traces still cover every
 refusal, ledger 0, `u32::MAX` and invalid caps, and that a changed expectation
 is reported. Its authorization tests (`tests/authorize.rs`) check that
-`authorize` reproduces every outcome and record of every trace, that the traces
+`check_auth` reproduces every outcome and record of every trace, that the traces
 still cover every refusal, two contexts charging one rule, eviction, mismatched
 records and the empty batch, and that a changed expectation is reported. Its
 budget tests (`tests/budget.rs`) check that `spend`, `delegate` and `refill`
@@ -134,7 +134,7 @@ every refusal but `tree_full`, overdrawn refusals at the spender and at an
 ancestor, malformed and empty trees and several roots, and that a changed
 expectation is reported. Its document tests (`tests/documents.rs`) check that
 `lower`, or `lower_scoped` under `excluded` of the admin document, builds every
-trace's rules or refuses as it does, that `authorize` reaches every verdict and
+trace's rules or refuses as it does, that `check_auth` reaches every verdict and
 record, that the traces still cover admin and scoped documents, recovery,
 both scopes, both kinds of principals, rules without functions, caps,
 not-after ledgers, every predicate and both scoped refusals, and that a changed
@@ -552,7 +552,7 @@ and the total increased by `amount`.
 ## Authorization trace format
 
 An authorization trace runs authorizations through the stateful check,
-`authorize` in `rule-eval` and `RuleSet.authorize` in the model. Every file is
+`check_auth` in `rule-eval` and `RuleSet.checkAuth` in the model. Every file is
 one JSON object. Object fields appear in the order below; readers should not
 depend on it.
 
@@ -725,7 +725,7 @@ strings, and `no_such_node` and `overdrawn` as an object holding the index.
 ## Document trace format
 
 A document trace lowers one document and runs authorizations through the rules
-it lowers to. The verdicts are the document's own (`Doc.authorize`), written
+it lowers to. The verdicts are the document's own (`Doc.checkAuth`), written
 from Perch's specification, not the lowering's: an implementation that lowers
 the document and checks the authorizations with its own evaluator, Perch's
 `compile_doc`, `apply_doc` and `check_auth` among them, should reach the same

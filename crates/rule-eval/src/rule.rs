@@ -55,7 +55,7 @@ pub struct AuthRoot {
 /// A rule: calls to `contract` whose function is in `functions` and whose
 /// arguments satisfy every condition in `conds`, authorized by at least
 /// `threshold` distinct signers of `signers`, and spending within `cap` when
-/// the rule has one. [`authorize`](crate::authorize) also refuses the rule
+/// the rule has one. [`check_auth`](crate::check_auth) also refuses the rule
 /// after its `valid_until` ledger and outside its `generation`.
 pub struct Rule {
     pub contract: Vec<u8>,
@@ -67,19 +67,19 @@ pub struct Rule {
     /// authorization's authenticated signers. 0 puts no requirement on them.
     pub threshold: u32,
     /// The rule's spending cap, if it has one. [`rule_allows`] does not read
-    /// it; [`authorize`](crate::authorize) charges it.
+    /// it; [`check_auth`](crate::check_auth) charges it.
     pub cap: Option<Cap>,
     /// The last ledger the rule authorizes in, if it has one. [`rule_allows`]
-    /// does not read it; [`authorize`](crate::authorize) refuses the rule at
+    /// does not read it; [`check_auth`](crate::check_auth) refuses the rule at
     /// any later ledger.
     pub valid_until: Option<u32>,
     /// The generation the rule was issued under, if it has one.
-    /// [`rule_allows`] does not read it; [`authorize`](crate::authorize)
+    /// [`rule_allows`] does not read it; [`check_auth`](crate::check_auth)
     /// refuses the rule when the current generation is another.
     pub generation: Option<u64>,
     /// An exact requirement on the authorization entry's first context.
     /// Local screening helpers ignore it; [`rule_allows_in`] and
-    /// [`authorize`](crate::authorize) enforce it.
+    /// [`check_auth`](crate::check_auth) enforce it.
     pub auth_root: Option<AuthRoot>,
 }
 
@@ -141,7 +141,7 @@ fn conds_hold(conds: &[Cond], args: &[Val]) -> bool {
 /// rule's threshold of its distinct signers are authenticated. No rule allows
 /// a creation. Root constraints, caps, expiry and generation are not read.
 /// This is local screening, not authorization of an entry. Use
-/// [`rule_allows_in`] for explicit-root screening or [`authorize`](crate::authorize)
+/// [`rule_allows_in`] for explicit-root screening or [`check_auth`](crate::check_auth)
 /// for the complete batch decision.
 #[must_use]
 pub fn rule_allows(r: &Rule, ctx: &Context, authenticated: &[Signer]) -> bool {
