@@ -1,3 +1,5 @@
 /target
 # Host entries outside the workspace (conformance/host/p30) build here.
 /conformance/host/*/target
+# Optional off-chain Cedar tooling has its own workspace.
+/tools/cedar-compile/target

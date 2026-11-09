@@ -3060,3 +3060,50 @@ claims:
     evidence:
       - file: ARCHITECTURE.md
         contains: "Linking an authorization to a node is the shell's job"
+
+  # Experimental tooling: independent from the extraction/contract workspace.
+  - id: tooling.cedar-fragment-corpus
+    claim: >-
+      The offline Cedar 4.14.1 frontend's bounded corpus compares 2357
+      single-principal, typed-request eligibility decisions with the official
+      authorizer and generated rule-core rules. Unsupported source/bindings
+      and malformed requests are refused separately. Pure account-state tests
+      exercise selected rules, exact entry roots, caps, expiry and generations;
+      they do not establish new host, crypto or storage behavior.
+    status: tested
+    evidence:
+      - test: cedar-to-rule-core/differential::deterministic_and_generated_eligibility
+      - test: cedar-to-rule-core/differential::integer_extremes_equality_and_scalar_constructors
+      - test: cedar-to-rule-core/differential::malformed_requests_are_domain_refusals
+      - test: cedar-to-rule-core/rejection::unsupported_constructs_reject_the_whole_set
+      - test: cedar-to-rule-core/rejection::bindings_are_explicit_injective_typed_and_complete
+      - test: cedar-to-rule-core/rejection::skip_on_error_forbid_cannot_become_a_compiled_grant
+      - test: cedar-to-rule-core/state::selected_rules_authentication_caps_atomic_refusal_and_lifetime
+      - test: cedar-to-rule-core/state::exact_entry_root_cannot_be_borrowed_and_local_screening_is_insufficient
+      - ci:
+          workflow: .github/workflows/cedar.yml
+          job: compiler
+          step: Compile examples and compare decisions
+          runs: bash tools/cedar-compile/check.sh
+
+  - id: tooling.cedar-correspondence-unproven
+    claim: >-
+      The new Cedar frontend and its trusted typed binding layer have no
+      formal correspondence proof. Existing Cedar and rule-core proofs do not
+      certify this compiler or its installation into an account.
+    status: unproven
+    evidence:
+      - file: tools/cedar-compile/README.md
+        contains: There is **no compiler correspondence theorem**.
+
+  - id: tooling.cedar-contract-isolation
+    claim: >-
+      Cedar dependencies belong to an isolated native tooling workspace,
+      not the rule-eval or soroban-facade normal dependency graphs.
+    status: tested
+    evidence:
+      - ci:
+          workflow: .github/workflows/cedar.yml
+          job: compiler
+          step: Contract dependency isolation
+          runs: cargo +1.99.0 tree --locked -p rule-eval --edges normal

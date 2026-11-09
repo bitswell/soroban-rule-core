@@ -1,0 +1,343 @@
+{
+  "version": 1,
+  "principals": [
+    {
+      "uid": "Signer::\"session\"",
+      "signer": {
+        "kind": "delegated",
+        "address": {
+          "kind": "account",
+          "id": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ]
+        }
+      }
+    },
+    {
+      "uid": "Signer::\"outsider\"",
+      "signer": {
+        "kind": "delegated",
+        "address": {
+          "kind": "account",
+          "id": [
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2
+          ]
+        }
+      }
+    }
+  ],
+  "entities": [
+    {
+      "uid": "Account::\"alice\"",
+      "address": {
+        "kind": "account",
+        "id": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "uid": "Account::\"mallory\"",
+      "address": {
+        "kind": "account",
+        "id": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "uid": "Contract::\"game\"",
+      "address": {
+        "kind": "contract",
+        "id": [
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3
+        ]
+      }
+    },
+    {
+      "uid": "Contract::\"xlm\"",
+      "address": {
+        "kind": "contract",
+        "id": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4
+        ]
+      }
+    },
+    {
+      "uid": "Contract::\"other\"",
+      "address": {
+        "kind": "contract",
+        "id": [
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5
+        ]
+      }
+    }
+  ],
+  "calls": [
+    {
+      "action": "Action::\"guess\"",
+      "resource": "Contract::\"game\"",
+      "function": "guess",
+      "arguments": [
+        {
+          "name": "guess",
+          "kind": "integer"
+        }
+      ]
+    },
+    {
+      "action": "Action::\"transfer\"",
+      "resource": "Contract::\"xlm\"",
+      "function": "transfer",
+      "arguments": [
+        {
+          "name": "from",
+          "kind": "address"
+        },
+        {
+          "name": "to",
+          "kind": "address"
+        },
+        {
+          "name": "amount",
+          "kind": "integer"
+        }
+      ]
+    }
+  ],
+  "policies": [
+    {
+      "id": "policy0",
+      "cap": null,
+      "generation": 7,
+      "valid_until": 1000
+    },
+    {
+      "id": "policy1",
+      "cap": {
+        "amount": "amount",
+        "limit": 100,
+        "period": 10
+      },
+      "generation": 7,
+      "valid_until": 1000
+    }
+  ]
+}
