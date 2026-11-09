@@ -29,11 +29,11 @@ listed twice in the rule, or authenticated twice, counts once. A threshold of
 
 A rule may carry a spending cap (`RuleCap`): the cap's parameters and the
 amount a context spends, read from the context. `Rule.allows` does not read
-the cap; `RuleSet.authorize` (`RuleCore.Model.Authorize`) charges it.
+the cap; `RuleSet.checkAuth` (`RuleCore.Model.Authorize`) charges it.
 
 A rule may carry a last ledger (`validUntil`) and the generation it was issued
 under (`generation`). `Rule.allows` reads neither: it is the view without time
-or generation. `RuleSet.authorize` refuses a rule after its last ledger
+or generation. `RuleSet.checkAuth` refuses a rule after its last ledger
 (`Rule.expired`) and outside its generation (`Rule.stale`).
 
 A rule allows a context when its scope matches, every condition holds and its

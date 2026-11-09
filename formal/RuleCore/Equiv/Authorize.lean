@@ -2,7 +2,7 @@ import RuleCore.Equiv.Cap
 import RuleCore.Theorems.Chain
 
 /-!
-# Authorization: the extracted `authorize` agrees with the model
+# Authorization: the extracted `check_auth` agrees with the model
 
 The denotations below extend those of `RuleCore/Equiv/Denote.lean` and
 `RuleCore/Equiv/DenoteCap.lean` to the `authorize` module, and are part of the
@@ -10,9 +10,9 @@ specification like them:
 
 * each `Refusal` constructor is the constructor of the same name, and
   `Refusal::Cap(e)` is `Refusal.cap` of the denoted `CapError`;
-* a Rust `Result` of `authorize` is the `Except` with the denoted records, and
+* a Rust `Result` of `check_auth` is the `Except` with the denoted records, and
   one of the first pass (`check_choices`) the `Except` with the unit value;
-* the arguments of `authorize` (the contexts, the choices, the authenticated
+* the arguments of `check_auth` (the contexts, the choices, the authenticated
   signers, the ledger and the generation) are the chain vocabulary's
   authorization of their denotations (`denoteAuthorization`).
 
@@ -31,8 +31,8 @@ denoted inputs:
 * `records_copy_eq`: the copy of the records returns the same records;
 * `charge_all_loop_eq`: the second pass, from position `i`, is the model's
   `foldlM` of `charge` over the contexts and choices from `i` on;
-* `authorize_eq`: `authorize rules records contexts choices authenticated now`
-  is `Chain.RuleSet.authorize` of the denotations, every refusal included.
+* `check_auth_eq`: `check_auth rules records contexts choices authenticated now`
+  is `Chain.RuleSet.checkAuth` of the denotations, every refusal included.
 
 `get_mut` on the record vector is Aeneas's model of `<[T]>::get_mut` through
 `Vec`'s `DerefMut`: it returns the element at the index, if any, and a function
@@ -56,7 +56,7 @@ def denoteRefusal : rule_eval.authorize.Refusal → Refusal
   | .NoAmount => .noAmount
   | .Cap e => .cap (denoteCapError e)
 
-/-- What `authorize` returned, as the model's outcome. -/
+/-- What `check_auth` returned, as the model's outcome. -/
 def denoteAuthorized :
     core.result.Result (alloc.vec.Vec rule_eval.cap.SpendRecord) rule_eval.authorize.Refusal →
       Except Refusal (List Cap.Record)
@@ -68,7 +68,7 @@ def denoteChecked : core.result.Result Unit rule_eval.authorize.Refusal → Exce
   | .Ok () => .ok ()
   | .Err e => .error (denoteRefusal e)
 
-/-- The arguments of `authorize`, as the chain vocabulary's authorization. -/
+/-- The arguments of `check_auth`, as the chain vocabulary's authorization. -/
 def denoteAuthorization (contexts : Slice rule_eval.context.Context) (choices : Slice Std.U32)
     (authenticated : Slice rule_eval.signer.Signer) (now : Std.U32) (generation : Std.U64) :
     Chain.Authorization :=
@@ -106,7 +106,7 @@ theorem denoteAuthorized_injective : Function.Injective denoteAuthorized := by
 @[simp] theorem except_ok_bind {ε α β : Type} (a : α) (f : α → Except ε β) :
     (Except.ok a >>= f) = f a := rfl
 
-/-- The contexts of `authorize`'s arguments with their chosen indices, as the
+/-- The contexts of `check_auth`'s arguments with their chosen indices, as the
 model's authorization lists them. -/
 def chosenOf (contexts : Slice rule_eval.context.Context) (choices : Slice Std.U32) :
     List (Chain.Context × Nat) :=
@@ -493,19 +493,19 @@ theorem slice_len_bne_any {α β : Type} (a : Slice α) (b : Slice β) :
       exact h this
     simp [this, h]
 
-/-- On every input, the extracted `authorize` returns `ok` of the model's
+/-- On every input, the extracted `check_auth` returns `ok` of the model's
 authorization on the denotations, every refusal included: it never panics and
 never diverges. -/
-theorem authorize_eq (rules : Slice rule_eval.rule.Rule)
+theorem check_auth_eq (rules : Slice rule_eval.rule.Rule)
     (records : Slice rule_eval.cap.SpendRecord) (contexts : Slice rule_eval.context.Context)
     (choices : Slice Std.U32) (authenticated : Slice rule_eval.signer.Signer) (now : Std.U32)
     (generation : Std.U64) :
-    ∃ res, rule_eval.authorize.authorize rules records contexts choices authenticated now
+    ∃ res, rule_eval.authorize.check_auth rules records contexts choices authenticated now
         generation = ok res ∧
       denoteAuthorized res =
-        (denoteRules rules.val).authorize (records.val.map denoteRecord)
+        (denoteRules rules.val).checkAuth (records.val.map denoteRecord)
           (denoteAuthorization contexts choices authenticated now generation) := by
-  have hmodel : (denoteRules rules.val).authorize (records.val.map denoteRecord)
+  have hmodel : (denoteRules rules.val).checkAuth (records.val.map denoteRecord)
       (denoteAuthorization contexts choices authenticated now generation) =
       if choices.length ≠ contexts.length then .error .choicesMismatch
       else if records.length ≠ rules.length then .error .recordsMismatch
@@ -517,11 +517,11 @@ theorem authorize_eq (rules : Slice rule_eval.rule.Rule)
               (choices.val.map (·.val)) >>=
             fun _ => (chosenOf contexts choices).foldlM
               ((denoteRules rules.val).denote.charge now.val) (records.val.map denoteRecord) := by
-    simp only [Chain.RuleSet.authorize, RuleSet.authorize, chosen_denoteAuthorization]
+    simp only [Chain.RuleSet.checkAuth, RuleSet.checkAuth, chosen_denoteAuthorization]
     simp [Chain.Authorization.denote, denoteAuthorization, Chain.RuleSet.denote, denoteRules,
       Slice.length, List.map_map, Function.comp_def]
   rw [hmodel]
-  unfold rule_eval.authorize.authorize
+  unfold rule_eval.authorize.check_auth
   simp only [slice_len_bne_any]
   by_cases hc : choices.length = contexts.length
   · by_cases hr : records.length = rules.length
@@ -560,5 +560,13 @@ theorem authorize_eq (rules : Slice rule_eval.rule.Rule)
           · rw [hd, h0, List.drop_zero, hv]
     · simp [hc, hr, denoteAuthorized, denoteRefusal]
   · simp [hc, denoteAuthorized, denoteRefusal]
+
+/-! ## Former names
+
+The names these theorems had before the evaluator's entry point was renamed
+`check_auth`, kept so that citations of them still resolve. -/
+
+@[deprecated check_auth_eq (since := "2026-11-08")]
+theorem authorize_eq : type_of% @check_auth_eq := @check_auth_eq
 
 end RuleCore.Equiv

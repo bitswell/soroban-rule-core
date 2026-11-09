@@ -1,4 +1,4 @@
-//! The stateful check `authorize` and the cap steps: each refusal and its
+//! The stateful check `check_auth` and the cap steps: each refusal and its
 //! precedence, charges accumulating across a batch, a refusal discarding a
 //! batch's charges, windows rolling, soundness against `allows_all`, what each
 //! cap step builds and refuses, and, over small universes, agreement with a
@@ -9,7 +9,7 @@ mod common;
 use common::*;
 use rule_eval::{
     AttenuationError, Cap, CapError, Context, Refusal, Rule, Signer, SpendEntry, SpendRecord, Val,
-    add_cap, add_cond, allows, allows_all, authorize, cap_valid, check_spend, drop_rule,
+    add_cap, add_cond, allows, allows_all, cap_valid, check_auth, check_spend, drop_rule,
     empty_record, lengthen_cap_period, lower_cap_limit, lower_valid_until, raise_threshold,
     remove_functions, remove_signers, rule_allows,
 };
@@ -65,7 +65,7 @@ fn refusal_name(r: &Refusal) -> String {
 
 type Outcome = Result<Vec<Rec>, String>;
 
-/// `authorize` in generation 0, as a comparable outcome.
+/// `check_auth` in generation 0, as a comparable outcome.
 fn outcome(
     rules: &[Rule],
     records: &[SpendRecord],
@@ -86,13 +86,13 @@ fn outcome_in(
     now: u32,
     generation: u64,
 ) -> Outcome {
-    match authorize(rules, records, contexts, choices, auth, now, generation) {
+    match check_auth(rules, records, contexts, choices, auth, now, generation) {
         Ok(out) => Ok(out.iter().map(rec_of).collect()),
         Err(e) => Err(refusal_name(&e)),
     }
 }
 
-/// A plain reading of `authorize`: the length checks, then every chosen rule
+/// A plain reading of `check_auth`: the length checks, then every chosen rule
 /// unexpired, in the generation and allowing its context, then every
 /// authenticated signer a signer of a chosen rule, then each charge in context
 /// order against the record the charges before it left.
@@ -359,7 +359,7 @@ fn the_window_rolls() {
         (22, 50, true),
         (22, 1, false),
     ] {
-        match authorize(&rs, &records, &[transfer(amount)], &[0], &[], now, 0) {
+        match check_auth(&rs, &records, &[transfer(amount)], &[0], &[], now, 0) {
             Ok(out) => {
                 assert!(accepted, "ledger {now} amount {amount}");
                 records = out;
@@ -583,14 +583,14 @@ fn batch_universe() -> Vec<(Vec<Context>, Vec<u32>)> {
     out
 }
 
-/// `authorize` agrees with the plain reading on every rule set of up to two
+/// `check_auth` agrees with the plain reading on every rule set of up to two
 /// rules from a universe of capped and uncapped rules and an expiring wildcard
 /// issued under generation 3, every batch of up to two contexts with its
 /// choices, three authenticated lists, two ledgers and two generations, from
 /// empty records and from records already holding a spend; and an accepted
 /// authorization's batch is allowed by `allows_all`.
 #[test]
-fn authorize_agrees_with_the_reference_reading() {
+fn check_auth_agrees_with_the_reference_reading() {
     let auths = [
         Vec::new(),
         vec![delegated("alice")],
@@ -671,7 +671,7 @@ fn run(rs: &[Rule], calls: &[&Call]) -> (Vec<Outcome>, Vec<SpendRecord>, bool) {
     let mut outcomes = Vec::new();
     let mut all = true;
     for (batch, choices, now) in calls {
-        match authorize(rs, &records, batch, choices, &[], *now, 0) {
+        match check_auth(rs, &records, batch, choices, &[], *now, 0) {
             Ok(out) => {
                 outcomes.push(Ok(out.iter().map(rec_of).collect()));
                 records = out;
@@ -704,7 +704,7 @@ fn charged(rs: &[Rule], calls: &[&Call], j: usize) -> Vec<(u32, i128)> {
     let mut records = empty(rs.len());
     let mut out = Vec::new();
     for (batch, choices, now) in calls {
-        if let Ok(next) = authorize(rs, &records, batch, choices, &[], *now, 0) {
+        if let Ok(next) = check_auth(rs, &records, batch, choices, &[], *now, 0) {
             records = next;
             for (c, &k) in batch.iter().zip(choices) {
                 if k as usize == j
@@ -738,7 +738,7 @@ fn every_short_run_stays_within_every_window() {
             let got = outcome(&rs, &records, batch, choices, &[], *now);
             let expected = reference(&rs, &records, batch, choices, &[], *now, 0);
             assert_eq!(got, expected);
-            if let Ok(next) = authorize(&rs, &records, batch, choices, &[], *now, 0) {
+            if let Ok(next) = check_auth(&rs, &records, batch, choices, &[], *now, 0) {
                 records = next;
             }
         }
@@ -863,14 +863,14 @@ fn caps_hold_across_contexts_that_choose_different_rules() {
         capped(rule("token", &["transfer"], Vec::new()), cap(10, 5, 2)),
         capped(rule("token", &["transfer"], Vec::new()), cap(10, 5, 2)),
     ];
-    let first = authorize(&rs, &empty(2), &[transfer(10)], &[0], &[], 1, 0)
+    let first = check_auth(&rs, &empty(2), &[transfer(10)], &[0], &[], 1, 0)
         .ok()
         .unwrap();
     assert!(matches!(
-        authorize(&rs, &first, &[transfer(1)], &[0], &[], 2, 0),
+        check_auth(&rs, &first, &[transfer(1)], &[0], &[], 2, 0),
         Err(Refusal::Cap(CapError::LimitExceeded))
     ));
-    let second = authorize(&rs, &first, &[transfer(10)], &[1], &[], 2, 0)
+    let second = check_auth(&rs, &first, &[transfer(10)], &[1], &[], 2, 0)
         .ok()
         .unwrap();
     assert_eq!(rec_of(&second[0]), (vec![(1, 10)], 10));
@@ -882,7 +882,7 @@ fn a_rule_without_a_cap_keeps_its_record() {
     let rs = sample();
     let records = vec![empty_record(), record_of(&(vec![(3, 7)], 7))];
     let deposit = call("vault", "deposit", Vec::new());
-    let out = authorize(&rs, &records, &[deposit], &[1], &[delegated("alice")], 9, 0)
+    let out = check_auth(&rs, &records, &[deposit], &[1], &[delegated("alice")], 9, 0)
         .ok()
         .unwrap();
     assert_eq!(rec_of(&out[1]), (vec![(3, 7)], 7));

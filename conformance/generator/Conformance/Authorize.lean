@@ -6,7 +6,7 @@ import Conformance.Random
 
 A `Trace` is the specification of one authorization trace: a rule set, the
 records it starts from, and a list of authorizations. `Trace.toJson` runs the
-authorizations through the Lean model's `RuleCore.Chain.RuleSet.authorize`,
+authorizations through the Lean model's `RuleCore.Chain.RuleSet.checkAuth`,
 each on the records the authorizations before it left (the same records after
 a refusal), and writes every authorization with its expected outcome: the
 records after it, or the refusal.
@@ -76,7 +76,7 @@ def authorizationsJson (rs : RuleSet) : List Cap.Record â†’ List Authorization â
         ("choices", .arr (a.choices.map encodeIndex)), ("authenticated", encodeSigners a.auth),
         ("now", .num a.now.toNat), ("generation", .str (toString a.generation.toNat)),
         ("expected", expected)]
-    match rs.authorize records a with
+    match rs.checkAuth records a with
     | .ok records' =>
       entry (tagged "ok" (.arr (records'.map Caps.encodeRecord))) ::
         authorizationsJson rs records' rest

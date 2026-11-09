@@ -8,7 +8,7 @@
 //! generation. The new rule set allows
 //! no context, under any authenticated signers, that the original does not,
 //! and accepts no run of authorizations that the original does not (see
-//! [`authorize`](crate::authorize)). Nothing else is an attenuation step.
+//! [`check_auth`](crate::check_auth)). Nothing else is an attenuation step.
 
 use alloc::vec::Vec;
 

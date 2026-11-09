@@ -6,11 +6,11 @@ and the theorems relating them. The Lake package is `rule-core`
 
 | Directory | Contents |
 | --- | --- |
-| `RuleCore/Model/` | The generic model: rules with their signers, threshold and optional cap, rule sets, `narrower`, and the nine attenuation steps, over any context and signer type. `Cap.lean` models spending caps: the spend record, the check, runs and windows. `Authorize.lean` models `authorize`, its runs, and narrowing as trace inclusion. `Budget.lean` models the budget tree: spends, delegations, refills and their runs. |
+| `RuleCore/Model/` | The generic model: rules with their signers, threshold and optional cap, rule sets, `narrower`, and the nine attenuation steps, over any context and signer type. `Cap.lean` models spending caps: the spend record, the check, runs and windows. `Authorize.lean` models `check_auth`, its runs, and narrowing as trace inclusion. `Budget.lean` models the budget tree: spends, delegations, refills and their runs. |
 | `RuleCore/Vocab/` | The chain vocabulary (contexts, values, conditions, signers, caps, rules, authorizations) and its denotation into the generic model; Perch's documents, their meaning and validity (`Document.lean`), the lowering and scoped documents (`Lowering.lean`), and the account's generation (`Account.lean`). |
 | `RuleCore/Soroban/` | Lean models of Soroban's behaviour at protocol 29: values and their XDR (`Val.lean`), storage as a map (`Storage.lean`), authorization contexts and what `rule-eval` reads of them (`Context.lean`), signed trees, credentials and the host's matching of `require_auth` (`Auth.lean`), and calls, rollback, `require_auth` and `__check_auth` (`Host.lean`). |
 | `RuleCore/Extracted/` | `RuleEval.lean`, the translation of `crates/rule-eval`, the lowering included, that Charon and Aeneas generate. Never edited by hand. |
-| `RuleCore/Equiv/` | Denotations from the translated types to the chain vocabulary, the cap model (`DenoteCap.lean`), the budget model (`DenoteBudget.lean`) and the document vocabulary (`DenoteDocument.lean`), and theorems that the translated functions compute the model's results (`Cap.lean` for the cap check, `Authorize.lean` for `authorize`, `Budget.lean` for the budget operations, `Lowering.lean` for the lowering). |
+| `RuleCore/Equiv/` | Denotations from the translated types to the chain vocabulary, the cap model (`DenoteCap.lean`), the budget model (`DenoteBudget.lean`) and the document vocabulary (`DenoteDocument.lean`), and theorems that the translated functions compute the model's results (`Cap.lean` for the cap check, `Authorize.lean` for `check_auth`, `Budget.lean` for the budget operations, `Lowering.lean` for the lowering). |
 | `RuleCore/Theorems/` | The theorems below, including the Soroban models' theorems (`Soroban.lean`) and the model's theorems carried over to the translation (`Extracted.lean`, `ExtractedCap.lean`, `ExtractedAuthorize.lean`, `ExtractedBudget.lean`, `ExtractedLowering.lean`), the cap theorems (`Cap.lean`), the authorization theorems (`Authorize.lean`), the budget theorems (`Budget.lean`), compile soundness (`Lowering.lean`), scoped documents, the generation and the chain (`Scoped.lean`), and kernel-checked examples of concrete verdicts. |
 | `RuleCore/Axioms.lean` | The axioms each theorem depends on, pinned under `#guard_msgs`. |
 
@@ -18,7 +18,7 @@ and the theorems relating them. The Lake package is `rule-core`
 
 The generic rule has an optional predicate `authRoot : Option (Ctx → Bool)`.
 `Rule.allowsIn` conjoins that predicate on the entry's optional root with the
-existing local `Rule.allows`; `RuleSet.authorize` always supplies
+existing local `Rule.allows`; `RuleSet.checkAuth` always supplies
 `a.contexts.head?`. `RuleSet.allowsBatch` uses the same head for every context.
 The local `allows`/`allowsAll` theorems remain screening results and do not prove
 root-aware batch acceptance on their own.
@@ -110,7 +110,7 @@ def RuleSet.narrower (rs' rs : RuleSet Ctx Sig) : Prop :=
 whole batch. `eraseDups` keeps each signer at its first position, so a signer
 listed twice in a rule, or authenticated twice, counts once. A threshold of 0 is
 no requirement. `Rule.allows` reads neither the cap nor the last ledger nor
-the generation; `Rule.expired now` and `Rule.stale gen` are what `authorize`
+the generation; `Rule.expired now` and `Rule.stale gen` are what `check_auth`
 checks of the last two. `RuleSet` is a plain
 definition, so `RuleSet.rules` and `RuleSet.ofRules` convert to and from the
 underlying list for list notation.
@@ -216,7 +216,7 @@ generic steps of the same name, as do the cap steps, with the cap denoted by
 rule's signers and threshold are the generic rule's, its cap the denoted cap,
 and its last ledger and generation the generic rule's, read through `toNat`.
 `Authorization` is `{ contexts, choices, auth, now, generation }` with `UInt32`
-choices and ledger and a `UInt64` generation, and `RuleSet.authorize` is the
+choices and ledger and a `UInt64` generation, and `RuleSet.checkAuth` is the
 generic authorization of the denotation, those read through `toNat`.
 
 ## The extracted evaluator
@@ -353,12 +353,12 @@ of the evicted amounts, has its own induction (`evict_loop_eq`).
 
 ## Authorization
 
-`RuleCore/Model/Authorize.lean` models `authorize`. An `Authorization` is a
+`RuleCore/Model/Authorize.lean` models `check_auth`. An `Authorization` is a
 batch of contexts, the index of the rule chosen for each (`choices`), the
 authenticated signers, the ledger `now` and the current `generation`;
 `records` holds one `Cap.Record` per rule.
 
-* `RuleSet.authorize rs records a` refuses `choicesMismatch` and
+* `RuleSet.checkAuth rs records a` refuses `choicesMismatch` and
   `recordsMismatch` for lists of the wrong length, then runs
   `RuleSet.checkChoice` on every context with its choice (`noSuchRule`,
   `expired`, `staleGeneration`, `notAllowed`), then `RuleSet.checkSigners`
@@ -368,7 +368,7 @@ authenticated signers, the ledger `now` and the current `generation`;
   whose chosen rule has a cap must name an amount under it (`noAmount`) and is
   charged to the rule's record with `Cap.Params.check` (`cap e`).
 * `RuleSet.step` keeps the records after a refusal, `RuleSet.run` folds it over
-  a list of authorizations, `RuleSet.authorizeAll` fails at the first refusal
+  a list of authorizations, `RuleSet.checkAuthAll` fails at the first refusal
   and `RuleSet.Accepts` says every authorization is accepted.
 * `Authorization.charges a k j` lists the calls `a` charges to rule `j` under
   its cap `k`, `RuleSet.charged` those of every accepted authorization of a
@@ -380,10 +380,10 @@ authenticated signers, the ledger `now` and the current `generation`;
 * `RuleSet.capsValid`: every cap of the rule set is valid.
 
 `RuleCore/Equiv/Authorize.lean` maps `Refusal` constructor for constructor,
-`authorize`'s result to the `Except` of the denoted records, and its arguments
+`check_auth`'s result to the `Except` of the denoted records, and its arguments
 to the chain authorization of their denotations (`denoteAuthorization`), and
-proves `authorize_eq`: on every input, the translated `authorize` returns `ok`
-of `Chain.RuleSet.authorize` on the denotations. Its loops have their own
+proves `check_auth_eq`: on every input, the translated `check_auth` returns `ok`
+of `Chain.RuleSet.checkAuth` on the denotations. Its loops have their own
 inductions (`check_choices_loop_eq`, `signer_chosen_eq`, `signers_chosen_eq`,
 `charge_all_loop_eq`); expiry and staleness are `expired_eq` and `stale_eq`;
 the charge writes through `get_mut` (`slice_get_mut_eq`).
@@ -446,7 +446,7 @@ and, for a capped rule, `transfer`; `Rule.argsHold` every predicate
 (`Pred.holds`) and, for a capped rule, an `i128` at argument 2;
 `Doc.ruleAllows` all three and `Doc.allows` some rule. `Doc.installed` is the
 document's rules then the recovery rule when it configures recovery, and
-`Doc.authorize d acct ctl issued records a` checks an authorization over them
+`Doc.checkAuth d acct ctl issued records a` checks an authorization over them
 (`Doc.validates`, `Doc.signerChosen`, `Doc.charge`), with `ctl` the recovery
 controller's check and `issued` the generation of a scoped document; it returns
 the records or `none`. `Doc.Valid` is what the theorems take of a document.
@@ -543,19 +543,19 @@ Authorization (`RuleCore`, `RuleCore/Theorems/Authorize.lean`):
 
 | Theorem | Statement |
 | --- | --- |
-| `RuleSet.authorize_eq_ok_iff`, `RuleSet.checkChoice_ok_iff`, `RuleSet.checkSigners_ok_iff`, `RuleSet.signerChosen_iff` | An accepted authorization, pass by pass: the lengths match, every chosen rule exists, is current and allows its context, every authenticated signer is a signer of a chosen rule, and the charges build the new records. |
-| `RuleSet.authorize_current`, `RuleSet.authorize_validUntil`, `Rule.expired_eq_false_iff`, `Authorization.map_snd_chosen` | An accepted authorization chooses no rule whose last ledger is before its ledger. |
-| `RuleSet.authorize_generation`, `RuleSet.authorize_not_chosen_of_stale`, `RuleSet.authorize_contexts_nil_of_stale`, `Rule.stale_eq_false_iff` | It chooses no rule issued under another generation: once the generation is not `g`, a rule issued under `g` authorizes nothing, and a rule set issued under `g` accepts only an empty batch. |
-| `RuleSet.authorize_signers` | Every authenticated signer of an accepted authorization is a signer of a chosen rule. |
+| `RuleSet.checkAuth_eq_ok_iff`, `RuleSet.checkChoice_ok_iff`, `RuleSet.checkSigners_ok_iff`, `RuleSet.signerChosen_iff` | An accepted authorization, pass by pass: the lengths match, every chosen rule exists, is current and allows its context, every authenticated signer is a signer of a chosen rule, and the charges build the new records. |
+| `RuleSet.checkAuth_current`, `RuleSet.checkAuth_validUntil`, `Rule.expired_eq_false_iff`, `Authorization.map_snd_chosen` | An accepted authorization chooses no rule whose last ledger is before its ledger. |
+| `RuleSet.checkAuth_generation`, `RuleSet.checkAuth_not_chosen_of_stale`, `RuleSet.checkAuth_contexts_nil_of_stale`, `Rule.stale_eq_false_iff` | It chooses no rule issued under another generation: once the generation is not `g`, a rule issued under `g` authorizes nothing, and a rule set issued under `g` accepts only an empty batch. |
+| `RuleSet.checkAuth_signers` | Every authenticated signer of an accepted authorization is a signer of a chosen rule. |
 | `RuleSet.attenuate_generation`, `RuleSet.attenuateAll_generation`, `RuleSet.attenuateAll_generation_eq` | No step changes a rule's generation; a rule set derived from one issued under `g` is issued under `g`. |
-| `RuleSet.authorize_chosen`, `RuleSet.authorize_allowsAll` | An accepted authorization's every context is allowed by the rule chosen for it, so the rule set allows the batch under its signers. |
-| `RuleSet.authorize_length`, `RuleSet.charge_length`, `RuleSet.foldlM_charge_length` | An accepted authorization keeps one record per rule. |
+| `RuleSet.checkAuth_chosen`, `RuleSet.checkAuth_allowsAll` | An accepted authorization's every context is allowed by the rule chosen for it, so the rule set allows the batch under its signers. |
+| `RuleSet.checkAuth_length`, `RuleSet.charge_length`, `RuleSet.foldlM_charge_length` | An accepted authorization keeps one record per rule. |
 | `RuleSet.step_of_error` | A refused authorization leaves the records as they were. |
 | `RuleSet.charge_get_ne`, `RuleSet.charge_get_capped`, `RuleSet.charge_of_cap_none`, `RuleSet.foldlM_charge_get`, `RuleSet.foldlM_charge_get_of_cap_none` | A charge touches only the chosen rule's record, through the cap check when the rule has a cap. |
 | `RuleSet.run_get`, `RuleSet.runAll_charged`, `RuleSet.spent_eq_recorded`, `RuleSet.run_get_of_cap_none`, `RuleSet.mem_charged` | After a run, a capped rule's record is the cap check's run over the calls charged to it, every one of which it accepted; a rule without a cap keeps its record. |
 | `RuleSet.window_le_limit`, `RuleSet.period_le_limit_of_pos`, `RuleSet.period_le_limit` | From empty records, the spends a run records for a capped rule with a non-negative limit sum to at most the limit in every window of eviction, in every window of `period` ledgers from ledger 1 on, and in every window when every authorization is at ledger 1 or later. |
 | `RuleSet.run_eq_window`, `RuleSet.run_history_length_le` | From empty records, the stored record is the spends in the window at the last spend's ledger with their sum as total, and holds at most `maxHistory` entries. |
-| `RuleSet.Refines.traceNarrower`, `RuleSet.Refines.authorize`, `RuleSet.Refines.authorizeAll`, `RuleSet.Refines.charge`, `RuleSet.Refines.foldlM_charge`, `RuleSet.RecordsRel.empty` | A rule set whose rules, renumbered one to one, each allow no more, carry a cap at least as narrow, are current no more often and list no other signer accepts no run of authorizations its image does not. |
+| `RuleSet.Refines.traceNarrower`, `RuleSet.Refines.checkAuth`, `RuleSet.Refines.checkAuthAll`, `RuleSet.Refines.charge`, `RuleSet.Refines.foldlM_charge`, `RuleSet.RecordsRel.empty` | A rule set whose rules, renumbered one to one, each allow no more, carry a cap at least as narrow, are current no more often and list no other signer accepts no run of authorizations its image does not. |
 | `RuleSet.attenuate_refines`, `RuleSet.attenuateAll_refines`, `RuleSet.dropRule_refines`, `RuleSet.modifyRule_refines`, `RuleSet.raiseThreshold_refines`, `RuleSet.addCap_refines`, `RuleSet.lowerCapLimit_refines`, `RuleSet.lengthenCapPeriod_refines`, `RuleSet.lowerValidUntil_refines`, `RuleSet.Refines.set`, `RuleSet.Refines.refl`, `RuleSet.Refines.trans`, `Rule.Refines.refl`, `Rule.Refines.trans`, `Rule.Refines.of_eq`, `Rule.refines_addCond`, `Rule.refines_restrictScope`, `Rule.refines_removeSigners`, `RuleCap.NarrowerOpt.refl`, `RuleCap.NarrowerOpt.trans` | Each of the nine steps, and every list of them, refines along the renumbering it induces. |
 | `RuleSet.attenuate_traceNarrower`, `RuleSet.attenuateAll_traceNarrower` | Each step, and every chain of steps, is narrowing as trace inclusion, each side from its own empty records, with the choices renumbered. |
 | `RuleSet.TraceNarrower.refl`, `RuleSet.TraceNarrower.trans`, `Authorization.renumber_renumber`, `Authorization.chosen_renumber` | Trace inclusion is reflexive and composes, with the renumberings composed. |
@@ -581,7 +581,7 @@ Chain vocabulary (`RuleCore.Chain`):
 | `Cond.argIn_holds_iff`, `Cond.argIn_holds_iff_argEq`, `Cond.argStrPrefix_holds_iff` | `argIn` holds exactly when `argEq` holds for one of its values; `argStrPrefix` exactly when the argument is a string starting with the prefix. |
 | `Val.string_ne_symbol`, `Cond.argEq_string_false_of_symbol`, `Cond.argStrPrefix_kind`, `Cond.argStrPrefix_false_of_kind_ne`, `Cond.argStrPrefix_false_of_symbol` | A string is never a symbol; `argStrPrefix` holds only on strings. |
 | `RuleSet.restrictFunctions_narrower`, `RuleSet.lowerValidUntil_narrower`, `RuleSet.denote_restrictFunctions`, `RuleSet.denote_lowerValidUntil`, `RuleSet.lowerValidUntil_eq_validUntilRaised_iff` | The two Milestone 4 steps narrow, denote the generic steps, and refuse exactly where stated. |
-| `RuleSet.authorize_validUntil`, `RuleSet.authorize_generation`, `RuleSet.authorize_not_chosen_of_stale`, `RuleSet.authorize_contexts_nil_of_stale`, `RuleSet.authorize_signers`, `RuleSet.attenuate_generation`, `RuleSet.attenuateAll_generation`, `RuleSet.attenuateAll_generation_eq` | The expiry, generation and signer theorems, and generation preservation, on chain rule sets. |
+| `RuleSet.checkAuth_validUntil`, `RuleSet.checkAuth_generation`, `RuleSet.checkAuth_not_chosen_of_stale`, `RuleSet.checkAuth_contexts_nil_of_stale`, `RuleSet.checkAuth_signers`, `RuleSet.attenuate_generation`, `RuleSet.attenuateAll_generation`, `RuleSet.attenuateAll_generation_eq` | The expiry, generation and signer theorems, and generation preservation, on chain rule sets. |
 | `RuleCore.Bytes.eq_iff` | Two byte strings are equal iff they have the same length and the same byte at every index. |
 | `RuleCore.Bytes.append_ne_self` | A byte string is not equal to itself extended by a non-empty suffix. |
 | `Rule.contract_eq_of_allows` | A rule allows a call only if the call's contract equals the rule's contract and its function is in the rule's function list. |
@@ -603,10 +603,10 @@ Chain vocabulary (`RuleCore.Chain`):
 | `RuleSet.rules_denote` | The rules of a chain rule set's denotation are the denotations of its rules. |
 | `RuleSet.addCap_narrower`, `RuleSet.lowerCapLimit_narrower`, `RuleSet.lengthenCapPeriod_narrower` | Each chain cap step yields a narrower rule set. |
 | `RuleSet.denote_addCap`, `RuleSet.denote_lowerCapLimit`, `RuleSet.denote_lengthenCapPeriod`, `RuleSet.denote_attenuateAll`, `Cap.valid_denote` | Each chain cap step, and each list of steps, commutes with the denotation. |
-| `RuleSet.authorize_allowsAll` | A chain rule set that accepts an authorization allows its batch under its signers. |
+| `RuleSet.checkAuth_allowsAll` | A chain rule set that accepts an authorization allows its batch under its signers. |
 | `RuleSet.attenuate_traceNarrower`, `RuleSet.attenuateAll_traceNarrower`, `Attenuation.source_denote_dropRule`, `Attenuation.source_denote_of_ne` | Each chain step, and every chain of steps, is trace inclusion on the denotations, along the renumbering `dropRule` induces. |
 | `RuleSet.attenuate_capsValid`, `RuleSet.attenuateAll_capsValid` | The chain steps keep every cap valid. |
-| `RuleSet.emptyRecords_denote`, `RuleSet.authorizeAll_denote` | The chain's empty records and runs are the generic ones of the denotation. |
+| `RuleSet.emptyRecords_denote`, `RuleSet.checkAuthAll_denote` | The chain's empty records and runs are the generic ones of the denotation. |
 
 Equivalence (`RuleCore.Equiv`), on every input of the translated functions:
 
@@ -631,7 +631,7 @@ Equivalence (`RuleCore.Equiv`), on every input of the translated functions:
 | `push_eq`, `push_full`, `incr_eq`, `incr_eq_of_le`, `index_usize_eq`, `slice_get_eq` | `Vec::push` succeeds below `Usize.max` elements and fails at it; the loop counter's and the signer count's increments and in-range indexing succeed; `get` is the list lookup. |
 | `add_cap_eq`, `lower_cap_limit_eq`, `lengthen_cap_period_eq` | Each cap step returns `ok res`, and `denoteOutcome res` is the chain step on the denotations, every refusal included. |
 | `add_cap_ok`, `lower_cap_limit_ok`, `lengthen_cap_period_ok`, `loop_set_eq`, `cap_valid_eq`, `cap_copy_eq`, `cap_option_copy_eq` | The rules each cap step returns when it is taken; the loop that rebuilds every rule and changes one; `cap_valid` is `Cap.valid`; the cap copies return their input. |
-| `authorize_eq` | `authorize rules records contexts choices authenticated now generation` returns `ok res`, and `denoteAuthorized res` is the chain `RuleSet.authorize` on the denotations, every refusal included. |
+| `check_auth_eq` | `check_auth rules records contexts choices authenticated now generation` returns `ok res`, and `denoteAuthorized res` is the chain `RuleSet.checkAuth` on the denotations, every refusal included. |
 | `expired_eq`, `stale_eq`, `signer_chosen_eq`, `signers_chosen_eq` | Expiry, staleness and the signer check are the model's. |
 | `check_choices_loop_eq`, `charge_all_loop_eq`, `records_copy_eq`, `records_copy_loop_eq`, `spend_amount_eq`, `slice_get_mut_eq`, `slice_len_bne_any`, `list_set_opt_some` | The first pass is the model's `forM` of `checkChoice`, the second its `foldlM` of `charge`; the records copy returns the records; `spend_amount` is the cap's amount; `get_mut` returns the element and writes back at its index. |
 | `chosen_denoteAuthorization`, `chosenOf_drop`, `chosenOf_drop_nil`, `denoteRules_rules_get`, `denoteRule_denote_cap`, `denoteCap_params`, `except_error_bind`, `except_ok_bind` | The model read on the denotations. |
@@ -694,9 +694,9 @@ The cap check on the translation (`RuleCore.Extracted`):
 | `check_spend_negative`, `check_spend_zero`, `check_spend_before_newest` | The translated check refuses a negative amount, returns the record unchanged on a zero amount, and refuses a positive spend before the newest recorded ledger. |
 | `empty_record_denote` | The empty record denotes the model's. |
 
-`authorize` on the translation (`RuleCore.Extracted`,
+`check_auth` on the translation (`RuleCore.Extracted`,
 `Theorems/ExtractedAuthorize.lean`). `runAuthorizations` runs the translated
-`authorize`, keeping the records after a refusal; `emptyRecords rules` is one
+`check_auth`, keeping the records after a refusal; `emptyRecords rules` is one
 empty record per rule; `TraceNarrower rules' rules f` says every run `rules'`
 accepts from its empty records, `rules` accepts from its own with each choice
 renumbered by `f` (`Renumbered`); `StepAlong rs rs' f` is one translated step
@@ -704,10 +704,10 @@ with its renumbering and `DerivesAlong root rs f` a chain of them.
 
 | Theorem | Statement |
 | --- | --- |
-| `authorize_allows_all` | An `authorize` that returned `Ok` means the translated `allows_all` accepts the same batch under the same signers. |
-| `authorize_valid_until`, `authorize_generation`, `authorize_not_chosen_of_stale`, `authorize_contexts_nil_of_stale`, `authorize_signers` | An `authorize` that returned `Ok` chose no expired rule and no rule of another generation, and authenticated no signer outside its chosen rules. |
+| `check_auth_allows_all` | A `check_auth` that returned `Ok` means the translated `allows_all` accepts the same batch under the same signers. |
+| `check_auth_valid_until`, `check_auth_generation`, `check_auth_not_chosen_of_stale`, `check_auth_contexts_nil_of_stale`, `check_auth_signers` | A `check_auth` that returned `Ok` chose no expired rule and no rule of another generation, and authenticated no signer outside its chosen rules. |
 | `StepAlong.generation`, `DerivesAlong.generation`, `DerivesAlong.generation_eq` | No translated step changes a rule's generation. |
-| `runAuthorizations_eq`, `authorizeAll_eq`, `accepts_iff` | A run of the translated `authorize` returns `ok` of records denoting the model's run, and accepts a run exactly when the model does. |
+| `runAuthorizations_eq`, `checkAuthAll_eq`, `accepts_iff` | A run of the translated `check_auth` returns `ok` of records denoting the model's run, and accepts a run exactly when the model does. |
 | `runAuthorizations_of_err` | A refused authorization leaves the records as they were. |
 | `runAuthorizations_window`, `runAuthorizations_window_le_limit`, `runAuthorizations_length_le` | From empty records, a capped rule's stored record is the in-window spends with their sum as total, every window of its spends sums to at most its limit, and it holds at most `MAX_HISTORY_ENTRIES` entries. |
 | `traceNarrower_of_denote`, `StepAlong.denote_step`, `StepAlong.denote_traceNarrower`, `StepAlong.traceNarrower`, `DerivesAlong.traceNarrower`, `DerivesAlong.derives` | Each translated step, and every chain of them, is trace inclusion along its renumbering; a chain is also a `Derives`. |
@@ -751,25 +751,25 @@ Documents (`RuleCore.Document`, `Theorems/Lowering.lean` and `Theorems/Scoped.le
 | `Doc.lowerRule_allows`, `Doc.lowerRules_allows` | For a valid rule or document, each lowered rule allows exactly what its document rule allows, and the lowered rules what the document allows, whatever generation they carry. |
 | `Doc.lower_allows`, `Doc.lower_allows_of_recovery_none` | The admin document's lowering allows what the document allows or what the recovery rule allows; exactly what the document allows with no recovery configured. |
 | `recoveryRule_allows` | The recovery rule allows every call to the account's `apply_doc`, under any signers, and nothing else. |
-| `Doc.lower_authorize`, `Doc.authorize_lowerAll`, `Doc.lower_authorize_of_recovery_none` | On every authorization the lowering accepts exactly when the document accepts, with the recovery controller's check read as `applyDocCheck`, and returns the same records. |
-| `Doc.authorize_mono`, `Doc.lower_authorize_of_check`, `Doc.authorize_of_recovery_none` | The document's acceptance grows with the controller's check, so whatever it accepts under a check allowing only `apply_doc`, the lowering accepts; without recovery the check is not read. |
-| `Doc.checkChoice_lower`, `Doc.signerChosen_lower`, `Doc.charge_lower`, `Doc.foldlM_charge_lower`, `Doc.authorize_eq_some_iff` | Pass by pass, the lowered rules' `authorize` and the document's check agree. |
+| `Doc.lower_checkAuth`, `Doc.checkAuth_lowerAll`, `Doc.lower_checkAuth_of_recovery_none` | On every authorization the lowering accepts exactly when the document accepts, with the recovery controller's check read as `applyDocCheck`, and returns the same records. |
+| `Doc.checkAuth_mono`, `Doc.lower_checkAuth_of_check`, `Doc.checkAuth_of_recovery_none` | The document's acceptance grows with the controller's check, so whatever it accepts under a check allowing only `apply_doc`, the lowering accepts; without recovery the check is not read. |
+| `Doc.checkChoice_lower`, `Doc.signerChosen_lower`, `Doc.charge_lower`, `Doc.foldlM_charge_lower`, `Doc.checkAuth_eq_some_iff` | Pass by pass, the lowered rules' `check_auth` and the document's check agree. |
 | `Rule.mem_lowerFunctions`, `Rule.covers_iff`, `Pred.lower_holds`, `amountCond_holds`, `Rule.lowerConds_all`, `Rule.signed_lowerRule` | The lowered functions, conditions and signer requirement are the document rule's. |
-| `Doc.lowerScoped_eq_ok`, `Doc.lowerScoped_allows`, `Doc.lowerScoped_authorize` | An accepted scoped lowering is the document's rules lowered with the generation, and allows and accepts exactly what the scoped document does in that generation. |
+| `Doc.lowerScoped_eq_ok`, `Doc.lowerScoped_allows`, `Doc.lowerScoped_checkAuth` | An accepted scoped lowering is the document's rules lowered with the generation, and allows and accepts exactly what the scoped document does in that generation. |
 | `Doc.lowerScoped_contract`, `Doc.lowerScoped_allows_excluded`, `Doc.lowerScoped_attenuateAll_excluded`, `Doc.mem_excluded` | No scoped rule, nor any rule set attenuated from scoped rules, allows a call to the account or to a contract of the excluded set, which holds the account, the controller, the adapter and the pool. |
-| `Doc.lowerScoped_generation`, `Doc.lower_generation`, `RuleSet.authorize_generation_none` | Scoped rules carry their generation, admin rules none, and rules without one authorize the same in every generation. |
-| `Account.run_address`, `Account.run_generation`, `Account.issued_stale`, `Account.adminRules_authorize_generation` | A run advances the generation by exactly the recoveries it completes; after one, a grant attenuated from an earlier scoped document accepts only the empty batch, and the admin rules authorize as before. |
+| `Doc.lowerScoped_generation`, `Doc.lower_generation`, `RuleSet.checkAuth_generation_none` | Scoped rules carry their generation, admin rules none, and rules without one authorize the same in every generation. |
+| `Account.run_address`, `Account.run_generation`, `Account.issued_stale`, `Account.adminRules_checkAuth_generation` | A run advances the generation by exactly the recoveries it completes; after one, a grant attenuated from an earlier scoped document accepts only the empty batch, and the admin rules authorize as before. |
 | `Account.chain`, `Account.chain_trace`, `Account.chain_after_recovery` | The containment chain: what a grant accepts is allowed by its scoped document, touches no excluded contract and is in the issue's generation; the grant's runs are the scoped rules' runs; a completed recovery ends the grant. |
 
 The lowering on the translation (`RuleCore.Extracted`, `Theorems/ExtractedLowering.lean`):
 
 | Theorem | Statement |
 | --- | --- |
-| `lower_allows`, `lower_allows_of_recovery_none`, `lower_authorize` | The translated `allows` and `authorize` on the rules the translated `lower` returns give the document's verdicts, with the same records. |
-| `lower_scoped_allows`, `lower_scoped_authorize`, `lower_scoped_model` | The same for a scoped document the translated `lower_scoped` accepts. |
+| `lower_allows`, `lower_allows_of_recovery_none`, `lower_check_auth` | The translated `allows` and `check_auth` on the rules the translated `lower` returns give the document's verdicts, with the same records. |
+| `lower_scoped_allows`, `lower_scoped_check_auth`, `lower_scoped_model` | The same for a scoped document the translated `lower_scoped` accepts. |
 | `lower_scoped_allows_excluded`, `derives_allows_excluded` | No rule set the translated `lower_scoped` returns, or translated steps derive from it, allows a call to the account or an excluded contract. |
 | `lower_scoped_generation`, `lower_generation` | Scoped rules carry their generation; admin rules carry none. |
-| `chain`, `chain_trace` | The containment chain on the translated `excluded`, `lower_scoped`, attenuation steps and `authorize`. |
+| `chain`, `chain_trace` | The containment chain on the translated `excluded`, `lower_scoped`, attenuation steps and `check_auth`. |
 
 The Soroban models (`RuleCore.Soroban`, `Theorems/Soroban.lean`):
 

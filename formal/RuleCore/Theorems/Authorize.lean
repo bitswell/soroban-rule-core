@@ -5,26 +5,26 @@ import RuleCore.Theorems.Cap
 /-!
 # Authorization: theorems
 
-One authorization (`RuleSet.authorize`):
+One authorization (`RuleSet.checkAuth`):
 
-* `RuleSet.authorize_eq_ok_iff`: what an accepted authorization is, pass by
+* `RuleSet.checkAuth_eq_ok_iff`: what an accepted authorization is, pass by
   pass (`RuleSet.checkChoice_ok_iff`, `RuleSet.checkSigners_ok_iff`,
   `RuleSet.signerChosen_iff`);
-* `RuleSet.authorize_chosen`: every context is allowed by the rule chosen for
+* `RuleSet.checkAuth_chosen`: every context is allowed by the rule chosen for
   it, under the authorization's signers;
-* `RuleSet.authorize_allowsAll`: so the rule set allows the whole batch under
+* `RuleSet.checkAuth_allowsAll`: so the rule set allows the whole batch under
   them; the stateful check is sound with respect to `allowsAll`;
-* `RuleSet.authorize_current`, `RuleSet.authorize_validUntil`: every chosen
+* `RuleSet.checkAuth_current`, `RuleSet.checkAuth_validUntil`: every chosen
   rule is current, so none has a last ledger before the authorization's
   (`Rule.expired_eq_false_iff`);
-* `RuleSet.authorize_generation`, `RuleSet.authorize_not_chosen_of_stale`,
-  `RuleSet.authorize_contexts_nil_of_stale`: no chosen rule carries a
+* `RuleSet.checkAuth_generation`, `RuleSet.checkAuth_not_chosen_of_stale`,
+  `RuleSet.checkAuth_contexts_nil_of_stale`: no chosen rule carries a
   generation other than the current one (`Rule.stale_eq_false_iff`), so once
   the current generation is not `g`, a rule issued under `g` authorizes
   nothing, and a rule set issued under `g` accepts only an empty batch;
-* `RuleSet.authorize_signers`: every authenticated signer is a signer of some
+* `RuleSet.checkAuth_signers`: every authenticated signer is a signer of some
   chosen rule;
-* `RuleSet.authorize_length`: the records keep one record per rule;
+* `RuleSet.checkAuth_length`: the records keep one record per rule;
 * `RuleSet.step_of_error`: a refused authorization leaves the records as they
   were, the charges of its earlier contexts included.
 
@@ -77,7 +77,7 @@ Generations:
   carries the generation of the root rule it comes from;
 * `RuleSet.attenuateAll_generation_eq`: a rule set derived from a root issued
   under `g` is issued under `g`, so once the current generation is not `g` it
-  accepts only an empty batch (`RuleSet.authorize_contexts_nil_of_stale`).
+  accepts only an empty batch (`RuleSet.checkAuth_contexts_nil_of_stale`).
 
 None of these assumes anything about the ledgers the authorizations are made
 at, except `period_le_limit`, which takes the stated rule that ledgers start
@@ -179,14 +179,14 @@ theorem RuleSet.checkSigners_ok_iff (rs : RuleSet Ctx Sig) (auth : List Sig) (ch
 right lengths, every chosen rule exists, is current and allows its context,
 every authenticated signer is a signer of a chosen rule, and the charges in
 context order build the new records. -/
-theorem RuleSet.authorize_eq_ok_iff (rs : RuleSet Ctx Sig) (records records' : List Cap.Record)
+theorem RuleSet.checkAuth_eq_ok_iff (rs : RuleSet Ctx Sig) (records records' : List Cap.Record)
     (a : Authorization Ctx Sig) :
-    rs.authorize records a = .ok records' ↔
+    rs.checkAuth records a = .ok records' ↔
       a.choices.length = a.contexts.length ∧ records.length = rs.rules.length ∧
         (∀ x ∈ a.chosen, rs.checkChoice a.auth a.now a.generation a.contexts.head? x = .ok ()) ∧
         rs.checkSigners a.auth a.choices = .ok () ∧
         a.chosen.foldlM (rs.charge a.now) records = .ok records' := by
-  unfold RuleSet.authorize
+  unfold RuleSet.checkAuth
   by_cases hc : a.choices.length = a.contexts.length
   · by_cases hr : records.length = rs.rules.length
     · simp only [hc, hr, ne_eq, not_true_eq_false, ↓reduceIte, true_and]
@@ -205,10 +205,10 @@ theorem RuleSet.authorize_eq_ok_iff (rs : RuleSet Ctx Sig) (records records' : L
 
 /-- Every context of an accepted authorization is allowed by the rule chosen
 for it, under the authorization's signers. -/
-theorem RuleSet.authorize_chosen {rs : RuleSet Ctx Sig} {records records' : List Cap.Record}
-    {a : Authorization Ctx Sig} (h : rs.authorize records a = .ok records') :
+theorem RuleSet.checkAuth_chosen {rs : RuleSet Ctx Sig} {records records' : List Cap.Record}
+    {a : Authorization Ctx Sig} (h : rs.checkAuth records a = .ok records') :
     ∀ x ∈ a.chosen, ∃ r, rs.rules[x.2]? = some r ∧ r.allows x.1 a.auth = true := by
-  obtain ⟨-, -, hk, -, -⟩ := (rs.authorize_eq_ok_iff records records' a).mp h
+  obtain ⟨-, -, hk, -, -⟩ := (rs.checkAuth_eq_ok_iff records records' a).mp h
   intro x hx
   obtain ⟨r, hr, -, -, ha⟩ := (rs.checkChoice_ok_iff a.auth a.now a.generation a.contexts.head? x).mp (hk x hx)
   simp only [Rule.allowsIn, Bool.and_eq_true] at ha
@@ -216,23 +216,23 @@ theorem RuleSet.authorize_chosen {rs : RuleSet Ctx Sig} {records records' : List
 
 /-- Soundness of the stateful check: a rule set that accepts an authorization
 allows its whole batch under its signers. -/
-theorem RuleSet.authorize_allowsAll {rs : RuleSet Ctx Sig} {records records' : List Cap.Record}
-    {a : Authorization Ctx Sig} (h : rs.authorize records a = .ok records') :
+theorem RuleSet.checkAuth_allowsAll {rs : RuleSet Ctx Sig} {records records' : List Cap.Record}
+    {a : Authorization Ctx Sig} (h : rs.checkAuth records a = .ok records') :
     rs.allowsAll a.contexts a.auth = true := by
-  obtain ⟨hc, -, -, -, -⟩ := (rs.authorize_eq_ok_iff records records' a).mp h
+  obtain ⟨hc, -, -, -, -⟩ := (rs.checkAuth_eq_ok_iff records records' a).mp h
   rw [RuleSet.allowsAll_iff]
   intro c hcm
   rw [← Authorization.map_fst_chosen hc, List.mem_map] at hcm
   obtain ⟨x, hx, rfl⟩ := hcm
-  obtain ⟨r, hr, ha⟩ := RuleSet.authorize_chosen h x hx
+  obtain ⟨r, hr, ha⟩ := RuleSet.checkAuth_chosen h x hx
   exact (RuleSet.allows_iff rs x.1 a.auth).mpr ⟨r, List.mem_of_getElem? hr, ha⟩
 
 /-- Every chosen rule satisfies the root constraint of this same entry. -/
-theorem RuleSet.authorize_chosen_root {rs : RuleSet Ctx Sig} {records records' : List Cap.Record}
-    {a : Authorization Ctx Sig} (h : rs.authorize records a = .ok records') :
+theorem RuleSet.checkAuth_chosen_root {rs : RuleSet Ctx Sig} {records records' : List Cap.Record}
+    {a : Authorization Ctx Sig} (h : rs.checkAuth records a = .ok records') :
     ∀ x ∈ a.chosen, ∃ r, rs.rules[x.2]? = some r ∧
       r.allowsIn a.contexts.head? x.1 a.auth = true := by
-  obtain ⟨-, -, hk, -, -⟩ := (rs.authorize_eq_ok_iff records records' a).mp h
+  obtain ⟨-, -, hk, -, -⟩ := (rs.checkAuth_eq_ok_iff records records' a).mp h
   intro x hx
   obtain ⟨r, hr, -, -, ha⟩ :=
     (rs.checkChoice_ok_iff a.auth a.now a.generation a.contexts.head? x).mp (hk x hx)
@@ -240,25 +240,25 @@ theorem RuleSet.authorize_chosen_root {rs : RuleSet Ctx Sig} {records records' :
 
 /-- Accepted batches pass root-aware screening; the root is derived from
 this entry's contexts, never from another authorization. -/
-theorem RuleSet.authorize_allowsBatch {rs : RuleSet Ctx Sig} {records records' : List Cap.Record}
-    {a : Authorization Ctx Sig} (h : rs.authorize records a = .ok records') :
+theorem RuleSet.checkAuth_allowsBatch {rs : RuleSet Ctx Sig} {records records' : List Cap.Record}
+    {a : Authorization Ctx Sig} (h : rs.checkAuth records a = .ok records') :
     rs.allowsBatch a.contexts a.auth = true := by
-  obtain ⟨hc, -, -, -, -⟩ := (rs.authorize_eq_ok_iff records records' a).mp h
+  obtain ⟨hc, -, -, -, -⟩ := (rs.checkAuth_eq_ok_iff records records' a).mp h
   apply List.all_eq_true.mpr
   intro c hcm
   rw [← Authorization.map_fst_chosen hc, List.mem_map] at hcm
   obtain ⟨x, hx, rfl⟩ := hcm
-  obtain ⟨r, hr, ha⟩ := RuleSet.authorize_chosen_root h x hx
+  obtain ⟨r, hr, ha⟩ := RuleSet.checkAuth_chosen_root h x hx
   exact List.any_eq_true.mpr ⟨r, List.mem_of_getElem? hr, ha⟩
 
 /-- Every rule an accepted authorization chooses is current: it has not
 expired at the authorization's ledger, and it is not stale in its
 generation. -/
-theorem RuleSet.authorize_current {rs : RuleSet Ctx Sig} {records records' : List Cap.Record}
-    {a : Authorization Ctx Sig} (h : rs.authorize records a = .ok records') :
+theorem RuleSet.checkAuth_current {rs : RuleSet Ctx Sig} {records records' : List Cap.Record}
+    {a : Authorization Ctx Sig} (h : rs.checkAuth records a = .ok records') :
     ∀ x ∈ a.chosen, ∃ r, rs.rules[x.2]? = some r ∧ r.expired a.now = false ∧
       r.stale a.generation = false := by
-  obtain ⟨-, -, hk, -, -⟩ := (rs.authorize_eq_ok_iff records records' a).mp h
+  obtain ⟨-, -, hk, -, -⟩ := (rs.checkAuth_eq_ok_iff records records' a).mp h
   intro x hx
   obtain ⟨r, hr, he, hs, -⟩ := (rs.checkChoice_ok_iff a.auth a.now a.generation a.contexts.head? x).mp (hk x hx)
   exact ⟨r, hr, he, hs⟩
@@ -284,49 +284,49 @@ theorem Authorization.map_snd_chosen {a : Authorization Ctx Sig}
 
 /-- Expiry: an accepted authorization chooses no rule whose last ledger is
 before the authorization's ledger. -/
-theorem RuleSet.authorize_validUntil {rs : RuleSet Ctx Sig} {records records' : List Cap.Record}
-    {a : Authorization Ctx Sig} (h : rs.authorize records a = .ok records') {j : Nat}
+theorem RuleSet.checkAuth_validUntil {rs : RuleSet Ctx Sig} {records records' : List Cap.Record}
+    {a : Authorization Ctx Sig} (h : rs.checkAuth records a = .ok records') {j : Nat}
     (hj : j ∈ a.choices) {r : Rule Ctx Sig} (hr : rs.rules[j]? = some r) {last : Nat}
     (hl : r.validUntil = some last) : a.now ≤ last := by
-  obtain ⟨hc, -, -, -, -⟩ := (rs.authorize_eq_ok_iff records records' a).mp h
+  obtain ⟨hc, -, -, -, -⟩ := (rs.checkAuth_eq_ok_iff records records' a).mp h
   rw [← Authorization.map_snd_chosen hc, List.mem_map] at hj
   obtain ⟨x, hx, rfl⟩ := hj
-  obtain ⟨r', hr', he, -⟩ := RuleSet.authorize_current h x hx
+  obtain ⟨r', hr', he, -⟩ := RuleSet.checkAuth_current h x hx
   rw [hr] at hr'
   cases hr'
   exact (Rule.expired_eq_false_iff r a.now).mp he last hl
 
 /-- Generation: an accepted authorization chooses no rule issued under a
 generation other than the current one. -/
-theorem RuleSet.authorize_generation {rs : RuleSet Ctx Sig} {records records' : List Cap.Record}
-    {a : Authorization Ctx Sig} (h : rs.authorize records a = .ok records') {j : Nat}
+theorem RuleSet.checkAuth_generation {rs : RuleSet Ctx Sig} {records records' : List Cap.Record}
+    {a : Authorization Ctx Sig} (h : rs.checkAuth records a = .ok records') {j : Nat}
     (hj : j ∈ a.choices) {r : Rule Ctx Sig} (hr : rs.rules[j]? = some r) {g : Nat}
     (hg : r.generation = some g) : g = a.generation := by
-  obtain ⟨hc, -, -, -, -⟩ := (rs.authorize_eq_ok_iff records records' a).mp h
+  obtain ⟨hc, -, -, -, -⟩ := (rs.checkAuth_eq_ok_iff records records' a).mp h
   rw [← Authorization.map_snd_chosen hc, List.mem_map] at hj
   obtain ⟨x, hx, rfl⟩ := hj
-  obtain ⟨r', hr', -, hs⟩ := RuleSet.authorize_current h x hx
+  obtain ⟨r', hr', -, hs⟩ := RuleSet.checkAuth_current h x hx
   rw [hr] at hr'
   cases hr'
   exact (Rule.stale_eq_false_iff r a.generation).mp hs g hg
 
 /-- Once the current generation is not `g`, a rule issued under `g`
 authorizes nothing: no accepted authorization chooses it. -/
-theorem RuleSet.authorize_not_chosen_of_stale {rs : RuleSet Ctx Sig}
+theorem RuleSet.checkAuth_not_chosen_of_stale {rs : RuleSet Ctx Sig}
     {records records' : List Cap.Record} {a : Authorization Ctx Sig}
-    (h : rs.authorize records a = .ok records') {j : Nat} {r : Rule Ctx Sig}
+    (h : rs.checkAuth records a = .ok records') {j : Nat} {r : Rule Ctx Sig}
     (hr : rs.rules[j]? = some r) {g : Nat} (hg : r.generation = some g)
     (hne : g ≠ a.generation) : j ∉ a.choices :=
-  fun hj => hne (RuleSet.authorize_generation h hj hr hg)
+  fun hj => hne (RuleSet.checkAuth_generation h hj hr hg)
 
 /-- A rule set every rule of which was issued under `g` accepts, once the
 current generation is not `g`, only an authorization with no contexts. -/
-theorem RuleSet.authorize_contexts_nil_of_stale {rs : RuleSet Ctx Sig}
+theorem RuleSet.checkAuth_contexts_nil_of_stale {rs : RuleSet Ctx Sig}
     {records records' : List Cap.Record} {a : Authorization Ctx Sig}
-    (h : rs.authorize records a = .ok records') {g : Nat}
+    (h : rs.checkAuth records a = .ok records') {g : Nat}
     (hall : ∀ r ∈ rs.rules, r.generation = some g) (hne : g ≠ a.generation) :
     a.contexts = [] := by
-  obtain ⟨hc, -, -, -, -⟩ := (rs.authorize_eq_ok_iff records records' a).mp h
+  obtain ⟨hc, -, -, -, -⟩ := (rs.checkAuth_eq_ok_iff records records' a).mp h
   cases hcs : a.contexts with
   | nil => rfl
   | cons c cs =>
@@ -339,17 +339,17 @@ theorem RuleSet.authorize_contexts_nil_of_stale {rs : RuleSet Ctx Sig}
         simp [Authorization.chosen, hcs]
       rw [← h0]
       exact List.getElem_mem hl
-    obtain ⟨r, hr, -, hs⟩ := RuleSet.authorize_current h _ hx
+    obtain ⟨r, hr, -, hs⟩ := RuleSet.checkAuth_current h _ hx
     have := (Rule.stale_eq_false_iff r a.generation).mp hs g
       (hall r (List.mem_of_getElem? hr))
     exact hne this
 
 /-- Signers: every signer an accepted authorization authenticated is a signer
 of some rule it chose. -/
-theorem RuleSet.authorize_signers {rs : RuleSet Ctx Sig} {records records' : List Cap.Record}
-    {a : Authorization Ctx Sig} (h : rs.authorize records a = .ok records') :
+theorem RuleSet.checkAuth_signers {rs : RuleSet Ctx Sig} {records records' : List Cap.Record}
+    {a : Authorization Ctx Sig} (h : rs.checkAuth records a = .ok records') :
     ∀ s ∈ a.auth, ∃ j ∈ a.choices, ∃ r, rs.rules[j]? = some r ∧ s ∈ r.signers := by
-  obtain ⟨-, -, -, hs, -⟩ := (rs.authorize_eq_ok_iff records records' a).mp h
+  obtain ⟨-, -, -, hs, -⟩ := (rs.checkAuth_eq_ok_iff records records' a).mp h
   intro s hsm
   exact (rs.signerChosen_iff a.choices s).mp ((rs.checkSigners_ok_iff a.auth a.choices).mp hs s hsm)
 
@@ -393,15 +393,15 @@ section
 variable [DecidableEq Sig]
 
 /-- An accepted authorization keeps one record per rule. -/
-theorem RuleSet.authorize_length {rs : RuleSet Ctx Sig} {records records' : List Cap.Record}
-    {a : Authorization Ctx Sig} (h : rs.authorize records a = .ok records') :
+theorem RuleSet.checkAuth_length {rs : RuleSet Ctx Sig} {records records' : List Cap.Record}
+    {a : Authorization Ctx Sig} (h : rs.checkAuth records a = .ok records') :
     records'.length = rs.rules.length := by
-  obtain ⟨-, hr, -, -, hf⟩ := (rs.authorize_eq_ok_iff records records' a).mp h
+  obtain ⟨-, hr, -, -, hf⟩ := (rs.checkAuth_eq_ok_iff records records' a).mp h
   rw [RuleSet.foldlM_charge_length _ _ _ hf, hr]
 
 /-- A refused authorization leaves the records as they were. -/
 theorem RuleSet.step_of_error {rs : RuleSet Ctx Sig} {records : List Cap.Record}
-    {a : Authorization Ctx Sig} {e : Refusal} (h : rs.authorize records a = .error e) :
+    {a : Authorization Ctx Sig} {e : Refusal} (h : rs.checkAuth records a = .error e) :
     rs.step records a = records := by
   simp [RuleSet.step, h]
 
@@ -605,15 +605,15 @@ theorem RuleSet.run_get {j : Nat} {r : Rule Ctx Sig} {k : RuleCap Ctx}
   | a :: as, records, rec, hlen, hrec => by
     rw [RuleSet.run_cons]
     unfold RuleSet.charged
-    cases ha : rs.authorize records a with
+    cases ha : rs.checkAuth records a with
     | error e =>
       simp only [RuleSet.step, ha]
       exact RuleSet.run_get hr hk as records rec hlen hrec
     | ok records' =>
       simp only [RuleSet.step, ha]
-      obtain ⟨-, -, -, -, hf⟩ := (rs.authorize_eq_ok_iff records records' a).mp ha
+      obtain ⟨-, -, -, -, hf⟩ := (rs.checkAuth_eq_ok_iff records records' a).mp ha
       obtain ⟨rec₁, hrec₁, hrun⟩ := RuleSet.foldlM_charge_get hr hk _ _ _ rec hrec hf
-      rw [RuleSet.run_get hr hk as records' rec₁ (RuleSet.authorize_length ha) hrec₁,
+      rw [RuleSet.run_get hr hk as records' rec₁ (RuleSet.checkAuth_length ha) hrec₁,
         Authorization.charges_eq, Cap.run_append, Cap.run_of_runAll hrun]
 
 /-- The calls a run charges to a rule with a cap are accepted by its cap check,
@@ -626,13 +626,13 @@ theorem RuleSet.runAll_charged {j : Nat} {r : Rule Ctx Sig} {k : RuleCap Ctx}
   | [], _, rec, _, _ => ⟨rec, rfl⟩
   | a :: as, records, rec, hlen, hrec => by
     unfold RuleSet.charged
-    cases ha : rs.authorize records a with
+    cases ha : rs.checkAuth records a with
     | error e => exact RuleSet.runAll_charged hr hk as records rec hlen hrec
     | ok records' =>
-      obtain ⟨-, -, -, -, hf⟩ := (rs.authorize_eq_ok_iff records records' a).mp ha
+      obtain ⟨-, -, -, -, hf⟩ := (rs.checkAuth_eq_ok_iff records records' a).mp ha
       obtain ⟨rec₁, hrec₁, hrun⟩ := RuleSet.foldlM_charge_get hr hk _ _ _ rec hrec hf
       obtain ⟨rec', hrun'⟩ :=
-        RuleSet.runAll_charged hr hk as records' rec₁ (RuleSet.authorize_length ha) hrec₁
+        RuleSet.runAll_charged hr hk as records' rec₁ (RuleSet.checkAuth_length ha) hrec₁
       refine ⟨rec', ?_⟩
       simp only
       rw [Cap.runAll_append, Authorization.charges_eq, hrun]
@@ -657,11 +657,11 @@ theorem RuleSet.run_get_of_cap_none {j : Nat} {r : Rule Ctx Sig}
   | [], _ => rfl
   | a :: as, records => by
     rw [RuleSet.run_cons, RuleSet.run_get_of_cap_none hr hk as]
-    cases ha : rs.authorize records a with
+    cases ha : rs.checkAuth records a with
     | error e => simp only [RuleSet.step, ha]
     | ok records' =>
       simp only [RuleSet.step, ha]
-      obtain ⟨-, -, -, -, hf⟩ := (rs.authorize_eq_ok_iff records records' a).mp ha
+      obtain ⟨-, -, -, -, hf⟩ := (rs.checkAuth_eq_ok_iff records records' a).mp ha
       exact RuleSet.foldlM_charge_get_of_cap_none hr hk _ _ _ hf
 
 /-- Every call a run charges is made at the ledger of one of its
@@ -983,14 +983,14 @@ theorem Authorization.chosen_renumber (a : Authorization Ctx Sig) (f : Nat → N
 
 /-- One authorization: what `rs'` accepts, `rs` accepts with the choices
 renumbered, and the records keep their relation. -/
-theorem RuleSet.Refines.authorize {rs' rs : RuleSet Ctx Sig} {f : Nat → Nat}
+theorem RuleSet.Refines.checkAuth {rs' rs : RuleSet Ctx Sig} {f : Nat → Nat}
     (hR : rs'.Refines rs f) {recs' recs recs'' : List Cap.Record} {a : Authorization Ctx Sig}
-    (hrel : RuleSet.RecordsRel rs' rs f recs' recs) (h : rs'.authorize recs' a = .ok recs'') :
-    ∃ recsN, rs.authorize recs (a.renumber f) = .ok recsN ∧
+    (hrel : RuleSet.RecordsRel rs' rs f recs' recs) (h : rs'.checkAuth recs' a = .ok recs'') :
+    ∃ recsN, rs.checkAuth recs (a.renumber f) = .ok recsN ∧
       RuleSet.RecordsRel rs' rs f recs'' recsN := by
-  obtain ⟨hc, -, hk, hsg, hf⟩ := (rs'.authorize_eq_ok_iff recs' recs'' a).mp h
+  obtain ⟨hc, -, hk, hsg, hf⟩ := (rs'.checkAuth_eq_ok_iff recs' recs'' a).mp h
   obtain ⟨recsN, hN, hrelN⟩ := hR.foldlM_charge _ _ _ _ hrel hf
-  refine ⟨recsN, (rs.authorize_eq_ok_iff recs recsN _).mpr ⟨?_, hrel.wideLen, ?_, ?_, ?_⟩,
+  refine ⟨recsN, (rs.checkAuth_eq_ok_iff recs recsN _).mpr ⟨?_, hrel.wideLen, ?_, ?_, ?_⟩,
     hrelN⟩
   · simpa [Authorization.renumber] using hc
   · rw [Authorization.chosen_renumber]
@@ -1012,22 +1012,22 @@ theorem RuleSet.Refines.authorize {rs' rs : RuleSet Ctx Sig} {f : Nat → Nat}
   · rw [Authorization.chosen_renumber]
     exact hN
 
-theorem RuleSet.Refines.authorizeAll {rs' rs : RuleSet Ctx Sig} {f : Nat → Nat}
+theorem RuleSet.Refines.checkAuthAll {rs' rs : RuleSet Ctx Sig} {f : Nat → Nat}
     (hR : rs'.Refines rs f) :
     ∀ (as : List (Authorization Ctx Sig)) (recs' recs recs'' : List Cap.Record),
-      RuleSet.RecordsRel rs' rs f recs' recs → rs'.authorizeAll recs' as = .ok recs'' →
-      ∃ recsN, rs.authorizeAll recs (as.map (·.renumber f)) = .ok recsN
+      RuleSet.RecordsRel rs' rs f recs' recs → rs'.checkAuthAll recs' as = .ok recs'' →
+      ∃ recsN, rs.checkAuthAll recs (as.map (·.renumber f)) = .ok recsN
   | [], _, recs, _, _, _ => ⟨recs, rfl⟩
   | a :: as, recs', recs, recs'', hrel, h => by
-    simp only [RuleSet.authorizeAll] at h ⊢
+    simp only [RuleSet.checkAuthAll] at h ⊢
     rw [foldlM_except_cons] at h
-    cases ha : rs'.authorize recs' a with
+    cases ha : rs'.checkAuth recs' a with
     | error e => rw [ha] at h; cases h
     | ok r₁ =>
       rw [ha] at h
-      obtain ⟨recs₁, ha₁, hrel₁⟩ := hR.authorize hrel ha
+      obtain ⟨recs₁, ha₁, hrel₁⟩ := hR.checkAuth hrel ha
       rw [List.map_cons, foldlM_except_cons, ha₁]
-      exact hR.authorizeAll as r₁ recs₁ recs'' hrel₁ h
+      exact hR.checkAuthAll as r₁ recs₁ recs'' hrel₁ h
 
 /-- Refining is narrowing as trace inclusion: every run of authorizations a
 refining rule set accepts from its empty records, the refined one accepts from
@@ -1035,7 +1035,7 @@ its own, with the choices renumbered. -/
 theorem RuleSet.Refines.traceNarrower {rs' rs : RuleSet Ctx Sig} {f : Nat → Nat}
     (hR : rs'.Refines rs f) : rs'.TraceNarrower rs f := by
   intro as ⟨recs'', h⟩
-  exact hR.authorizeAll as _ _ _ (RuleSet.RecordsRel.empty rs' rs f) h
+  exact hR.checkAuthAll as _ _ _ (RuleSet.RecordsRel.empty rs' rs f) h
 
 omit [DecidableEq Sig] in
 theorem Authorization.renumber_renumber (a : Authorization Ctx Sig) (g f : Nat → Nat) :
@@ -1522,5 +1522,52 @@ theorem RuleSet.attenuateAll_capsValid :
       exact RuleSet.attenuateAll_capsValid (root := rs₁) (RuleSet.attenuate_capsValid hv ha) h
 
 end
+
+/-! ## Former names
+
+The names these theorems had before the evaluator's entry point was renamed
+`check_auth`, kept so that citations of them still resolve. -/
+
+@[deprecated RuleSet.checkAuth_eq_ok_iff (since := "2026-11-08")]
+theorem RuleSet.authorize_eq_ok_iff : type_of% @RuleSet.checkAuth_eq_ok_iff := @RuleSet.checkAuth_eq_ok_iff
+
+@[deprecated RuleSet.checkAuth_chosen (since := "2026-11-08")]
+theorem RuleSet.authorize_chosen : type_of% @RuleSet.checkAuth_chosen := @RuleSet.checkAuth_chosen
+
+@[deprecated RuleSet.checkAuth_allowsAll (since := "2026-11-08")]
+theorem RuleSet.authorize_allowsAll : type_of% @RuleSet.checkAuth_allowsAll := @RuleSet.checkAuth_allowsAll
+
+@[deprecated RuleSet.checkAuth_chosen_root (since := "2026-11-08")]
+theorem RuleSet.authorize_chosen_root : type_of% @RuleSet.checkAuth_chosen_root := @RuleSet.checkAuth_chosen_root
+
+@[deprecated RuleSet.checkAuth_allowsBatch (since := "2026-11-08")]
+theorem RuleSet.authorize_allowsBatch : type_of% @RuleSet.checkAuth_allowsBatch := @RuleSet.checkAuth_allowsBatch
+
+@[deprecated RuleSet.checkAuth_current (since := "2026-11-08")]
+theorem RuleSet.authorize_current : type_of% @RuleSet.checkAuth_current := @RuleSet.checkAuth_current
+
+@[deprecated RuleSet.checkAuth_validUntil (since := "2026-11-08")]
+theorem RuleSet.authorize_validUntil : type_of% @RuleSet.checkAuth_validUntil := @RuleSet.checkAuth_validUntil
+
+@[deprecated RuleSet.checkAuth_generation (since := "2026-11-08")]
+theorem RuleSet.authorize_generation : type_of% @RuleSet.checkAuth_generation := @RuleSet.checkAuth_generation
+
+@[deprecated RuleSet.checkAuth_not_chosen_of_stale (since := "2026-11-08")]
+theorem RuleSet.authorize_not_chosen_of_stale : type_of% @RuleSet.checkAuth_not_chosen_of_stale := @RuleSet.checkAuth_not_chosen_of_stale
+
+@[deprecated RuleSet.checkAuth_contexts_nil_of_stale (since := "2026-11-08")]
+theorem RuleSet.authorize_contexts_nil_of_stale : type_of% @RuleSet.checkAuth_contexts_nil_of_stale := @RuleSet.checkAuth_contexts_nil_of_stale
+
+@[deprecated RuleSet.checkAuth_signers (since := "2026-11-08")]
+theorem RuleSet.authorize_signers : type_of% @RuleSet.checkAuth_signers := @RuleSet.checkAuth_signers
+
+@[deprecated RuleSet.checkAuth_length (since := "2026-11-08")]
+theorem RuleSet.authorize_length : type_of% @RuleSet.checkAuth_length := @RuleSet.checkAuth_length
+
+@[deprecated RuleSet.Refines.checkAuth (since := "2026-11-08")]
+theorem RuleSet.Refines.authorize : type_of% @RuleSet.Refines.checkAuth := @RuleSet.Refines.checkAuth
+
+@[deprecated RuleSet.Refines.checkAuthAll (since := "2026-11-08")]
+theorem RuleSet.Refines.authorizeAll : type_of% @RuleSet.Refines.checkAuthAll := @RuleSet.Refines.checkAuthAll
 
 end RuleCore

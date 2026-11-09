@@ -20,7 +20,7 @@ a creation.
 
 An optional `authRoot` carries an exact contract/function pair at this entry's
 root. `Rule.denote` maps it to the generic root predicate. Local `allows` and
-`allowsAll` ignore it; `allowsIn`, `allowsBatch` and `authorize` enforce it.
+`allowsAll` ignore it; `allowsIn`, `allowsBatch` and `checkAuth` enforce it.
 The full authorization derives that root from its own contexts' head.
 
 A rule's functions are a list (`only`), or every function except a list
@@ -60,7 +60,7 @@ another.
 `allows`, `allowsAll` and `narrower` on chain rule sets are the generic ones on
 the denotation, and each chain attenuation operation denotes the generic step of
 the same kind (`Attenuation.denote`): removing or restricting functions denotes
-restricting the scope. `RuleSet.authorize` is the generic authorization of
+restricting the scope. `RuleSet.checkAuth` is the generic authorization of
 `RuleCore.Model.Authorize` on the denotation, with an authorization's choices
 and ledger, `u32` here, and its generation, a `u64`, read as natural numbers;
 the records are the cap model's own. The theorems in `RuleCore.Theorems.Chain`
@@ -486,9 +486,9 @@ def Authorization.denote (a : Authorization) : RuleCore.Authorization Context Si
   ⟨a.contexts, a.choices.map (·.toNat), a.auth, a.now.toNat, a.generation.toNat⟩
 
 /-- The records after authorization `a`, or why it is refused. -/
-def RuleSet.authorize (rs : RuleSet) (records : List RuleCore.Cap.Record) (a : Authorization) :
+def RuleSet.checkAuth (rs : RuleSet) (records : List RuleCore.Cap.Record) (a : Authorization) :
     Except Refusal (List RuleCore.Cap.Record) :=
-  rs.denote.authorize records a.denote
+  rs.denote.checkAuth records a.denote
 
 /-- The records of a rule set that has spent nothing: one empty record per
 rule. -/
@@ -496,9 +496,9 @@ def RuleSet.emptyRecords (rs : RuleSet) : List RuleCore.Cap.Record :=
   rs.map fun _ => .empty
 
 /-- Apply every authorization in order, failing with the first refusal. -/
-def RuleSet.authorizeAll (rs : RuleSet) (records : List RuleCore.Cap.Record)
+def RuleSet.checkAuthAll (rs : RuleSet) (records : List RuleCore.Cap.Record)
     (as : List Authorization) : Except Refusal (List RuleCore.Cap.Record) :=
-  as.foldlM rs.authorize records
+  as.foldlM rs.checkAuth records
 
 /-- `rs'` is narrower than `rs` as trace inclusion along `f`, on the
 denotations. -/

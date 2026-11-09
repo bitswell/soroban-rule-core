@@ -19,7 +19,7 @@ binary or the WebAssembly against the Lean translation.
 `overflow-checks = true` in the `release` and `contract` profiles makes
 overflowing arithmetic trap, as Aeneas's model of it fails. The evaluator's
 only arithmetic is the loop counter's `i += 1`, under `i < s.len()` (in
-`authorize`'s first and third passes, under `i < contexts.len()`), and the signer count's
+`check_auth`'s first and third passes, under `i < contexts.len()`), and the signer count's
 `count += 1`, which runs at most once per position of its loop, so `count`
 stays at most `i`. The equivalence theorems prove that neither
 overflows. The spending-cap check sums with `i128::checked_add` and
@@ -87,11 +87,11 @@ each is trusted to match the Rust item.
 | `Vec::push` | `alloc.vec.Vec.push` | Appends. Fails with `maximumSizeExceeded` when the vector already holds `Usize.max` elements. Allocation failure, which aborts in Rust, is outside the model. |
 | `Vec::len` | `alloc.vec.Vec.len` | The list's length. |
 | `Deref` of `Vec<T>` to `&[T]` | `alloc.vec.Vec.deref` | The same list. |
-| `DerefMut` of `Vec<T>` to `&mut [T]` | `alloc.vec.Vec.deref_mut` | The same list, and a function that rebuilds the vector from the slice written back. Called in `authorize` to charge a record in place, and in the budget's charging walk to charge a node of the copied tree. |
+| `DerefMut` of `Vec<T>` to `&mut [T]` | `alloc.vec.Vec.deref_mut` | The same list, and a function that rebuilds the vector from the slice written back. Called in `check_auth` to charge a record in place, and in the budget's charging walk to charge a node of the copied tree. |
 | `<[T]>::len` | `Slice.len` | The list's length. |
 | `s[i]` on a slice (`Index<usize>`) | `Slice.index_usize` | Element `i`, or `fail` when `i` is out of range. |
-| `<[T]>::get(i)` | `core.slice.Slice.get` with `core.slice.index.SliceIndexUsizeSlice` | `some` element `i`, or `none` when `i` is out of range. Called on a rule's arguments (a condition's, and a cap's amount), on a string argument's bytes in `bytes_starts_with`, on the rules in `raise_threshold`, the cap steps, `lower_valid_until` and both of `authorize`'s passes over choices, on an authorization's choices, and on the tree's nodes in the budget's walks and in `refill`. |
-| `<[T]>::get_mut(i)` | `core.slice.Slice.get_mut` with `core.slice.index.SliceIndexUsizeSlice` | `some` element `i` and a function that writes a new element back at `i` (`Slice.set_opt`), or `none` and the slice unchanged when `i` is out of range. Called in `authorize` on the copied records, and in the budget's charging walk on the copied tree. |
+| `<[T]>::get(i)` | `core.slice.Slice.get` with `core.slice.index.SliceIndexUsizeSlice` | `some` element `i`, or `none` when `i` is out of range. Called on a rule's arguments (a condition's, and a cap's amount), on a string argument's bytes in `bytes_starts_with`, on the rules in `raise_threshold`, the cap steps, `lower_valid_until` and both of `check_auth`'s passes over choices, on an authorization's choices, and on the tree's nodes in the budget's walks and in `refill`. |
+| `<[T]>::get_mut(i)` | `core.slice.Slice.get_mut` with `core.slice.index.SliceIndexUsizeSlice` | `some` element `i` and a function that writes a new element back at `i` (`Slice.set_opt`), or `none` and the slice unchanged when `i` is out of range. Called in `check_auth` on the copied records, and in the budget's charging walk on the copied tree. |
 | `u32 as usize` | `UScalar.cast` | The same value. Lossless because `usize` has at least 32 bits. Widens indices (an authorization's choices, a cap's `amount_arg` and the budget's node and parent indices included), in `signers_met` the threshold, and `u32::MAX` into `MAX_NODES` and in the lowering's `threshold_of`. |
 | `u32 as u8`, `usize as u32` | `UScalar.cast` | The value modulo `2^8` or `2^32`. The lowering casts only a `u32` below 256 and a signer count of at most `u32::MAX`, so no value changes. |
 | `/` and `%` on `u32` | `UScalar.div`, `UScalar.rem` | The quotient and the remainder, `fail` on a zero divisor. `u32_xdr` divides and takes remainders by the constants 16,777,216, 65,536 and 256. |
@@ -102,19 +102,19 @@ each is trusted to match the Rust item.
 | `len - 1` and `len - kept_from` on `usize` | `-` on `Usize` | Checked subtraction: `fail` when the result would be negative. |
 | `<`, `<=`, `>`, `>=`, `==`, `!=` on `usize` | the order and equality of `Usize` | On the values. The lowering compares a string's length with 256 and a signer count with `u32::MAX`. |
 | `!=` on `u8` | equality of `U8` | On the values. |
-| `==` and `!=` on `u64` | equality of `U64` | On the values. `!=` compares a rule's generation with the current one in `authorize`. |
+| `==` and `!=` on `u64` | equality of `U64` | On the values. `!=` compares a rule's generation with the current one in `check_auth`. |
 | `==`, `<`, `<=`, `>` and `>=` on `i128` | equality and order of `I128` | On the values, as signed integers. `lower_cap_limit` compares limits with `>` and `<= 0`, `cap_valid` the limit with `> 0`, and `tree_valid` each allowance and spent amount with `>= 0`. |
 | `i128::checked_add`, `i128::checked_sub` | `I128.checked_add`, `I128.checked_sub` | `some` of the sum or difference when it lies between `i128::MIN` and `i128::MAX`, `none` otherwise. |
 | `Option<T>` (`Some`, `None`) | Lean's `Option` | The two-constructor inductive. |
 | `u32::saturating_sub` | `core.num.U32.saturating_sub` | The difference when it is not negative, `0` otherwise. The cap check takes its cutoff with it, and the lowering a last ledger. |
 | `usize::BITS` | `core.num.Usize.BITS` | `System.Platform.numBits`, as a `U32`. |
-| `<`, `>` and `>=` on `u32` | the order of `U32` | On the values. `lengthen_cap_period` compares periods with `<`, `cap_valid` the period with `> 0`, `authorize` a rule's last ledger with the current one with `<`, `lower_valid_until` a new last ledger with the current one with `>`, and the budget's walks a parent index with the current one with `>=`. |
+| `<`, `>` and `>=` on `u32` | the order of `U32` | On the values. `lengthen_cap_period` compares periods with `<`, `cap_valid` the period with `> 0`, `check_auth` a rule's last ledger with the current one with `<`, `lower_valid_until` a new last ledger with the current one with `>`, and the budget's walks a parent index with the current one with `>=`. |
 | `const _: () = assert!(usize::BITS >= 32)` | `massert` | `ok ()` when the condition holds, `fail` otherwise. |
 
 `==` on `bool` and `!` translate to Lean's own `Bool` equality and negation,
 which need no library model. Copying a rule's `Option<u32>` last ledger and
 `Option<u64>` generation copies the value. Writing through a mutable borrow
-(`*record = next` in `authorize`, `c.limit = limit` and `c.period = period` in
+(`*record = next` in `check_auth`, `c.limit = limit` and `c.period = period` in
 the cap steps, `r.valid_until = Some(valid_until)` in `lower_valid_until`)
 translates to functional updates and backward functions in the generated Lean,
 not to library items. So does `m.spent = spent` in the budget's charging walk
@@ -158,12 +158,12 @@ the cap model of `formal/RuleCore/Model/Cap.lean` in the same way:
 - `SpendEntry`, `SpendRecord` and `CapParams` map each field to the field of the same name, and the history to the list of its entries' denotations;
 - each `CapError` constructor maps to the constructor of the same name.
 
-`formal/RuleCore/Equiv/Authorize.lean` maps the types of the `authorize`
+`formal/RuleCore/Equiv/Authorize.lean` maps the types of the `check_auth`
 module the same way:
 
 - each `Refusal` constructor maps to the constructor of the same name (`Expired` to `expired`, `StaleGeneration` to `staleGeneration`, `UnauthorizedSigner` to `unauthorizedSigner`), and `Refusal::Cap(e)` to `Refusal.cap` of the denoted `CapError`;
-- a result of `authorize` is the `Except` of the denoted records or refusal;
-- `authorize`'s contexts, choices, authenticated signers, ledger and generation are the chain vocabulary's authorization of their denotations.
+- a result of `check_auth` is the `Except` of the denoted records or refusal;
+- `check_auth`'s contexts, choices, authenticated signers, ledger and generation are the chain vocabulary's authorization of their denotations.
 
 `formal/RuleCore/Equiv/DenoteBudget.lean` maps the types of the `budget`
 module to the budget model of `formal/RuleCore/Model/Budget.lean` the same way:
@@ -185,7 +185,7 @@ same meaning.
 
 Exact authorization-root requirements use the same concrete context denotation:
 `AuthRoot` maps both byte fields structurally and injectively. The optional field
-is preserved in rule and document denotations. `authorize` derives its root
+is preserved in rule and document denotations. `check_auth` derives its root
 inside the pure evaluator from the first context of the input entry; the shell
 must supply the host-authenticated entry in its original order. The new root
 proofs do not establish that arbitrary caller-built batches came from the host.
@@ -196,7 +196,7 @@ unchecked Lean declaration.
 ## The document's meaning
 
 `formal/RuleCore/Vocab/Document.lean` says what a document means:
-`Doc.allows` without time, generation or caps, and `Doc.authorize` through an
+`Doc.allows` without time, generation or caps, and `Doc.checkAuth` through an
 authorization, as OpenZeppelin's `do_check_auth` checks the rules Perch
 installs for the document. The compile-soundness theorems prove the lowering
 equal to this meaning, so that the lowering allows what a document says rests
@@ -208,7 +208,7 @@ of its readings come from outside the document:
 
 - a shell gives a `u32` argument as `Val::Other` of its `ScVal` XDR, and `u32Xdr` is that XDR;
 - a capped rule's spends are charged with the cap model, which mirrors OpenZeppelin's spending-limit policy with the differences `ARCHITECTURE.md` records;
-- the recovery rule's calls are checked by the recovery controller against its own state, which the meaning takes as a parameter `ctl`. The lowering's recovery rule allows every `apply_doc` on the account, which over-approximates every controller check that allows only `apply_doc` calls (`Doc.lower_authorize_of_check`).
+- the recovery rule's calls are checked by the recovery controller against its own state, which the meaning takes as a parameter `ctl`. The lowering's recovery rule allows every `apply_doc` on the account, which over-approximates every controller check that allows only `apply_doc` calls (`Doc.lower_checkAuth_of_check`).
 
 ## The Soroban models
 
@@ -364,7 +364,7 @@ context, so a batch collected from one is never empty: in the Soroban model,
 every `__check_auth` call receives its tree's contexts in preorder, root first
 (`RuleCore.Soroban.Tx.run_checkAuth_contexts`), and the host harness tests
 that the host passes exactly those. A caller that builds batches some other
-way must reject the empty batch itself. `authorize` accepts
+way must reject the empty batch itself. `check_auth` accepts
 an empty batch only when it authenticates no signer, since no rule is chosen.
 
 ### No creation is a vocabulary property

@@ -74,13 +74,13 @@ theorem RuleSet.withRoot_traceNarrower (rs : RuleSet) {i : Nat} {r : Rule}
 
 /-- Every selected restricted rule of an accepted entry sees its exact pair
 at the head of this entry, regardless of other entries or the transaction root. -/
-theorem RuleSet.authorize_exactRoot {rs : RuleSet} {records out : List RuleCore.Cap.Record}
-    {a : Authorization} (h : rs.authorize records a = .ok out)
+theorem RuleSet.checkAuth_exactRoot {rs : RuleSet} {records out : List RuleCore.Cap.Record}
+    {a : Authorization} (h : rs.checkAuth records a = .ok out)
     {ctx : Context} {j : Nat} (hx : (ctx, j) ∈ a.denote.chosen)
     {r : Rule} (hr : rs[j]? = some r) {expected : AuthRoot}
     (he : r.authRoot = some expected) :
     ∃ args, a.contexts.head? = some (.call expected.contract expected.function args) := by
-  obtain ⟨r', hr', ha⟩ := RuleCore.RuleSet.authorize_chosen_root h (ctx, j) hx
+  obtain ⟨r', hr', ha⟩ := RuleCore.RuleSet.checkAuth_chosen_root h (ctx, j) hx
   have hd : rs.denote.rules[j]? = some r.denote := by simp [hr]
   rw [hd] at hr'
   cases hr'
@@ -88,6 +88,14 @@ theorem RuleSet.authorize_exactRoot {rs : RuleSet} {records out : List RuleCore.
   apply (AuthRoot.exact_iff expected a.contexts.head?).mp
   rw [← he, ← Rule.rootMatches_eq]
   exact ha.1
+
+/-! ## Former names
+
+The names these theorems had before the evaluator's entry point was renamed
+`check_auth`, kept so that citations of them still resolve. -/
+
+@[deprecated RuleSet.checkAuth_exactRoot (since := "2026-11-08")]
+theorem RuleSet.authorize_exactRoot : type_of% @RuleSet.checkAuth_exactRoot := @RuleSet.checkAuth_exactRoot
 
 end RuleCore.Chain
 
@@ -101,13 +109,13 @@ theorem RuleSet.accepts_allowsBatch {rs : RuleSet Ctx Sig} :
   | [], _, _, _, h => by cases h
   | a :: as, records, h, b, hb => by
     obtain ⟨out, hout⟩ := h
-    simp only [RuleSet.authorizeAll, List.foldlM_cons] at hout
-    cases ha : rs.authorize records a with
+    simp only [RuleSet.checkAuthAll, List.foldlM_cons] at hout
+    cases ha : rs.checkAuth records a with
     | error e => simp [ha, bind, Except.bind] at hout
     | ok next =>
       simp only [ha, bind, Except.bind] at hout
       rcases List.mem_cons.mp hb with rfl | hb
-      · exact RuleSet.authorize_allowsBatch ha
+      · exact RuleSet.checkAuth_allowsBatch ha
       · exact RuleSet.accepts_allowsBatch ⟨out, hout⟩ b hb
 
 /-- A charge comes from a selected call in an accepted entry whose root the
@@ -122,7 +130,7 @@ theorem RuleSet.mem_charged_root {rs : RuleSet Ctx Sig} {j : Nat}
   | [], _, _, h => by simp [RuleSet.charged] at h
   | a :: as, records, x, h => by
     unfold RuleSet.charged at h
-    cases ha : rs.authorize records a with
+    cases ha : rs.checkAuth records a with
     | error e =>
       rw [ha] at h
       obtain ⟨b, hb, hroot, rest⟩ := RuleSet.mem_charged_root hr k h
@@ -136,7 +144,7 @@ theorem RuleSet.mem_charged_root {rs : RuleSet Ctx Sig} {j : Nat}
         · rename_i hj
           obtain ⟨amount, hamt, he⟩ := Option.map_eq_some_iff.mp hcharge
           cases he
-          obtain ⟨r', hr', hallow⟩ := RuleSet.authorize_chosen_root ha y hy
+          obtain ⟨r', hr', hallow⟩ := RuleSet.checkAuth_chosen_root ha y hy
           rw [hj, hr] at hr'
           cases hr'
           simp only [Rule.allowsIn, Bool.and_eq_true] at hallow

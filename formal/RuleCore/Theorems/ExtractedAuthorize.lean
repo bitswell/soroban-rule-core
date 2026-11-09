@@ -6,26 +6,26 @@ import RuleCore.Theorems.ExtractedCap
 # Theorems on the extracted authorization
 
 The theorems of `RuleCore.Theorems.Authorize`, carried over to the Lean
-translation of `crates/rule-eval` through `authorize_eq` and the equivalence
+translation of `crates/rule-eval` through `check_auth_eq` and the equivalence
 theorems of the attenuation steps.
 
 One authorization:
 
-* `authorize_allows_all`: an `authorize` that returned `Ok` means the
+* `check_auth_allows_all`: a `check_auth` that returned `Ok` means the
   extracted `allows_all` accepts the same contexts under the same signers; the
   stateful check is sound with respect to the view without caps, time or
   generation.
-* `authorize_valid_until`: it chose no rule whose last ledger is before `now`.
-* `authorize_generation`, `authorize_not_chosen_of_stale`,
-  `authorize_contexts_nil_of_stale`: it chose no rule issued under a generation
+* `check_auth_valid_until`: it chose no rule whose last ledger is before `now`.
+* `check_auth_generation`, `check_auth_not_chosen_of_stale`,
+  `check_auth_contexts_nil_of_stale`: it chose no rule issued under a generation
   other than `generation`, so a rule issued under `g` authorizes nothing once
   the generation is not `g`, and a rule set issued under `g` accepts only an
   empty batch.
-* `authorize_signers`: every authenticated signer is a signer of a chosen
+* `check_auth_signers`: every authenticated signer is a signer of a chosen
   rule.
 
 Runs (`runAuthorizations`, which keeps the records after a refusal as a
-contract shell does when it stores what `authorize` returns only on `Ok`):
+contract shell does when it stores what `check_auth` returns only on `Ok`):
 
 * `runAuthorizations_eq`: a run returns `ok` of records denoting the model's
   run on the denoted authorizations, so it never panics and never diverges;
@@ -46,7 +46,7 @@ own with each choice `j` renumbered to `f j`; `Renumbered` relates the two
 runs):
 
 * `traceNarrower_of_denote`: the model's trace inclusion on the denotations
-  gives it on the extracted `authorize`;
+  gives it on the extracted `check_auth`;
 * `StepAlong.traceNarrower`: each of the ten extracted steps, along the
   renumbering it induces (`drop_rule` at `index` moves every rule after
   `index` down by one; every other step keeps each index), through the chain
@@ -73,37 +73,37 @@ open Aeneas Aeneas.Std Result RuleCore.Equiv
 
 /-! ## One authorization -/
 
-/-- Soundness of the extracted stateful check: an `authorize` that returned
+/-- Soundness of the extracted stateful check: a `check_auth` that returned
 `Ok` means the extracted `allows_all` accepts the same contexts under the same
 authenticated signers. -/
-theorem authorize_allows_all {rules : Slice rule_eval.rule.Rule}
+theorem check_auth_allows_all {rules : Slice rule_eval.rule.Rule}
     {records : Slice rule_eval.cap.SpendRecord} {contexts : Slice rule_eval.context.Context}
     {choices : Slice Std.U32} {authenticated : Slice rule_eval.signer.Signer} {now : Std.U32}
     {generation : Std.U64} {out : alloc.vec.Vec rule_eval.cap.SpendRecord}
-    (h : rule_eval.authorize.authorize rules records contexts choices authenticated now
+    (h : rule_eval.authorize.check_auth rules records contexts choices authenticated now
       generation = ok (.Ok out)) :
     rule_eval.rule_set.allows_all rules contexts authenticated = ok true := by
-  obtain ⟨res, hres, hd⟩ := authorize_eq rules records contexts choices authenticated now
+  obtain ⟨res, hres, hd⟩ := check_auth_eq rules records contexts choices authenticated now
     generation
   obtain rfl := Result.ok_injective (h.symm.trans hres)
   rw [allows_all_eq]
   simp only [denoteAuthorized] at hd
-  exact congrArg ok (Chain.RuleSet.authorize_allowsAll hd.symm)
+  exact congrArg ok (Chain.RuleSet.checkAuth_allowsAll hd.symm)
 
 /-- Full extracted acceptance implies root-aware screening of this same
 entry. The root-free `allows_all` theorem above is only a weaker projection. -/
-theorem authorize_allows_batch {rules : Slice rule_eval.rule.Rule}
+theorem check_auth_allows_batch {rules : Slice rule_eval.rule.Rule}
     {records : Slice rule_eval.cap.SpendRecord} {contexts : Slice rule_eval.context.Context}
     {choices : Slice Std.U32} {authenticated : Slice rule_eval.signer.Signer} {now : Std.U32}
     {generation : Std.U64} {out : alloc.vec.Vec rule_eval.cap.SpendRecord}
-    (h : rule_eval.authorize.authorize rules records contexts choices authenticated now
+    (h : rule_eval.authorize.check_auth rules records contexts choices authenticated now
       generation = ok (.Ok out)) :
     rule_eval.rule_set.allows_batch rules contexts authenticated = ok true := by
-  obtain ⟨res, hres, hd⟩ := authorize_eq rules records contexts choices authenticated now generation
+  obtain ⟨res, hres, hd⟩ := check_auth_eq rules records contexts choices authenticated now generation
   obtain rfl := Result.ok_injective (h.symm.trans hres)
   rw [allows_batch_eq]
   simp only [denoteAuthorized] at hd
-  exact congrArg ok (RuleCore.RuleSet.authorize_allowsBatch hd.symm)
+  exact congrArg ok (RuleCore.RuleSet.checkAuth_allowsBatch hd.symm)
 
 /-! ## Runs -/
 
@@ -119,37 +119,37 @@ structure AuthCall where
 def AuthCall.denote (a : AuthCall) : Chain.Authorization :=
   denoteAuthorization a.contexts a.choices a.authenticated a.now a.generation
 
-/-- A run of the extracted `authorize` from `records`: each authorization's
+/-- A run of the extracted `check_auth` from `records`: each authorization's
 records, or the same records when it is refused. -/
 def runAuthorizations (rules : Slice rule_eval.rule.Rule)
     (records : alloc.vec.Vec rule_eval.cap.SpendRecord) :
     List AuthCall → Result (alloc.vec.Vec rule_eval.cap.SpendRecord)
   | [] => ok records
   | a :: auths => do
-    let res ← rule_eval.authorize.authorize rules (alloc.vec.Vec.deref records) a.contexts
+    let res ← rule_eval.authorize.check_auth rules (alloc.vec.Vec.deref records) a.contexts
       a.choices a.authenticated a.now a.generation
     match res with
     | .Ok records' => runAuthorizations rules records' auths
     | .Err _ => runAuthorizations rules records auths
 
 /-- Every authorization of a run, in order, failing with the first refusal. -/
-def authorizeAll (rules : Slice rule_eval.rule.Rule)
+def checkAuthAll (rules : Slice rule_eval.rule.Rule)
     (records : alloc.vec.Vec rule_eval.cap.SpendRecord) :
     List AuthCall →
       Result (core.result.Result (alloc.vec.Vec rule_eval.cap.SpendRecord)
         rule_eval.authorize.Refusal)
   | [] => ok (.Ok records)
   | a :: auths => do
-    let res ← rule_eval.authorize.authorize rules (alloc.vec.Vec.deref records) a.contexts
+    let res ← rule_eval.authorize.check_auth rules (alloc.vec.Vec.deref records) a.contexts
       a.choices a.authenticated a.now a.generation
     match res with
-    | .Ok records' => authorizeAll rules records' auths
+    | .Ok records' => checkAuthAll rules records' auths
     | .Err e => ok (.Err e)
 
 /-- `rules` accepts every authorization of `as`, in order, from `records`. -/
 def Accepts (rules : Slice rule_eval.rule.Rule) (records : alloc.vec.Vec rule_eval.cap.SpendRecord)
     (auths : List AuthCall) : Prop :=
-  ∃ out, authorizeAll rules records auths = ok (.Ok out)
+  ∃ out, checkAuthAll rules records auths = ok (.Ok out)
 
 /-- One empty record per rule of `rules`. -/
 def emptyRecords (rules : Slice rule_eval.rule.Rule) : alloc.vec.Vec rule_eval.cap.SpendRecord :=
@@ -168,7 +168,7 @@ theorem emptyRecords_denote_rules (rules : Slice rule_eval.rule.Rule) :
     (emptyRecords rules).val.map denoteRecord = (denoteRules rules.val).denote.emptyRecords := by
   rw [Chain.RuleSet.emptyRecords_denote, emptyRecords_denote]
 
-/-- On every input, a run of the extracted `authorize` returns `ok` of records
+/-- On every input, a run of the extracted `check_auth` returns `ok` of records
 whose denotation is the model's run on the denoted authorizations. -/
 theorem runAuthorizations_eq (rules : Slice rule_eval.rule.Rule) :
     ∀ (auths : List AuthCall) (records : alloc.vec.Vec rule_eval.cap.SpendRecord),
@@ -178,11 +178,11 @@ theorem runAuthorizations_eq (rules : Slice rule_eval.rule.Rule) :
             (auths.map fun a => a.denote.denote)
   | [], records => ⟨records, rfl, rfl⟩
   | a :: auths, records => by
-    obtain ⟨res, hres, hd⟩ := authorize_eq rules (alloc.vec.Vec.deref records) a.contexts
+    obtain ⟨res, hres, hd⟩ := check_auth_eq rules (alloc.vec.Vec.deref records) a.contexts
       a.choices a.authenticated a.now a.generation
     simp only [vec_deref_val] at hd
     simp only [runAuthorizations, hres, bind_ok, List.map_cons, RuleSet.run_cons, RuleSet.step]
-    have hm : (denoteRules rules.val).denote.authorize (records.val.map denoteRecord)
+    have hm : (denoteRules rules.val).denote.checkAuth (records.val.map denoteRecord)
         a.denote.denote = denoteAuthorized res := hd.symm
     rw [hm]
     cases res with
@@ -193,31 +193,31 @@ theorem runAuthorizations_eq (rules : Slice rule_eval.rule.Rule) :
 theorem runAuthorizations_of_err {rules : Slice rule_eval.rule.Rule}
     {records : alloc.vec.Vec rule_eval.cap.SpendRecord} {a : AuthCall} {auths : List AuthCall}
     {e : rule_eval.authorize.Refusal}
-    (h : rule_eval.authorize.authorize rules (alloc.vec.Vec.deref records) a.contexts a.choices
+    (h : rule_eval.authorize.check_auth rules (alloc.vec.Vec.deref records) a.contexts a.choices
       a.authenticated a.now a.generation = ok (.Err e)) :
     runAuthorizations rules records (a :: auths) = runAuthorizations rules records auths := by
   simp [runAuthorizations, h]
 
-/-- On every input, the extracted run of `authorizeAll` returns `ok` of the
+/-- On every input, the extracted run of `checkAuthAll` returns `ok` of the
 model's on the denoted authorizations. -/
-theorem authorizeAll_eq (rules : Slice rule_eval.rule.Rule) :
+theorem checkAuthAll_eq (rules : Slice rule_eval.rule.Rule) :
     ∀ (auths : List AuthCall) (records : alloc.vec.Vec rule_eval.cap.SpendRecord),
-      ∃ res, authorizeAll rules records auths = ok res ∧
+      ∃ res, checkAuthAll rules records auths = ok res ∧
         denoteAuthorized res =
-          (denoteRules rules.val).denote.authorizeAll (records.val.map denoteRecord)
+          (denoteRules rules.val).denote.checkAuthAll (records.val.map denoteRecord)
             (auths.map fun a => a.denote.denote)
   | [], records => ⟨.Ok records, rfl, rfl⟩
   | a :: auths, records => by
-    obtain ⟨res, hres, hd⟩ := authorize_eq rules (alloc.vec.Vec.deref records) a.contexts
+    obtain ⟨res, hres, hd⟩ := check_auth_eq rules (alloc.vec.Vec.deref records) a.contexts
       a.choices a.authenticated a.now a.generation
     simp only [vec_deref_val] at hd
-    simp only [authorizeAll, hres, bind_ok, List.map_cons, RuleSet.authorizeAll,
+    simp only [checkAuthAll, hres, bind_ok, List.map_cons, RuleSet.checkAuthAll,
       List.foldlM_cons]
-    have hm : (denoteRules rules.val).denote.authorize (records.val.map denoteRecord)
+    have hm : (denoteRules rules.val).denote.checkAuth (records.val.map denoteRecord)
         a.denote.denote = denoteAuthorized res := hd.symm
     rw [hm]
     cases res with
-    | Ok r' => exact authorizeAll_eq rules auths r'
+    | Ok r' => exact checkAuthAll_eq rules auths r'
     | Err e => exact ⟨.Err e, rfl, rfl⟩
 
 theorem accepts_iff (rules : Slice rule_eval.rule.Rule)
@@ -225,7 +225,7 @@ theorem accepts_iff (rules : Slice rule_eval.rule.Rule)
     Accepts rules records auths ↔
       (denoteRules rules.val).denote.Accepts (records.val.map denoteRecord)
         (auths.map fun a => a.denote.denote) := by
-  obtain ⟨res, hres, hd⟩ := authorizeAll_eq rules auths records
+  obtain ⟨res, hres, hd⟩ := checkAuthAll_eq rules auths records
   constructor
   · rintro ⟨out, hout⟩
     obtain rfl := Result.ok_injective (hout.symm.trans hres)
@@ -355,7 +355,7 @@ def Renumbered (f : Nat → Nat) (a b : AuthCall) : Prop :=
     b.generation = a.generation ∧ b.choices.val.map (·.val) = a.choices.val.map fun x => f x.val
 
 /-- `rules'` is narrower than `rules` as trace inclusion along `f` on the
-extracted `authorize`: every run of authorizations `rules'` accepts from its
+extracted `check_auth`: every run of authorizations `rules'` accepts from its
 empty records, `rules` accepts from its own, with each choice `j` renumbered to
 `f j`. -/
 def TraceNarrower (rules' rules : Slice rule_eval.rule.Rule) (f : Nat → Nat) : Prop :=
@@ -378,7 +378,7 @@ theorem renumbered_map {f : Nat → Nat} :
     simp only [List.map_cons, renumbered_denote h, renumbered_map hs]
 
 /-- The model's trace inclusion on the denotations gives trace inclusion on the
-extracted `authorize`. -/
+extracted `check_auth`. -/
 theorem traceNarrower_of_denote {rules' rules : Slice rule_eval.rule.Rule} {f : Nat → Nat}
     (h : (denoteRules rules'.val).TraceNarrower (denoteRules rules.val) f) :
     TraceNarrower rules' rules f := by
@@ -586,75 +586,75 @@ theorem denoteRules_get (rules : Slice rule_eval.rule.Rule) (k : Std.U32) :
     (denoteRules rules.val)[(denoteU32 k).toNat]? = rules.val[k.val]?.map denoteRule := by
   simp [denoteRules, List.getElem?_map]
 
-/-- Expiry: an `authorize` that returned `Ok` chose no rule whose last ledger is
+/-- Expiry: a `check_auth` that returned `Ok` chose no rule whose last ledger is
 before `now`. -/
-theorem authorize_valid_until {rules : Slice rule_eval.rule.Rule}
+theorem check_auth_valid_until {rules : Slice rule_eval.rule.Rule}
     {records : Slice rule_eval.cap.SpendRecord} {contexts : Slice rule_eval.context.Context}
     {choices : Slice Std.U32} {authenticated : Slice rule_eval.signer.Signer} {now : Std.U32}
     {generation : Std.U64} {out : alloc.vec.Vec rule_eval.cap.SpendRecord}
-    (h : rule_eval.authorize.authorize rules records contexts choices authenticated now
+    (h : rule_eval.authorize.check_auth rules records contexts choices authenticated now
       generation = ok (.Ok out))
     {k : Std.U32} (hk : k ∈ choices.val) {r : rule_eval.rule.Rule}
     (hr : rules.val[k.val]? = some r) {last : Std.U32} (hl : r.valid_until = some last) :
     now.val ≤ last.val := by
-  obtain ⟨res, hres, hd⟩ := authorize_eq rules records contexts choices authenticated now
+  obtain ⟨res, hres, hd⟩ := check_auth_eq rules records contexts choices authenticated now
     generation
   obtain rfl := Result.ok_injective (h.symm.trans hres)
   simp only [denoteAuthorized] at hd
-  have := Chain.RuleSet.authorize_validUntil hd.symm (j := denoteU32 k)
+  have := Chain.RuleSet.checkAuth_validUntil hd.symm (j := denoteU32 k)
     (by simpa [denoteAuthorization] using List.mem_map_of_mem (f := denoteU32) hk)
     (r := denoteRule r) (by rw [denoteRules_get, hr]; rfl) (last := denoteU32 last)
     (by simp [denoteRule, hl])
   simpa [denoteAuthorization, UInt32.le_iff_toNat_le] using this
 
-/-- Generation: an `authorize` that returned `Ok` chose no rule issued under a
+/-- Generation: a `check_auth` that returned `Ok` chose no rule issued under a
 generation other than `generation`. -/
-theorem authorize_generation {rules : Slice rule_eval.rule.Rule}
+theorem check_auth_generation {rules : Slice rule_eval.rule.Rule}
     {records : Slice rule_eval.cap.SpendRecord} {contexts : Slice rule_eval.context.Context}
     {choices : Slice Std.U32} {authenticated : Slice rule_eval.signer.Signer} {now : Std.U32}
     {generation : Std.U64} {out : alloc.vec.Vec rule_eval.cap.SpendRecord}
-    (h : rule_eval.authorize.authorize rules records contexts choices authenticated now
+    (h : rule_eval.authorize.check_auth rules records contexts choices authenticated now
       generation = ok (.Ok out))
     {k : Std.U32} (hk : k ∈ choices.val) {r : rule_eval.rule.Rule}
     (hr : rules.val[k.val]? = some r) {g : Std.U64} (hg : r.generation = some g) :
     g = generation := by
-  obtain ⟨res, hres, hd⟩ := authorize_eq rules records contexts choices authenticated now
+  obtain ⟨res, hres, hd⟩ := check_auth_eq rules records contexts choices authenticated now
     generation
   obtain rfl := Result.ok_injective (h.symm.trans hres)
   simp only [denoteAuthorized] at hd
-  have := Chain.RuleSet.authorize_generation hd.symm (j := denoteU32 k)
+  have := Chain.RuleSet.checkAuth_generation hd.symm (j := denoteU32 k)
     (by simpa [denoteAuthorization] using List.mem_map_of_mem (f := denoteU32) hk)
     (r := denoteRule r) (by rw [denoteRules_get, hr]; rfl) (g := denoteU64 g)
     (by simp [denoteRule, hg])
   exact denoteU64_injective (by simpa [denoteAuthorization] using this)
 
 /-- Once the current generation is not `g`, a rule issued under `g` authorizes
-nothing: no `authorize` that returned `Ok` chose it. -/
-theorem authorize_not_chosen_of_stale {rules : Slice rule_eval.rule.Rule}
+nothing: no `check_auth` that returned `Ok` chose it. -/
+theorem check_auth_not_chosen_of_stale {rules : Slice rule_eval.rule.Rule}
     {records : Slice rule_eval.cap.SpendRecord} {contexts : Slice rule_eval.context.Context}
     {choices : Slice Std.U32} {authenticated : Slice rule_eval.signer.Signer} {now : Std.U32}
     {generation : Std.U64} {out : alloc.vec.Vec rule_eval.cap.SpendRecord}
-    (h : rule_eval.authorize.authorize rules records contexts choices authenticated now
+    (h : rule_eval.authorize.check_auth rules records contexts choices authenticated now
       generation = ok (.Ok out))
     {k : Std.U32} {r : rule_eval.rule.Rule} (hr : rules.val[k.val]? = some r) {g : Std.U64}
     (hg : r.generation = some g) (hne : g ≠ generation) : k ∉ choices.val :=
-  fun hk => hne (authorize_generation h hk hr hg)
+  fun hk => hne (check_auth_generation h hk hr hg)
 
 /-- A rule set every rule of which was issued under `g` accepts, once the
 current generation is not `g`, only an authorization with no contexts. -/
-theorem authorize_contexts_nil_of_stale {rules : Slice rule_eval.rule.Rule}
+theorem check_auth_contexts_nil_of_stale {rules : Slice rule_eval.rule.Rule}
     {records : Slice rule_eval.cap.SpendRecord} {contexts : Slice rule_eval.context.Context}
     {choices : Slice Std.U32} {authenticated : Slice rule_eval.signer.Signer} {now : Std.U32}
     {generation : Std.U64} {out : alloc.vec.Vec rule_eval.cap.SpendRecord}
-    (h : rule_eval.authorize.authorize rules records contexts choices authenticated now
+    (h : rule_eval.authorize.check_auth rules records contexts choices authenticated now
       generation = ok (.Ok out))
     {g : Std.U64} (hall : ∀ r ∈ rules.val, r.generation = some g) (hne : g ≠ generation) :
     contexts.val = [] := by
-  obtain ⟨res, hres, hd⟩ := authorize_eq rules records contexts choices authenticated now
+  obtain ⟨res, hres, hd⟩ := check_auth_eq rules records contexts choices authenticated now
     generation
   obtain rfl := Result.ok_injective (h.symm.trans hres)
   simp only [denoteAuthorized] at hd
-  have := Chain.RuleSet.authorize_contexts_nil_of_stale hd.symm (g := denoteU64 g)
+  have := Chain.RuleSet.checkAuth_contexts_nil_of_stale hd.symm (g := denoteU64 g)
     (by
       intro r hr
       obtain ⟨r₀, hr₀, rfl⟩ := List.mem_map.mp hr
@@ -662,22 +662,22 @@ theorem authorize_contexts_nil_of_stale {rules : Slice rule_eval.rule.Rule}
     (fun he => hne (denoteU64_injective he))
   simpa [denoteAuthorization] using this
 
-/-- Signers: every signer an `authorize` that returned `Ok` authenticated is,
+/-- Signers: every signer a `check_auth` that returned `Ok` authenticated is,
 by `signer_in`, a signer of some rule it chose. -/
-theorem authorize_signers {rules : Slice rule_eval.rule.Rule}
+theorem check_auth_signers {rules : Slice rule_eval.rule.Rule}
     {records : Slice rule_eval.cap.SpendRecord} {contexts : Slice rule_eval.context.Context}
     {choices : Slice Std.U32} {authenticated : Slice rule_eval.signer.Signer} {now : Std.U32}
     {generation : Std.U64} {out : alloc.vec.Vec rule_eval.cap.SpendRecord}
-    (h : rule_eval.authorize.authorize rules records contexts choices authenticated now
+    (h : rule_eval.authorize.check_auth rules records contexts choices authenticated now
       generation = ok (.Ok out)) :
     ∀ s ∈ authenticated.val, ∃ k ∈ choices.val, ∃ r, rules.val[k.val]? = some r ∧
       rule_eval.signer.signer_in s (alloc.vec.Vec.deref r.signers) = ok true := by
-  obtain ⟨res, hres, hd⟩ := authorize_eq rules records contexts choices authenticated now
+  obtain ⟨res, hres, hd⟩ := check_auth_eq rules records contexts choices authenticated now
     generation
   obtain rfl := Result.ok_injective (h.symm.trans hres)
   simp only [denoteAuthorized] at hd
   intro s hs
-  obtain ⟨j, hj, r', hr', hsr⟩ := Chain.RuleSet.authorize_signers hd.symm (denoteSigner s)
+  obtain ⟨j, hj, r', hr', hsr⟩ := Chain.RuleSet.checkAuth_signers hd.symm (denoteSigner s)
     (by simpa [denoteAuthorization, denoteSigners] using List.mem_map_of_mem (f := denoteSigner) hs)
   simp only [denoteAuthorization, List.mem_map] at hj
   obtain ⟨k, hk, rfl⟩ := hj
@@ -691,5 +691,34 @@ theorem authorize_signers {rules : Slice rule_eval.rule.Rule}
     refine ⟨k, hk, r₀, hr₀, ?_⟩
     rw [signer_in_eq, vec_deref_val]
     exact congrArg ok (decide_eq_true hsr)
+
+/-! ## Former names
+
+The names these theorems had before the evaluator's entry point was renamed
+`check_auth`, kept so that citations of them still resolve. -/
+
+@[deprecated check_auth_allows_all (since := "2026-11-08")]
+theorem authorize_allows_all : type_of% @check_auth_allows_all := @check_auth_allows_all
+
+@[deprecated check_auth_allows_batch (since := "2026-11-08")]
+theorem authorize_allows_batch : type_of% @check_auth_allows_batch := @check_auth_allows_batch
+
+@[deprecated checkAuthAll_eq (since := "2026-11-08")]
+theorem authorizeAll_eq : type_of% @checkAuthAll_eq := @checkAuthAll_eq
+
+@[deprecated check_auth_valid_until (since := "2026-11-08")]
+theorem authorize_valid_until : type_of% @check_auth_valid_until := @check_auth_valid_until
+
+@[deprecated check_auth_generation (since := "2026-11-08")]
+theorem authorize_generation : type_of% @check_auth_generation := @check_auth_generation
+
+@[deprecated check_auth_not_chosen_of_stale (since := "2026-11-08")]
+theorem authorize_not_chosen_of_stale : type_of% @check_auth_not_chosen_of_stale := @check_auth_not_chosen_of_stale
+
+@[deprecated check_auth_contexts_nil_of_stale (since := "2026-11-08")]
+theorem authorize_contexts_nil_of_stale : type_of% @check_auth_contexts_nil_of_stale := @check_auth_contexts_nil_of_stale
+
+@[deprecated check_auth_signers (since := "2026-11-08")]
+theorem authorize_signers : type_of% @check_auth_signers := @check_auth_signers
 
 end RuleCore.Extracted

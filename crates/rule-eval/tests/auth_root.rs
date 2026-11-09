@@ -74,23 +74,23 @@ fn exact_root_wrong_contract_function_missing_and_creation() {
 fn win_authenticates_without_charge_loss_charges_and_direct_transfer_is_refused() {
     let rs = rules();
     let recs = records(&rs);
-    let win = authorize(&rs, &recs, &[guess()], &[0], &auth(), 1, 0)
+    let win = check_auth(&rs, &recs, &[guess()], &[0], &auth(), 1, 0)
         .ok()
         .unwrap();
     assert_eq!(win[1].total, 0);
     assert!(win[1].history.is_empty());
     assert!(matches!(
-        authorize(&rs, &recs, &[guess()], &[0], &[], 1, 0),
+        check_auth(&rs, &recs, &[guess()], &[0], &[], 1, 0),
         Err(Refusal::NotAllowed)
     ));
-    let loss = authorize(&rs, &win, &[guess(), transfer(4)], &[0, 1], &auth(), 2, 0)
+    let loss = check_auth(&rs, &win, &[guess(), transfer(4)], &[0, 1], &auth(), 2, 0)
         .ok()
         .unwrap();
     assert_eq!(loss[1].total, 4);
     assert!(allows_batch(&rs, &[guess(), transfer(4)], &auth()));
     assert!(!allows_batch(&rs, &[transfer(1)], &auth()));
     assert!(matches!(
-        authorize(&rs, &loss, &[transfer(1)], &[1], &auth(), 3, 0),
+        check_auth(&rs, &loss, &[transfer(1)], &[1], &auth(), 3, 0),
         Err(Refusal::NotAllowed)
     ));
     // A previously authenticated independent entry cannot supply a root.
@@ -131,7 +131,7 @@ fn wrong_root_and_reordered_entry_refuse_even_with_an_independent_root_rule() {
     ] {
         assert!(!allows_batch(&rs, &ctxs, &auth()));
         assert!(matches!(
-            authorize(&rs, &recs, &ctxs, &choices, &auth(), 1, 0),
+            check_auth(&rs, &recs, &ctxs, &choices, &auth(), 1, 0),
             Err(Refusal::NotAllowed)
         ));
     }
@@ -143,28 +143,28 @@ fn root_check_remains_conjunctive_with_all_existing_checks() {
     let recs = records(&rs);
     let ctxs = [guess(), transfer(1)];
     assert!(matches!(
-        authorize(&rs, &recs, &ctxs, &[0, 1], &[], 1, 0),
+        check_auth(&rs, &recs, &ctxs, &[0, 1], &[], 1, 0),
         Err(Refusal::NotAllowed)
     ));
     assert!(matches!(
-        authorize(&rs, &recs, &ctxs, &[0, 1], &[delegated("wrong")], 1, 0),
+        check_auth(&rs, &recs, &ctxs, &[0, 1], &[delegated("wrong")], 1, 0),
         Err(Refusal::NotAllowed)
     ));
     rs[1].conds.push(Cond::ArgEq(0, Val::Address(b("other"))));
     assert!(matches!(
-        authorize(&rs, &recs, &ctxs, &[0, 1], &auth(), 1, 0),
+        check_auth(&rs, &recs, &ctxs, &[0, 1], &auth(), 1, 0),
         Err(Refusal::NotAllowed)
     ));
     rs[1].conds.clear();
     rs[1].valid_until = Some(0);
     assert!(matches!(
-        authorize(&rs, &recs, &ctxs, &[0, 1], &auth(), 1, 0),
+        check_auth(&rs, &recs, &ctxs, &[0, 1], &auth(), 1, 0),
         Err(Refusal::Expired)
     ));
     rs[1].valid_until = None;
     rs[1].generation = Some(1);
     assert!(matches!(
-        authorize(&rs, &recs, &ctxs, &[0, 1], &auth(), 1, 0),
+        check_auth(&rs, &recs, &ctxs, &[0, 1], &auth(), 1, 0),
         Err(Refusal::StaleGeneration)
     ));
 }
@@ -173,7 +173,7 @@ fn root_check_remains_conjunctive_with_all_existing_checks() {
 fn aggregation_and_late_failure_return_no_charges() {
     let rs = rules();
     let recs = records(&rs);
-    let first = authorize(
+    let first = check_auth(
         &rs,
         &recs,
         &[guess(), transfer(2), transfer(3)],
@@ -186,7 +186,7 @@ fn aggregation_and_late_failure_return_no_charges() {
     .unwrap();
     assert_eq!(first[1].total, 5);
     assert!(matches!(
-        authorize(
+        check_auth(
             &rs,
             &first,
             &[guess(), transfer(4), transfer(2)],
@@ -199,7 +199,7 @@ fn aggregation_and_late_failure_return_no_charges() {
     ));
     assert_eq!(first[1].total, 5);
     assert!(matches!(
-        authorize(
+        check_auth(
             &rs,
             &first,
             &[guess(), transfer(4), call("bad", "call", vec![])],
@@ -211,7 +211,7 @@ fn aggregation_and_late_failure_return_no_charges() {
         Err(Refusal::NotAllowed)
     ));
     assert_eq!(first[1].total, 5);
-    let final_records = authorize(&rs, &first, &[guess(), transfer(5)], &[0, 1], &auth(), 3, 0)
+    let final_records = check_auth(&rs, &first, &[guess(), transfer(5)], &[0, 1], &auth(), 3, 0)
         .ok()
         .unwrap();
     assert_eq!(final_records[1].total, 10);
@@ -222,17 +222,17 @@ fn empty_and_mismatched_batches_keep_the_deliberate_existing_semantics() {
     let rs = rules();
     let recs = records(&rs);
     assert!(allows_batch(&rs, &[], &auth()));
-    assert!(authorize(&rs, &recs, &[], &[], &[], 1, 0).is_ok());
+    assert!(check_auth(&rs, &recs, &[], &[], &[], 1, 0).is_ok());
     assert!(matches!(
-        authorize(&rs, &recs, &[], &[], &auth(), 1, 0),
+        check_auth(&rs, &recs, &[], &[], &auth(), 1, 0),
         Err(Refusal::UnauthorizedSigner)
     ));
     assert!(matches!(
-        authorize(&rs, &recs, &[guess()], &[], &auth(), 1, 0),
+        check_auth(&rs, &recs, &[guess()], &[], &auth(), 1, 0),
         Err(Refusal::ChoicesMismatch)
     ));
     assert!(matches!(
-        authorize(&rs, &[], &[], &[], &[], 1, 0),
+        check_auth(&rs, &[], &[], &[], &[], 1, 0),
         Err(Refusal::RecordsMismatch)
     ));
 }
@@ -265,7 +265,7 @@ fn every_attenuation_retains_surviving_roots_including_reindexing() {
     // Reorder rules and choices together: roots and charging follow the rules.
     let mut reordered = rules();
     reordered.swap(0, 1);
-    let out = authorize(
+    let out = check_auth(
         &reordered,
         &records(&reordered),
         &[guess(), transfer(3)],

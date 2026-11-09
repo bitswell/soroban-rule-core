@@ -11,7 +11,7 @@ spending record (`Cap.Record`), `records[j]` for rule `j`; a rule without a
 cap never changes its record.
 
 An authorization is made at a ledger (`now`) and in a generation (the
-account's current one). `RuleSet.authorize` first refuses a choice list whose
+account's current one). `RuleSet.checkAuth` first refuses a choice list whose
 length is not the batch's (`choicesMismatch`) and a record list whose length is
 not the rule set's (`recordsMismatch`), then works in three passes, as
 OpenZeppelin's `do_check_auth` validates every context, then checks the
@@ -33,7 +33,7 @@ It returns the records after every charge, or the first refusal, which leaves
 the records as they were.
 
 A run is a list of authorizations applied in order. `RuleSet.run` keeps the
-records on a refused authorization; `RuleSet.authorizeAll` fails with the first
+records on a refused authorization; `RuleSet.checkAuthAll` fails with the first
 refusal, so `RuleSet.Accepts` says a run is accepted authorization by
 authorization. `RuleSet.charged` lists the calls a run charges to one rule, and
 `RuleSet.spent` the spends it records there: every charged call with a
@@ -144,7 +144,7 @@ def RuleSet.checkSigners (rs : RuleSet Ctx Sig) (auth : List Sig) (choices : Lis
   if auth.all (rs.signerChosen choices) then .ok () else .error .unauthorizedSigner
 
 /-- The records after authorization `a`, or why it is refused. -/
-def RuleSet.authorize (rs : RuleSet Ctx Sig) (records : List Cap.Record)
+def RuleSet.checkAuth (rs : RuleSet Ctx Sig) (records : List Cap.Record)
     (a : Authorization Ctx Sig) : Except Refusal (List Cap.Record) :=
   if a.choices.length ≠ a.contexts.length then .error .choicesMismatch
   else if records.length ≠ rs.rules.length then .error .recordsMismatch
@@ -159,7 +159,7 @@ def RuleSet.authorize (rs : RuleSet Ctx Sig) (records : List Cap.Record)
 records when it is refused. -/
 def RuleSet.step (rs : RuleSet Ctx Sig) (records : List Cap.Record)
     (a : Authorization Ctx Sig) : List Cap.Record :=
-  match rs.authorize records a with
+  match rs.checkAuth records a with
   | .ok records' => records'
   | .error _ => records
 
@@ -170,14 +170,14 @@ def RuleSet.run (rs : RuleSet Ctx Sig) (records : List Cap.Record)
   as.foldl rs.step records
 
 /-- Apply every authorization in order, failing with the first refusal. -/
-def RuleSet.authorizeAll (rs : RuleSet Ctx Sig) (records : List Cap.Record)
+def RuleSet.checkAuthAll (rs : RuleSet Ctx Sig) (records : List Cap.Record)
     (as : List (Authorization Ctx Sig)) : Except Refusal (List Cap.Record) :=
-  as.foldlM rs.authorize records
+  as.foldlM rs.checkAuth records
 
 /-- `rs` accepts every authorization of `as`, starting from `records`. -/
 def RuleSet.Accepts (rs : RuleSet Ctx Sig) (records : List Cap.Record)
     (as : List (Authorization Ctx Sig)) : Prop :=
-  ∃ records', rs.authorizeAll records as = .ok records'
+  ∃ records', rs.checkAuthAll records as = .ok records'
 
 /-- The calls `a` charges to rule `j` under its cap `k`: one call at `a.now` for
 each context that chose `j`, spending the amount `k` reads from it. -/
@@ -191,7 +191,7 @@ def RuleSet.charged (rs : RuleSet Ctx Sig) (k : RuleCap Ctx) (j : Nat) :
     List Cap.Record → List (Authorization Ctx Sig) → List Cap.Call
   | _, [] => []
   | records, a :: as =>
-    match rs.authorize records a with
+    match rs.checkAuth records a with
     | .ok records' => a.charges k j ++ rs.charged k j records' as
     | .error _ => rs.charged k j records as
 

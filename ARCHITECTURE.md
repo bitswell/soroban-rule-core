@@ -8,7 +8,7 @@ entry, not the transaction root or an arbitrary ancestor. The Rust first pass
 derives it through `context::entry_root`, implemented with the pinned
 extraction's modeled `get(0)` operation. It conjoins `rule_allows_in` with the
 existing expiry and generation checks before validating signer coverage or
-charging any caps. No caller-supplied root parameter reaches `authorize`.
+charging any caps. No caller-supplied root parameter reaches `check_auth`.
 
 The generic model adds `authRoot : Option (Ctx → Bool)` and `Rule.allowsIn`;
 chain denotation restricts it to exact byte comparisons. The first pass uses
@@ -16,7 +16,7 @@ chain denotation restricts it to exact byte comparisons. The first pass uses
 batch. Local `allows`/`allowsAll` deliberately remain weaker screening views.
 In particular, the existing Soroban shell model's `checkRules` containment
 result is local screening; the new stateful root theorem is
-`Chain.RuleSet.authorize_exactRoot`. The host model's preorder-head result
+`Chain.RuleSet.checkAuth_exactRoot`. The host model's preorder-head result
 supplies the separate host-order fact. Real account integration must preserve
 that ordering and invoke the complete evaluator.
 
@@ -31,7 +31,7 @@ this component, and `withRoot_traceNarrower` lifts that to complete traces.
 `accepts_allowsBatch`, `mem_charged_root`, and the extracted
 `accepts_allows_batch`/`charged_root` results connect accepted traces and every
 charge to the selected rule's root requirement. The regenerated extracted
-`authorize` and `runAuthorizations` agree with this model; the existing exact
+`check_auth` and `runAuthorizations` agree with this model; the existing exact
 spending/window and failed-batch theorems are rechecked against these changed
 definitions. A game-only win authenticates and spends no transfer cap; a loss
 charges transfers in the same entry; a direct transfer or a game root in a
@@ -57,10 +57,10 @@ Each link of the chain is a theorem about rule sets, or about the code that
 builds, stores and checks them:
 
 - **Grant inside scope.** A delegated grant is reached from its scope by attenuation steps, so it allows only what the scope allows, under any signers. Milestones 1 and 2 prove this for rule matching and signer requirements (`Derives.narrower`, `Derives.allows_all`), and for spending caps on rules as trace inclusion: every run of authorizations a derived rule set accepts from empty records, its root accepts from its own ([Milestone 2: caps on rules](#milestone-2-caps-on-rules)). Milestone 3 bounds what is spent under each grant on the delegation tree: from a tree with nothing spent, the total successfully spent at or under any node never exceeds its allowance, however the allowances below it oversubscribe it (`spentUnder_le_allowance`, [Milestone 3: the budget tree](#milestone-3-the-budget-tree)).
-- **Scope inside the owner's authority.** The rules a document lowers to allow exactly what the document says, the recovery rule over-approximated, and a scoped document lowers to rules that reach none of the account, its recovery controller or its ZK adapter and pool, under any attenuation (`Doc.lower_authorize`, `Doc.lowerScoped_attenuateAll_excluded`, [Milestone 4: documents, scopes and the generation](#milestone-4-documents-scopes-and-the-generation)). The rule model the lowering targets is [Milestone 4: the rule model Perch lowers to](#milestone-4-the-rule-model-perch-lowers-to).
-- **Recovery.** Every scoped rule carries the generation it was issued under, the generation advances only when a recovery completes, and `authorize` refuses a rule issued under another generation, so after a completed recovery every grant attenuated from an earlier scoped document authorizes nothing while the admin rules authorize as before (`Account.issued_stale`, `Account.adminRules_authorize_generation`).
-- **The chain composes.** Anything `authorize` accepts under a grant attenuated from a scoped document's rules is allowed by that document, touches no excluded contract, and is made in the generation the document was issued under, on the model and on the translated Rust functions (`Account.chain`, `Extracted.chain`). [What does not compose](#what-does-not-compose) lists the links that rest on the shell.
-- **The code is the model.** The Rust that Perch's smart account, the grant signer, the agent host and the relay run is proven equal to the Lean model the theorems are about (M1 for rule matching and attenuation, M2 for signers, spending caps and the stateful `authorize`, M3 for the budget tree, M4 for the lowering).
+- **Scope inside the owner's authority.** The rules a document lowers to allow exactly what the document says, the recovery rule over-approximated, and a scoped document lowers to rules that reach none of the account, its recovery controller or its ZK adapter and pool, under any attenuation (`Doc.lower_checkAuth`, `Doc.lowerScoped_attenuateAll_excluded`, [Milestone 4: documents, scopes and the generation](#milestone-4-documents-scopes-and-the-generation)). The rule model the lowering targets is [Milestone 4: the rule model Perch lowers to](#milestone-4-the-rule-model-perch-lowers-to).
+- **Recovery.** Every scoped rule carries the generation it was issued under, the generation advances only when a recovery completes, and `check_auth` refuses a rule issued under another generation, so after a completed recovery every grant attenuated from an earlier scoped document authorizes nothing while the admin rules authorize as before (`Account.issued_stale`, `Account.adminRules_checkAuth_generation`).
+- **The chain composes.** Anything `check_auth` accepts under a grant attenuated from a scoped document's rules is allowed by that document, touches no excluded contract, and is made in the generation the document was issued under, on the model and on the translated Rust functions (`Account.chain`, `Extracted.chain`). [What does not compose](#what-does-not-compose) lists the links that rest on the shell.
+- **The code is the model.** The Rust that Perch's smart account, the grant signer, the agent host and the relay run is proven equal to the Lean model the theorems are about (M1 for rule matching and attenuation, M2 for signers, spending caps and the stateful `check_auth`, M3 for the budget tree, M4 for the lowering).
 - **The host lets through only what the rules allow.** Soroban's own behaviour enters through Lean models of soroban-env-host 29.0.1, tested against that host. In the models, every call the host lets through on an account's signature is a context of the signed tree the account's `__check_auth` received, and so is allowed by every rule set that `__check_auth` checks with `rule-eval` (`Tx.run_authorized_allowed`, [Milestone 5: the Soroban facade](#milestone-5-the-soroban-facade)).
 
 ## Dependency direction
@@ -153,7 +153,7 @@ evidence, and `tools/check-claims` fails CI when evidence is missing.
 
 - **New conditions** are new constructors of `Cond`, each matched by `cond_holds`, with its meaning in `Chain.Cond.holds` and its denotation in `Equiv/Denote.lean`. The generic theorems do not change, because a chain condition denotes a generic one.
 - **New rule fields** extend `Rule` and `Chain.Rule`, as signers and caps do in Milestone 2. Keeping `Rule.denote` a generic rule keeps every attenuation theorem.
-- **Stateful checks** stay pure in `rule-eval`, as `check_spend` and `authorize` do. The function takes the state as data and returns the new state or an error, and the shell does the storage.
+- **Stateful checks** stay pure in `rule-eval`, as `check_spend` and `check_auth` do. The function takes the state as data and returns the new state or an error, and the shell does the storage.
 
 ## Milestone 2: signers
 
@@ -216,7 +216,7 @@ read at commit `ddc327eb`) checks signers in two ways:
 
 OpenZeppelin has more than this model expresses:
 
-- its caller names one rule per context (`context_rule_ids`); here `allows` and `allows_all` accept a context when some rule allows it, and `authorize` takes one rule per context as OpenZeppelin does ([Milestone 2: caps on rules](#milestone-2-caps-on-rules));
+- its caller names one rule per context (`context_rule_ids`); here `allows` and `allows_all` accept a context when some rule allows it, and `check_auth` takes one rule per context as OpenZeppelin does ([Milestone 2: caps on rules](#milestone-2-caps-on-rules));
 - a `Default` context type that matches any contract, and contract-creation rules, which have no counterpart here; its `valid_until` expiry is [Milestone 4](#milestone-4-the-rule-model-perch-lowers-to)'s;
 - duplicate external signers found through the verifier's canonical key (`batch_canonicalize_key`) when a rule is installed, where here two external signers are the same signer only when their bytes are equal;
 - the `weighted_threshold` policy, which gives signers weights and has no counterpart here, and `spending_limit`, whose counterpart is a rule's cap.
@@ -240,7 +240,7 @@ consecutive ledgers, Perch's `periodLedgers`. The check is
 `crates/rule-eval/src/cap.rs`, its model `formal/RuleCore/Model/Cap.lean`, and
 its theorems `formal/RuleCore/Theorems/Cap.lean`. The check works on one
 record; [Milestone 2: caps on rules](#milestone-2-caps-on-rules) puts caps on
-rules and charges them through `authorize`.
+rules and charges them through `check_auth`.
 
 ### The record and the check
 
@@ -319,7 +319,7 @@ run recorded: the accepted calls with a positive amount.
 
 ## Milestone 2: caps on rules
 
-A rule may carry a spending cap, and `authorize` checks an authorization the
+A rule may carry a spending cap, and `check_auth` checks an authorization the
 way OpenZeppelin's smart account does: one chosen rule per context, every
 chosen rule allowing its context, and each capped rule's record charged with
 `check_spend`. The code is `crates/rule-eval/src/authorize.rs` and the cap
@@ -349,7 +349,7 @@ signers sign (line 498). `do_check_auth` (lines 466–525) refuses a length
 mismatch first (line 472), validates every context against its chosen rule
 (lines 477–485), refuses any authenticated signer outside the chosen rules
 (lines 504–507), and only then enforces each rule's policies in context order
-(lines 511–522). `authorize` keeps that order: its second step is the
+(lines 511–522). `check_auth` keeps that order: its second step is the
 validation, its third the signer check and its fourth the enforcement, so a
 batch with both a disallowed context and an exceeded cap is refused with
 `NotAllowed`. The spending-limit
@@ -357,7 +357,7 @@ policy stores one record per context rule (`SpendingLimitStorageKey::AccountCont
 [`policies/spending_limit.rs`](https://github.com/theahaco/stellar-contracts-OZ/blob/33726766a1fd5e7e3d2977d79f64ee29e1ea3ca9/packages/accounts/src/policies/spending_limit.rs)
 line 236) and writes it after each enforcement (line 281), so two contexts on
 one rule accumulate there too. Binding the choices into the signed digest is the
-shell's job: `authorize` receives the choices the signatures covered.
+shell's job: `check_auth` receives the choices the signatures covered.
 
 ### Attenuation
 
@@ -369,7 +369,7 @@ refuses an index out of range with `NoSuchRule` before anything else.
 - `lower_cap_limit(rules, i, limit)` sets the limit of rule `i`'s cap. It refuses a rule without a cap (`NoCap`), a limit above the current one (`LimitRaised`), and a limit that is not positive (`InvalidCap`).
 - `lengthen_cap_period(rules, i, period)` sets the period of rule `i`'s cap. It refuses a rule without a cap (`NoCap`) and a period below the current one (`PeriodShortened`).
 
-The steps never make a valid cap invalid (`attenuate_capsValid`). `authorize`
+The steps never make a valid cap invalid (`attenuate_capsValid`). `check_auth`
 does not check validity: a root rule set is installed by the shell, which
 checks its caps, and the cap check behaves monotonically in its parameters
 whether or not they are valid, so narrowing holds for every cap.
@@ -404,7 +404,7 @@ trace inclusion (`attenuateAll_traceNarrower`).
 - **Window safety** (`RuleSet.window_le_limit`, `RuleSet.period_le_limit_of_pos`, `RuleSet.period_le_limit`): from empty records, for every capped rule with a non-negative limit and every run, the spends recorded for that rule in every window of eviction, and in every window of `period` consecutive ledgers from ledger 1 on, sum to at most its limit.
 - **The stored record is the in-window spends** (`RuleSet.run_eq_window`), and never holds more than 1000 entries (`RuleSet.run_history_length_le`).
 - **Narrowing** (`attenuate_traceNarrower`, `attenuateAll_traceNarrower`, `TraceNarrower.trans`), and each cap step leaves every `allows` verdict as it was (`addCap_narrower`, `lowerCapLimit_narrower`, `lengthenCapPeriod_narrower`).
-- **On the translation**: `authorize_eq` proves that the translated `authorize` returns `ok` of the model's result on every input, so it terminates and never panics; `add_cap_eq`, `lower_cap_limit_eq` and `lengthen_cap_period_eq` do the same for the steps. `authorize_allows_all`, `runAuthorizations_window`, `runAuthorizations_window_le_limit`, `runAuthorizations_length_le`, `StepAlong.traceNarrower` and `DerivesAlong.traceNarrower` carry the theorems to the Rust functions.
+- **On the translation**: `check_auth_eq` proves that the translated `check_auth` returns `ok` of the model's result on every input, so it terminates and never panics; `add_cap_eq`, `lower_cap_limit_eq` and `lengthen_cap_period_eq` do the same for the steps. `check_auth_allows_all`, `runAuthorizations_window`, `runAuthorizations_window_le_limit`, `runAuthorizations_length_le`, `StepAlong.traceNarrower` and `DerivesAlong.traceNarrower` carry the theorems to the Rust functions.
 
 ### Edges
 
@@ -515,7 +515,7 @@ M4 proves Perch's document lowering sound. Each construct Perch's lowering
 emits needs a counterpart that gives the same verdict on every input, so the
 rule model is extended with exactly those constructs. Every Milestone 1 to 3
 theorem keeps holding, and `allows` and `allows_all` stay the view without
-time or generation that `authorize` refines. The document model, the lowering
+time or generation that `check_auth` refines. The document model, the lowering
 and its theorems build on this ([Milestone 4: documents, scopes and the generation](#milestone-4-documents-scopes-and-the-generation)). The code is spread over `rule.rs`, `val.rs`,
 `bytes.rs`, `attenuate.rs` and `authorize.rs`; the model over
 `Model/RuleSet.lean`, `Model/Attenuation.lean`, `Model/Authorize.lean` and
@@ -531,25 +531,25 @@ and its theorems build on this ([Milestone 4: documents, scopes and the generati
 
 ### Expiry
 
-- A rule carries `valid_until: Option<u32>`, its last ledger. `authorize` refuses a chosen rule whose last ledger is before `now` (`Expired`), exactly OpenZeppelin's `if valid_until < e.ledger().sequence()` at Perch's pin (`smart_account/storage.rs` line 282): the rule authorizes at its last ledger and is refused one ledger later.
+- A rule carries `valid_until: Option<u32>`, its last ledger. `check_auth` refuses a chosen rule whose last ledger is before `now` (`Expired`), exactly OpenZeppelin's `if valid_until < e.ledger().sequence()` at Perch's pin (`smart_account/storage.rs` line 282): the rule authorizes at its last ledger and is refused one ledger later.
 - `lower_valid_until(rules, i, v)`, a step, gives rule `i` the last ledger `v`, or moves its last ledger earlier, and refuses to move it later (`ValidUntilRaised`). `allows` does not read the last ledger, so the step leaves every verdict as it was; it narrows as trace inclusion, since a rule refines another only when it is unexpired at no ledger where the other has expired.
 
 ### Generations
 
-- A rule carries `generation: Option<u64>`, the generation it was issued under, `None` for an admin rule, and `authorize` takes the account's current generation. A chosen rule issued under another generation is refused (`StaleGeneration`).
-- Once the current generation is not `g`, a rule issued under `g` authorizes nothing: no accepted authorization chooses it (`authorize_not_chosen_of_stale`), and a rule set issued under `g` accepts only an empty batch (`authorize_contexts_nil_of_stale`).
+- A rule carries `generation: Option<u64>`, the generation it was issued under, `None` for an admin rule, and `check_auth` takes the account's current generation. A chosen rule issued under another generation is refused (`StaleGeneration`).
+- Once the current generation is not `g`, a rule issued under `g` authorizes nothing: no accepted authorization chooses it (`check_auth_not_chosen_of_stale`), and a rule set issued under `g` accepts only an empty batch (`check_auth_contexts_nil_of_stale`).
 - No attenuation step changes a rule's generation: each rule after a step, or after any chain of steps, carries the generation of the root rule it comes from (`attenuate_generation`, `attenuateAll_generation`), so everything derived from a scoped rule set issued under `g` is issued under `g` (`attenuateAll_generation_eq`).
 - The lowering stamps every scoped rule with the generation it is issued under, and the account's generation advances only when a recovery completes ([the generation](#the-generation)).
 
 ### Signers outside the chosen rules
 
-`authorize` refuses an authorization in which an authenticated signer is a
+`check_auth` refuses an authorization in which an authenticated signer is a
 signer of no chosen rule (`UnauthorizedSigner`), as OpenZeppelin's
 `do_check_auth` does after validating every context and before enforcing any
 policy (`smart_account/storage.rs` lines 504–507 at Perch's pin). The check
 compares signers exactly, as the signer requirement does. It only refuses more:
 `allows`, which has no chosen rules, does not make it, and every batch
-`authorize` accepts, `allows_all` still allows.
+`check_auth` accepts, `allows_all` still allows.
 
 ### Conditions and strings
 
@@ -559,12 +559,12 @@ compares signers exactly, as the signer requirement does. It only refuses more:
 
 ### Theorems
 
-- **Every Milestone 1 to 3 theorem holds of the extended model.** A statement about a rule's functions reads them as the set `Functions` denotes (`Rule.allows_false_of_functions_nil` takes `functions = .only []`; `rule_allows_call` names `functions_match`). `authorize_eq_ok_iff`, `checkChoice_ok_iff` and `Rule.Refines` include the expiry, generation and signer checks.
+- **Every Milestone 1 to 3 theorem holds of the extended model.** A statement about a rule's functions reads them as the set `Functions` denotes (`Rule.allows_false_of_functions_nil` takes `functions = .only []`; `rule_allows_call` names `functions_match`). `checkAuth_eq_ok_iff`, `checkChoice_ok_iff` and `Rule.Refines` include the expiry, generation and signer checks.
 - **Conditions** (`Cond.argIn_holds_iff`, `Cond.argIn_holds_iff_argEq`, `Cond.argStrPrefix_holds_iff`) and **strings** (`Val.string_ne_symbol`, `Cond.argStrPrefix_kind`, `Cond.argStrPrefix_false_of_symbol`, `Cond.argEq_string_false_of_symbol`).
 - **The wildcard** matches every function of its contract (`Rule.allows_call_any`); removing and restricting keep exactly the expected functions (`Functions.mem_remove`, `Functions.mem_restrict`).
 - **`restrict_functions` and `lower_valid_until` narrow** (`restrictFunctions_narrower`, `lowerValidUntil_narrower`), every chain of all ten chain steps stays inside its root, and each step and chain is trace inclusion (`attenuate_traceNarrower`, `attenuateAll_traceNarrower`, through `lowerValidUntil_refines`).
-- **The refusals**: an accepted authorization chooses no expired rule (`authorize_validUntil`), no rule of another generation (`authorize_generation`), and authenticates no signer outside its chosen rules (`authorize_signers`); `authorize` stays sound (`authorize_allowsAll`).
-- **On the translation**: `authorize_eq`, `restrict_functions_eq`, `lower_valid_until_eq`, `remove_functions_eq`, `cond_holds_eq`, `val_in_eq`, `bytes_starts_with_eq` and `functions_match_eq` prove that each of these functions returns `ok` of the model's result, termination included; `authorize_valid_until`, `authorize_generation`, `authorize_not_chosen_of_stale`, `authorize_contexts_nil_of_stale`, `authorize_signers`, `StepAlong.generation` and `DerivesAlong.generation_eq` carry these theorems to the Rust functions.
+- **The refusals**: an accepted authorization chooses no expired rule (`authorize_validUntil`), no rule of another generation (`check_auth_generation`), and authenticates no signer outside its chosen rules (`check_auth_signers`); `check_auth` stays sound (`authorize_allowsAll`).
+- **On the translation**: `check_auth_eq`, `restrict_functions_eq`, `lower_valid_until_eq`, `remove_functions_eq`, `cond_holds_eq`, `val_in_eq`, `bytes_starts_with_eq` and `functions_match_eq` prove that each of these functions returns `ok` of the model's result, termination included; `check_auth_valid_until`, `check_auth_generation`, `check_auth_not_chosen_of_stale`, `check_auth_contexts_nil_of_stale`, `check_auth_signers`, `StepAlong.generation` and `DerivesAlong.generation_eq` carry these theorems to the Rust functions.
 
 ### In the restricted subset
 
@@ -613,7 +613,7 @@ document Perch's validation and document compiler accept meets it
 
 ### What a document means
 
-`Doc.allows` (without time, generation or caps) and `Doc.authorize` (through an
+`Doc.allows` (without time, generation or caps) and `Doc.checkAuth` (through an
 authorization) are written from Perch's specification as Perch and OpenZeppelin
 implement it, at Perch `dff2a73` and `theahaco/stellar-contracts-OZ@33726766`,
 the revision Perch pins, and without reference to the lowering:
@@ -625,7 +625,7 @@ the revision Perch pins, and without reference to the lowering:
 - `All` needs every named signer authenticated, `Threshold(_, m)` at least `m` of them, each counted once;
 - a rule with not-after ledger `X` authorizes at ledger `now` only when `now < X`.
 
-`Doc.authorize` checks an authorization as OpenZeppelin's `do_check_auth` does
+`Doc.checkAuth` checks an authorization as OpenZeppelin's `do_check_auth` does
 over the rules Perch installs for the document: the document's rules, then the
 recovery rule when it configures recovery (`crates/perch-smart-account/src/rules.rs`
 lines 135–164). Every chosen rule must be live at the ledger, belong to the
@@ -665,9 +665,9 @@ For every valid document, stated over every context, signer list, ledger,
 generation and run:
 
 - **Without time or caps** (`Doc.lowerRule_allows`, `Doc.lowerRules_allows`, `Doc.lower_allows`, `Doc.lower_allows_of_recovery_none`): each lowered rule allows exactly what its document rule allows; the admin document's lowering allows what the document allows or what the recovery rule allows (`recoveryRule_allows`), and exactly what the document allows when it configures no recovery.
-- **Through `authorize`** (`Doc.lower_authorize`, `Doc.lower_authorize_of_recovery_none`): on every authorization the lowering accepts exactly when the document accepts, with the recovery controller's check read as every call to `apply_doc` (`applyDocCheck`), and returns the same records. A run of authorizations is a sequence of these, so the lowering and the document accept the same runs with the same records.
-- **The over-approximation** (`Doc.authorize_mono`, `Doc.lower_authorize_of_check`): whatever the document accepts under a controller check that accepts only `apply_doc` calls, the lowering accepts with the same records.
-- **On the translation** (`lower_eq`, `lower_scoped_eq`, `excluded_eq`): the translated functions return `ok` of the model's lowering on every input, so they terminate and never panic, under the stated rule `LowerRoom` ([`TRUSTED.md`](TRUSTED.md#lowerroom)); `Extracted.lower_allows` and `Extracted.lower_authorize` state the soundness of the translated `lower` followed by the translated `allows` and `authorize`.
+- **Through `check_auth`** (`Doc.lower_checkAuth`, `Doc.lower_checkAuth_of_recovery_none`): on every authorization the lowering accepts exactly when the document accepts, with the recovery controller's check read as every call to `apply_doc` (`applyDocCheck`), and returns the same records. A run of authorizations is a sequence of these, so the lowering and the document accept the same runs with the same records.
+- **The over-approximation** (`Doc.checkAuth_mono`, `Doc.lower_checkAuth_of_check`): whatever the document accepts under a controller check that accepts only `apply_doc` calls, the lowering accepts with the same records.
+- **On the translation** (`lower_eq`, `lower_scoped_eq`, `excluded_eq`): the translated functions return `ok` of the model's lowering on every input, so they terminate and never panic, under the stated rule `LowerRoom` ([`TRUSTED.md`](TRUSTED.md#lowerroom)); `Extracted.lower_allows` and `Extracted.lower_check_auth` state the soundness of the translated `lower` followed by the translated `allows` and `check_auth`.
 
 The statement covers the rule set the lowering returns. That Perch's
 `apply_doc` installs exactly that set, through its reconcile, stays Perch's to
@@ -694,7 +694,7 @@ the stricter rule: the account's `execute` calls any contract as the account,
 so a scoped rule on the account would be a universal grant, and the account
 authorizes `apply_doc` through any ordinary rule scoped to it.
 
-- **Compile soundness** (`Doc.lowerScoped_allows`, `Doc.lowerScoped_authorize`): a scoped document's lowering allows exactly what it allows, and through `authorize` accepts exactly what it accepts in the generation it was issued under, with the same records.
+- **Compile soundness** (`Doc.lowerScoped_allows`, `Doc.lowerScoped_checkAuth`): a scoped document's lowering allows exactly what it allows, and through `check_auth` accepts exactly what it accepts in the generation it was issued under, with the same records.
 - **Exclusion** (`Doc.lowerScoped_contract`, `Doc.lowerScoped_allows_excluded`, `Doc.lowerScoped_attenuateAll_excluded`): every rule a scoped document lowers to applies to a contract that is neither the account nor in the excluded set, so no such rule set allows a call to one under any signers, and neither does any rule set a chain of attenuation steps derives from it.
 
 ### The generation
@@ -707,13 +707,13 @@ at `u64::MAX` it is refused instead of wrapping to a generation an earlier
 scoped document may carry. `Account.issue` lowers a scoped document under the
 current admin document's excluded set and the current generation.
 
-- Every scoped rule carries the generation it was issued under, and no admin rule carries one (`Doc.lowerScoped_generation`, `Doc.lower_generation`); a rule set without generations authorizes the same in every generation (`RuleSet.authorize_generation_none`).
+- Every scoped rule carries the generation it was issued under, and no admin rule carries one (`Doc.lowerScoped_generation`, `Doc.lower_generation`); a rule set without generations authorizes the same in every generation (`RuleSet.checkAuth_generation_none`).
 - A run keeps the address and advances the generation by exactly the recoveries it completes (`Account.run_address`, `Account.run_generation`).
-- After a run that completes a recovery, every grant attenuated from a scoped document issued before it accepts only the empty batch, while the admin rules authorize as before (`Account.issued_stale`, `Account.adminRules_authorize_generation`).
+- After a run that completes a recovery, every grant attenuated from a scoped document issued before it accepts only the empty batch, while the admin rules authorize as before (`Account.issued_stale`, `Account.adminRules_checkAuth_generation`).
 
 ### The chain
 
-`Account.chain`: anything `authorize` accepts under a grant attenuated from the
+`Account.chain`: anything `check_auth` accepts under a grant attenuated from the
 rules a valid scoped document was issued as
 
 1. is allowed by that scoped document,
@@ -725,14 +725,14 @@ records, the scoped rules accept, with each choice renumbered, and the scoped
 rules accept exactly what the scoped document does. `Account.chain_after_recovery`:
 once the account completes a recovery, the grant accepts only the empty batch.
 `Extracted.chain` and `Extracted.chain_trace` state the same of the translated
-`excluded`, `lower_scoped`, attenuation steps and `authorize`: the composition
+`excluded`, `lower_scoped`, attenuation steps and `check_auth`: the composition
 is proven on the Rust functions themselves.
 
 ### What does not compose
 
 - **The recovery rule** allows more in the model than on chain. It sits in the admin layer, and no scoped rule reaches the account, so the chain below the admin document is unaffected; compile soundness for the admin document is an inclusion for that one rule.
 - **Exclusion is checked when a scoped document is issued**, against the admin document of that moment. A later admin document, applied with `applyDoc`, may name as its controller, adapter or pool a contract that a live scoped rule reaches. The generation does not advance on `applyDoc`, so it does not end that rule. The shell must refuse such an admin document or end the scoped documents it would expose.
-- **The account model has no Rust counterpart.** On the translation, the generation `authorize` receives is the shell's; the chain holds for whatever generation the shell passes, and the recovery corollary needs the shell to keep the counter as the model does.
+- **The account model has no Rust counterpart.** On the translation, the generation `check_auth` receives is the shell's; the chain holds for whatever generation the shell passes, and the recovery corollary needs the shell to keep the counter as the model does.
 - **Validity is a hypothesis.** That Perch's validation guarantees `Doc.Valid` is read from Perch's source, not proven, and that the meaning describes Perch on chain is part of the specification ([`TRUSTED.md`](TRUSTED.md#the-documents-meaning)).
 
 ### The shell's part of the lowering
@@ -747,7 +747,7 @@ A shell that uses the lowering:
 ### What Perch adds in M6
 
 - `apply_scope`: lower a scoped document with `lower_scoped` under `excluded` of its current admin document and its current generation, and install the scoped rules beside the admin document's.
-- A generation that advances by one, checked, only when a recovery completes (`SyncOutcome::Completed`), passed to `authorize`. Perch's `recovery_generation` (`crates/perch-smart-account/src/lib.rs` lines 386–389) also advances on recovery reconfiguration, controller switches and executed upgrades, and is read only to make pending upgrades stale.
+- A generation that advances by one, checked, only when a recovery completes (`SyncOutcome::Completed`), passed to `check_auth`. Perch's `recovery_generation` (`crates/perch-smart-account/src/lib.rs` lines 386–389) also advances on recovery reconfiguration, controller switches and executed upgrades, and is read only to make pending upgrades stale.
 - A refusal of an admin document whose excluded set names a contract a live scoped rule reaches.
 - Lowering with `rule-eval`'s `lower` in its document compiler, or checking its own plan against it, and running the document traces through `compile_doc`, `apply_doc` and `check_auth`.
 
@@ -777,7 +777,7 @@ another's.
 `conformance/vectors/documents` holds document traces: a document, the account,
 optionally the admin document it is issued under and the generation, the
 rules the model lowers it to, and authorizations, each with the document's own
-verdict and records. The verdicts come from `Doc.authorize`, the meaning, not
+verdict and records. The verdicts come from `Doc.checkAuth`, the meaning, not
 from the lowering, so an implementation that lowers the document and checks
 the authorizations with its own evaluator should reach them. Every document is
 one Perch's validation accepts, and no authorization chooses the recovery
