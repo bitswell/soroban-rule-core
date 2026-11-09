@@ -9,7 +9,7 @@
 //! is the record of `rules[j]`, and a rule without a cap keeps its record
 //! unchanged.
 //!
-//! [`authorize`] works in three passes, as OpenZeppelin's `do_check_auth`
+//! [`check_auth`] works in three passes, as OpenZeppelin's `do_check_auth`
 //! (`packages/accounts/src/smart_account/storage.rs` of `stellar-accounts` at
 //! the revision Perch pins) validates every context against its rule, then
 //! checks the authenticated signers, before it enforces any policy:
@@ -29,7 +29,7 @@
 //!    first left.
 //!
 //! It is pure: the shell loads the records before the call and stores what
-//! `authorize` returns. A refusal returns no records, so the stored ones stay
+//! `check_auth` returns. A refusal returns no records, so the stored ones stay
 //! as they were, the charges of earlier contexts in the batch included.
 //! [`allows`](crate::allows) and [`allows_all`](crate::allows_all) are the
 //! local screening view: they also ignore root constraints. Every accepted
@@ -236,7 +236,7 @@ fn charge_all(
 /// - otherwise, in context order, [`Refusal::NoAmount`] if a capped rule's
 ///   context has no `I128` amount at the cap's `amount_arg`, and
 ///   [`Refusal::Cap`] if [`check_spend`] refuses the charge.
-pub fn authorize(
+pub fn check_auth(
     rules: &[Rule],
     records: &[SpendRecord],
     contexts: &[Context],

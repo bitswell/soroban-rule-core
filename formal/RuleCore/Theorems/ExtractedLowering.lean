@@ -8,7 +8,7 @@ import RuleCore.Theorems.Scoped
 The theorems of `RuleCore.Theorems.Lowering` and `RuleCore.Theorems.Scoped`,
 stated on the translated Rust functions (`rule_eval.lowering.lower`,
 `rule_eval.scoped.lower_scoped`, `rule_eval.scoped.excluded`, the translated
-attenuation steps and `rule_eval.authorize.authorize`), with documents and
+attenuation steps and `rule_eval.authorize.check_auth`), with documents and
 contexts read through the denotations. Each rests on the equivalence theorems
 of `RuleCore.Equiv.Lowering` and `RuleCore.Equiv`.
 
@@ -17,10 +17,10 @@ Compile soundness:
 * `lower_allows`, `lower_allows_of_recovery_none`: the translated `allows` on
   the rules the translated `lower` returns gives the document's verdict, or the
   recovery rule's when the document configures recovery;
-* `lower_authorize`: the translated `authorize` on those rules accepts exactly
+* `lower_check_auth`: the translated `check_auth` on those rules accepts exactly
   when the document accepts, with the recovery controller's check read as
   `applyDocCheck`, and returns the same records;
-* `lower_scoped_allows`, `lower_scoped_authorize`: the same for a scoped
+* `lower_scoped_allows`, `lower_scoped_check_auth`: the same for a scoped
   document the translated `lower_scoped` accepts, issued under its generation.
 
 Exclusion and generation:
@@ -34,7 +34,7 @@ Exclusion and generation:
 
 The chain:
 
-* `chain`: anything the translated `authorize` accepts under a grant the
+* `chain`: anything the translated `check_auth` accepts under a grant the
   translated steps derive from the rules the translated `lower_scoped` returns,
   under the excluded set the translated `excluded` takes from the admin
   document, is allowed by the scoped document, touches neither the account nor
@@ -77,28 +77,28 @@ theorem lower_allows_of_recovery_none {doc : rule_eval.document.Doc} {account : 
         (denoteSigners authenticated.val)) := by
   rw [lower_allows hv hroom h, hr, Bool.or_false]
 
-/-- Compile soundness through the translated `authorize`: on every
+/-- Compile soundness through the translated `check_auth`: on every
 authorization, it accepts the translated `lower`'s rules exactly when the
 document accepts, with the recovery controller's check read as
 `applyDocCheck`, and returns records denoting the same ones. -/
-theorem lower_authorize {doc : rule_eval.document.Doc} {account : Slice Std.U8}
+theorem lower_check_auth {doc : rule_eval.document.Doc} {account : Slice Std.U8}
     (hv : (denoteDoc doc).Valid) (hroom : LowerRoom doc)
     {out : alloc.vec.Vec rule_eval.rule.Rule} (h : rule_eval.lowering.lower doc account = ok out)
     (records : Slice rule_eval.cap.SpendRecord) (contexts : Slice rule_eval.context.Context)
     (choices : Slice Std.U32) (authenticated : Slice rule_eval.signer.Signer) (now : Std.U32)
     (generation : Std.U64) :
-    ∃ res, rule_eval.authorize.authorize (alloc.vec.Vec.deref out) records contexts choices
+    ∃ res, rule_eval.authorize.check_auth (alloc.vec.Vec.deref out) records contexts choices
         authenticated now generation = ok res ∧
       (denoteAuthorized res).toOption =
-        (denoteDoc doc).authorize (bytesOf account.val) Document.applyDocCheck none
+        (denoteDoc doc).checkAuth (bytesOf account.val) Document.applyDocCheck none
           (records.val.map denoteRecord)
           (denoteAuthorization contexts choices authenticated now generation) := by
   obtain ⟨out', h', hd⟩ := lower_eq doc account hroom
   obtain rfl := Result.ok_injective (h.symm.trans h')
-  obtain ⟨res, hres, hdr⟩ := authorize_eq (alloc.vec.Vec.deref out) records contexts choices
+  obtain ⟨res, hres, hdr⟩ := check_auth_eq (alloc.vec.Vec.deref out) records contexts choices
     authenticated now generation
   refine ⟨res, hres, ?_⟩
-  rw [hdr, vec_deref_val, hd, Document.Doc.lower_authorize hv]
+  rw [hdr, vec_deref_val, hd, Document.Doc.lower_checkAuth hv]
 
 /-- A scoped document's verdict on the translated `lower_scoped`'s rules. -/
 theorem lower_scoped_allows {doc : rule_eval.document.Doc} {account : Slice Std.U8}
@@ -115,27 +115,27 @@ theorem lower_scoped_allows {doc : rule_eval.document.Doc} {account : Slice Std.
   rw [allows_eq, vec_deref_val, Document.Doc.lowerScoped_allows hv hd.symm]
 
 /-- Compile soundness for scoped documents through the translated
-`authorize`, with the same records. -/
-theorem lower_scoped_authorize {doc : rule_eval.document.Doc} {account : Slice Std.U8}
+`check_auth`, with the same records. -/
+theorem lower_scoped_check_auth {doc : rule_eval.document.Doc} {account : Slice Std.U8}
     {ex : Slice (alloc.vec.Vec Std.U8)} {gen : Std.U64} (hv : (denoteDoc doc).Valid)
     (hroom : ∀ r ∈ doc.rules.val, ArgsRoom r) {out : alloc.vec.Vec rule_eval.rule.Rule}
     (h : rule_eval.scoped.lower_scoped doc account ex gen = ok (.Ok out))
     (records : Slice rule_eval.cap.SpendRecord) (contexts : Slice rule_eval.context.Context)
     (choices : Slice Std.U32) (authenticated : Slice rule_eval.signer.Signer) (now : Std.U32)
     (generation : Std.U64) (ctl : Chain.Context → List Chain.Signer → Bool) :
-    ∃ res, rule_eval.authorize.authorize (alloc.vec.Vec.deref out) records contexts choices
+    ∃ res, rule_eval.authorize.check_auth (alloc.vec.Vec.deref out) records contexts choices
         authenticated now generation = ok res ∧
       (denoteAuthorized res).toOption =
-        (denoteDoc doc).authorize (bytesOf account.val) ctl (some (denoteU64 gen))
+        (denoteDoc doc).checkAuth (bytesOf account.val) ctl (some (denoteU64 gen))
           (records.val.map denoteRecord)
           (denoteAuthorization contexts choices authenticated now generation) := by
   obtain ⟨res', h', hd⟩ := lower_scoped_eq doc account ex gen hroom
   obtain rfl := Result.ok_injective (h.symm.trans h')
   simp only [denoteScoped] at hd
-  obtain ⟨res, hres, hdr⟩ := authorize_eq (alloc.vec.Vec.deref out) records contexts choices
+  obtain ⟨res, hres, hdr⟩ := check_auth_eq (alloc.vec.Vec.deref out) records contexts choices
     authenticated now generation
   refine ⟨res, hres, ?_⟩
-  rw [hdr, vec_deref_val, Document.Doc.lowerScoped_authorize hv hd.symm]
+  rw [hdr, vec_deref_val, Document.Doc.lowerScoped_checkAuth hv hd.symm]
 
 /-- The model's scoped lowering of what the translated `lower_scoped`
 accepted. -/
@@ -209,7 +209,7 @@ theorem lower_generation {doc : rule_eval.document.Doc} {account : Slice Std.U8}
   exact this
 
 /-- The containment chain on the translation: anything the translated
-`authorize` accepts under a grant derived by translated steps from the rules
+`check_auth` accepts under a grant derived by translated steps from the rules
 the translated `lower_scoped` returns for a valid scoped document, under the
 excluded set the translated `excluded` takes from the admin document, is
 allowed by the scoped document, touches neither the account nor a contract of
@@ -226,7 +226,7 @@ theorem chain {admin doc : rule_eval.document.Doc} {account : Slice Std.U8} {gen
     {records : Slice rule_eval.cap.SpendRecord} {contexts : Slice rule_eval.context.Context}
     {choices : Slice Std.U32} {authenticated : Slice rule_eval.signer.Signer} {now : Std.U32}
     {generation : Std.U64} {recs : alloc.vec.Vec rule_eval.cap.SpendRecord}
-    (ha : rule_eval.authorize.authorize grant records contexts choices authenticated now
+    (ha : rule_eval.authorize.check_auth grant records contexts choices authenticated now
       generation = ok (.Ok recs)) :
     (∀ c ∈ contexts.val, (denoteDoc doc).allows (bytesOf account.val) (denoteContext c)
         (denoteSigners authenticated.val) = true) ∧
@@ -239,7 +239,7 @@ theorem chain {admin doc : rule_eval.document.Doc} {account : Slice Std.U8} {gen
   simp only [vec_deref_val] at hmodel
   rw [hexd] at hmodel
   have hall := allows_all_of_narrower hd.derives.narrower contexts authenticated
-    (authorize_allows_all ha)
+    (check_auth_allows_all ha)
   rw [allows_all_eq, vec_deref_val] at hall
   have hall := (Chain.RuleSet.allowsAll_iff _ _ _).mp (Result.ok_injective hall)
   refine ⟨fun c hc => ?_, fun c hc contract function args he => ?_, fun hne => ?_⟩
@@ -250,14 +250,14 @@ theorem chain {admin doc : rule_eval.document.Doc} {account : Slice Std.U8} {gen
     exact (Document.Doc.lowerScoped_allows_excluded hmodel this).2
   · by_cases hg : generation = gen
     · exact hg
-    · exact absurd (authorize_contexts_nil_of_stale ha
+    · exact absurd (check_auth_contexts_nil_of_stale ha
         (hd.generation_eq fun r hr => lower_scoped_generation hroom h r (by simpa using hr))
         (Ne.symm hg)) hne
 
 /-- The chain through caps on the translation: every run of authorizations the
 grant accepts from empty records, the rules the translated `lower_scoped`
 returns accept from theirs, with each choice renumbered by `f`; and the
-translated `authorize` on those rules accepts exactly what the scoped document,
+translated `check_auth` on those rules accepts exactly what the scoped document,
 issued under the generation, accepts, with the same records. -/
 theorem chain_trace {doc : rule_eval.document.Doc} {account : Slice Std.U8}
     {ex : Slice (alloc.vec.Vec Std.U8)} {gen : Std.U64} (hv : (denoteDoc doc).Valid)
@@ -269,13 +269,24 @@ theorem chain_trace {doc : rule_eval.document.Doc} {account : Slice Std.U8}
       ∀ (records : Slice rule_eval.cap.SpendRecord) (contexts : Slice rule_eval.context.Context)
         (choices : Slice Std.U32) (authenticated : Slice rule_eval.signer.Signer) (now : Std.U32)
         (generation : Std.U64) (ctl : Chain.Context → List Chain.Signer → Bool),
-        ∃ res, rule_eval.authorize.authorize (alloc.vec.Vec.deref out) records contexts choices
+        ∃ res, rule_eval.authorize.check_auth (alloc.vec.Vec.deref out) records contexts choices
             authenticated now generation = ok res ∧
           (denoteAuthorized res).toOption =
-            (denoteDoc doc).authorize (bytesOf account.val) ctl (some (denoteU64 gen))
+            (denoteDoc doc).checkAuth (bytesOf account.val) ctl (some (denoteU64 gen))
               (records.val.map denoteRecord)
               (denoteAuthorization contexts choices authenticated now generation) :=
   ⟨hd.traceNarrower, fun records contexts choices authenticated now generation ctl =>
-    lower_scoped_authorize hv hroom h records contexts choices authenticated now generation ctl⟩
+    lower_scoped_check_auth hv hroom h records contexts choices authenticated now generation ctl⟩
+
+/-! ## Former names
+
+The names these theorems had before the evaluator's entry point was renamed
+`check_auth`, kept so that citations of them still resolve. -/
+
+@[deprecated lower_check_auth (since := "2026-11-08")]
+theorem lower_authorize : type_of% @lower_check_auth := @lower_check_auth
+
+@[deprecated lower_scoped_check_auth (since := "2026-11-08")]
+theorem lower_scoped_authorize : type_of% @lower_scoped_check_auth := @lower_scoped_check_auth
 
 end RuleCore.Extracted

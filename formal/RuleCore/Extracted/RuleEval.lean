@@ -2526,10 +2526,10 @@ def authorize.charge_all
   let out ← authorize.records_copy records
   authorize.charge_all_loop rules contexts choices now out 0#usize
 
-/-- [rule_eval::authorize::authorize]:
+/-- [rule_eval::authorize::check_auth]:
     Source: 'crates/rule-eval/src/authorize.rs', lines 239:0-263:1
     Visibility: public -/
-def authorize.authorize
+def authorize.check_auth
   (rules : Slice rule.Rule) (records : Slice cap.SpendRecord)
   (contexts : Slice context.Context) (choices : Slice Std.U32)
   (authenticated : Slice signer.Signer) (now : Std.U32) (generation : Std.U64)

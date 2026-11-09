@@ -1,4 +1,4 @@
-//! `rule-eval`'s `authorize` against every trace in
+//! `rule-eval`'s `check_auth` against every trace in
 //! `conformance/vectors/authorize`, or in the `authorize` directory under the
 //! one the `CONFORMANCE_VECTORS` environment variable names.
 

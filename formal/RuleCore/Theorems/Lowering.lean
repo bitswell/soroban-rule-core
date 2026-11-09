@@ -19,14 +19,14 @@ Without time, generation or caps:
   (`recoveryRule_allows`); with no recovery configured, exactly what the
   document allows.
 
-Through `authorize`, which adds the ledger, the generation and the caps:
+Through `checkAuth`, which adds the ledger, the generation and the caps:
 
-* `Doc.lower_authorize`: on every authorization, the admin document's lowering
-  accepts exactly when the document does (`Doc.authorize`) with the recovery
+* `Doc.lower_checkAuth`: on every authorization, the admin document's lowering
+  accepts exactly when the document does (`Doc.checkAuth`) with the recovery
   controller's check taken as `applyDocCheck`, every call to `apply_doc`, and
-  it returns the same records; `Doc.lower_authorize_of_recovery_none` drops the
+  it returns the same records; `Doc.lower_checkAuth_of_recovery_none` drops the
   controller check when no recovery is configured;
-* `Doc.authorize_mono`, `Doc.lower_authorize_of_check`: the recovery rule is an
+* `Doc.checkAuth_mono`, `Doc.lower_checkAuth_of_check`: the recovery rule is an
   over-approximation. Whatever the document accepts under a controller check
   that accepts only `apply_doc` calls, the lowering accepts too, with the same
   records.
@@ -257,7 +257,7 @@ theorem Doc.lastLedger_toNat {x : UInt32} (hx : 0 < x.toNat) : (lastLedger x).to
   have := x.toNat_lt
   omega
 
-/-- The first pass: the lowered rule chosen for a context passes `authorize`'s
+/-- The first pass: the lowered rule chosen for a context passes `checkAuth`'s
 checks exactly when the document's installed rule validates it. -/
 theorem Doc.checkChoice_lower {d : Doc} (hv : d.Valid) (acct : Bytes) (gen : Option UInt64)
     (a : Chain.Authorization) (x : Context × UInt32) :
@@ -408,14 +408,14 @@ theorem toOption_eq_of_iff {ε α : Type} {e : Except ε α} {o : Option α}
     | none => rfl
     | some x => exact absurd ((h x).mpr rfl) (by simp)
 
-theorem Doc.authorize_eq_some_iff (d : Doc) (acct : Bytes) (ctl : Context → List Signer → Bool)
+theorem Doc.checkAuth_eq_some_iff (d : Doc) (acct : Bytes) (ctl : Context → List Signer → Bool)
     (issued : Option UInt64) (records records' : List RuleCore.Cap.Record) (a : Chain.Authorization) :
-    d.authorize acct ctl issued records a = some records' ↔
+    d.checkAuth acct ctl issued records a = some records' ↔
       a.choices.length = a.contexts.length ∧ records.length = d.installed.length ∧
         (∀ x ∈ a.contexts.zip a.choices, d.validates acct ctl issued a x = true) ∧
         (∀ s ∈ a.auth, d.signerChosen a.choices s = true) ∧
         (a.contexts.zip a.choices).foldlM (d.charge a.now.toNat) records = some records' := by
-  unfold Doc.authorize
+  unfold Doc.checkAuth
   split <;> rename_i h
   · simp only [List.all_eq_true] at h
     constructor
@@ -432,13 +432,13 @@ theorem Doc.authorize_eq_some_iff (d : Doc) (acct : Bytes) (ctl : Context → Li
 `gen`) accept exactly when the document accepts with `issued := gen` and the
 recovery controller's check read as `applyDocCheck`, and they return the same
 records. -/
-theorem Doc.authorize_lowerAll {d : Doc} (hv : d.Valid) (acct : Bytes) (gen : Option UInt64)
+theorem Doc.checkAuth_lowerAll {d : Doc} (hv : d.Valid) (acct : Bytes) (gen : Option UInt64)
     (records : List RuleCore.Cap.Record) (a : Chain.Authorization) :
-    ((d.lowerRules acct gen ++ d.recoveryRules acct).authorize records a).toOption =
-      d.authorize acct applyDocCheck gen records a := by
+    ((d.lowerRules acct gen ++ d.recoveryRules acct).checkAuth records a).toOption =
+      d.checkAuth acct applyDocCheck gen records a := by
   apply toOption_eq_of_iff
   intro records'
-  rw [Chain.RuleSet.authorize, RuleCore.RuleSet.authorize_eq_ok_iff, Doc.authorize_eq_some_iff,
+  rw [Chain.RuleSet.checkAuth, RuleCore.RuleSet.checkAuth_eq_ok_iff, Doc.checkAuth_eq_some_iff,
     RuleCore.RuleSet.checkSigners_ok_iff]
   have hchosen : a.denote.chosen = (a.contexts.zip a.choices).map fun x => (x.1, x.2.toNat) := by
     simp [RuleCore.Authorization.chosen, Chain.Authorization.denote, List.zip_map_right]
@@ -450,21 +450,21 @@ theorem Doc.authorize_lowerAll {d : Doc} (hv : d.Valid) (acct : Bytes) (gen : Op
     forall_apply_eq_imp_iff₂, Doc.checkChoice_lower hv, Doc.signerChosen_lower]
   simp only [toOption_eq_some]
 
-/-- Compile soundness through `authorize`: on every authorization, the admin
+/-- Compile soundness through `checkAuth`: on every authorization, the admin
 document's lowering accepts exactly when the document accepts with the
 recovery controller's check read as `applyDocCheck`, with the same records. -/
-theorem Doc.lower_authorize {d : Doc} (hv : d.Valid) (acct : Bytes)
+theorem Doc.lower_checkAuth {d : Doc} (hv : d.Valid) (acct : Bytes)
     (records : List RuleCore.Cap.Record) (a : Chain.Authorization) :
-    ((d.lower acct).authorize records a).toOption =
-      d.authorize acct applyDocCheck none records a :=
-  Doc.authorize_lowerAll hv acct none records a
+    ((d.lower acct).checkAuth records a).toOption =
+      d.checkAuth acct applyDocCheck none records a :=
+  Doc.checkAuth_lowerAll hv acct none records a
 
 /-- A document that configures no recovery never reads the controller's
 check. -/
-theorem Doc.authorize_of_recovery_none {d : Doc} (hr : d.recovery = none) (acct : Bytes)
+theorem Doc.checkAuth_of_recovery_none {d : Doc} (hr : d.recovery = none) (acct : Bytes)
     (ctl ctl' : Context → List Signer → Bool) (issued : Option UInt64)
     (records : List RuleCore.Cap.Record) (a : Chain.Authorization) :
-    d.authorize acct ctl issued records a = d.authorize acct ctl' issued records a := by
+    d.checkAuth acct ctl issued records a = d.checkAuth acct ctl' issued records a := by
   have hv : ∀ x, d.validates acct ctl issued a x = d.validates acct ctl' issued a x := by
     intro x
     simp only [Doc.validates]
@@ -477,24 +477,24 @@ theorem Doc.authorize_of_recovery_none {d : Doc} (hr : d.recovery = none) (acct 
         have hm := List.mem_of_getElem? hj
         simp [Doc.installed, hr] at hm
   have hv' : d.validates acct ctl issued a = d.validates acct ctl' issued a := funext hv
-  simp only [Doc.authorize, hv']
+  simp only [Doc.checkAuth, hv']
 
 /-- With no recovery configured, the admin document's lowering accepts exactly
 what the document accepts, whatever the controller's check, with the same
 records. -/
-theorem Doc.lower_authorize_of_recovery_none {d : Doc} (hv : d.Valid) (hr : d.recovery = none)
+theorem Doc.lower_checkAuth_of_recovery_none {d : Doc} (hv : d.Valid) (hr : d.recovery = none)
     (acct : Bytes) (ctl : Context → List Signer → Bool) (records : List RuleCore.Cap.Record)
     (a : Chain.Authorization) :
-    ((d.lower acct).authorize records a).toOption = d.authorize acct ctl none records a := by
-  rw [Doc.lower_authorize hv, Doc.authorize_of_recovery_none hr]
+    ((d.lower acct).checkAuth records a).toOption = d.checkAuth acct ctl none records a := by
+  rw [Doc.lower_checkAuth hv, Doc.checkAuth_of_recovery_none hr]
 
 /-- The document's acceptance only grows with the controller's check. -/
-theorem Doc.authorize_mono {d : Doc} {acct : Bytes} {ctl ctl' : Context → List Signer → Bool}
+theorem Doc.checkAuth_mono {d : Doc} {acct : Bytes} {ctl ctl' : Context → List Signer → Bool}
     (hctl : ∀ c auth, ctl c auth = true → ctl' c auth = true) {issued : Option UInt64}
     {records records' : List RuleCore.Cap.Record} {a : Chain.Authorization}
-    (h : d.authorize acct ctl issued records a = some records') :
-    d.authorize acct ctl' issued records a = some records' := by
-  rw [Doc.authorize_eq_some_iff] at h ⊢
+    (h : d.checkAuth acct ctl issued records a = some records') :
+    d.checkAuth acct ctl' issued records a = some records' := by
+  rw [Doc.checkAuth_eq_some_iff] at h ⊢
   obtain ⟨h1, h2, h3, h4, h5⟩ := h
   refine ⟨h1, h2, fun x hx => ?_, h4, h5⟩
   have := h3 x hx
@@ -512,16 +512,42 @@ theorem Doc.authorize_mono {d : Doc} {acct : Bytes} {ctl ctl' : Context → List
 /-- The recovery rule over-approximates: every authorization the document
 accepts under a recovery controller whose check accepts only calls to
 `apply_doc`, the admin document's lowering accepts, with the same records. -/
-theorem Doc.lower_authorize_of_check {d : Doc} (hv : d.Valid) {acct : Bytes}
+theorem Doc.lower_checkAuth_of_check {d : Doc} (hv : d.Valid) {acct : Bytes}
     {ctl : Context → List Signer → Bool}
     (hctl : ∀ c auth, ctl c auth = true → applyDocCheck c auth = true)
     {records records' : List RuleCore.Cap.Record} {a : Chain.Authorization}
-    (h : d.authorize acct ctl none records a = some records') :
-    (d.lower acct).authorize records a = .ok records' := by
-  have := Doc.lower_authorize hv acct records a
-  rw [Doc.authorize_mono hctl h] at this
-  cases e : (d.lower acct).authorize records a with
+    (h : d.checkAuth acct ctl none records a = some records') :
+    (d.lower acct).checkAuth records a = .ok records' := by
+  have := Doc.lower_checkAuth hv acct records a
+  rw [Doc.checkAuth_mono hctl h] at this
+  cases e : (d.lower acct).checkAuth records a with
   | ok r => rw [e] at this; cases this; rfl
   | error err => rw [e] at this; cases this
+
+/-! ## Former names
+
+The names these theorems had before the evaluator's entry point was renamed
+`check_auth`, kept so that citations of them still resolve. -/
+
+@[deprecated Doc.checkAuth_eq_some_iff (since := "2026-11-08")]
+theorem Doc.authorize_eq_some_iff : type_of% @Doc.checkAuth_eq_some_iff := @Doc.checkAuth_eq_some_iff
+
+@[deprecated Doc.checkAuth_lowerAll (since := "2026-11-08")]
+theorem Doc.authorize_lowerAll : type_of% @Doc.checkAuth_lowerAll := @Doc.checkAuth_lowerAll
+
+@[deprecated Doc.lower_checkAuth (since := "2026-11-08")]
+theorem Doc.lower_authorize : type_of% @Doc.lower_checkAuth := @Doc.lower_checkAuth
+
+@[deprecated Doc.checkAuth_of_recovery_none (since := "2026-11-08")]
+theorem Doc.authorize_of_recovery_none : type_of% @Doc.checkAuth_of_recovery_none := @Doc.checkAuth_of_recovery_none
+
+@[deprecated Doc.lower_checkAuth_of_recovery_none (since := "2026-11-08")]
+theorem Doc.lower_authorize_of_recovery_none : type_of% @Doc.lower_checkAuth_of_recovery_none := @Doc.lower_checkAuth_of_recovery_none
+
+@[deprecated Doc.checkAuth_mono (since := "2026-11-08")]
+theorem Doc.authorize_mono : type_of% @Doc.checkAuth_mono := @Doc.checkAuth_mono
+
+@[deprecated Doc.lower_checkAuth_of_check (since := "2026-11-08")]
+theorem Doc.lower_authorize_of_check : type_of% @Doc.lower_checkAuth_of_check := @Doc.lower_checkAuth_of_check
 
 end RuleCore.Document

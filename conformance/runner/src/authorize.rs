@@ -1,16 +1,16 @@
-//! Checks `rule-eval`'s `authorize` against the authorization traces.
+//! Checks `rule-eval`'s `check_auth` against the authorization traces.
 //!
 //! An authorization trace (see `conformance/README.md`) holds a rule set, the
 //! records it starts from, and authorizations, each with the outcome the Lean
 //! model computes for it on the records the authorizations before it left.
-//! [`check`] runs the authorizations through [`authorize`], keeping the
+//! [`check`] runs the authorizations through [`check_auth`], keeping the
 //! records unchanged after a refusal, and reports the first outcome that
 //! differs.
 
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use rule_eval::{CapError, Refusal, SpendRecord, authorize};
+use rule_eval::{CapError, Refusal, SpendRecord, check_auth};
 use serde::Deserialize;
 
 use crate::caps::{JsonRecord, decode_record};
@@ -106,7 +106,7 @@ pub fn load_dir(dir: &Path) -> Result<Vec<(PathBuf, Trace)>, String> {
     Ok(out)
 }
 
-/// The name `conformance/README.md` gives a refusal of `authorize`.
+/// The name `conformance/README.md` gives a refusal of `check_auth`.
 #[must_use]
 pub fn refusal_of(r: &Refusal) -> JsonRefusal {
     match r {
@@ -168,7 +168,7 @@ pub fn check(trace: &Trace) -> Result<(), String> {
             .collect::<Result<Vec<_>, _>>()?;
         let authenticated = decode_signers(&a.authenticated)?;
         let generation: u64 = decode_decimal(&a.generation)?;
-        let got = authorize(
+        let got = check_auth(
             &rules,
             &records,
             &batch,

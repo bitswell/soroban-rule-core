@@ -11,7 +11,7 @@ document and the generation it is issued in, and a list of authorizations.
 
 * the rules the document lowers to (`Doc.lower`, or `Doc.lowerScoped` under
   the admin document's `Doc.excluded` set), or the scoped lowering's refusal;
-* every authorization with the document's own verdict on it (`Doc.authorize`):
+* every authorization with the document's own verdict on it (`Doc.checkAuth`):
   the records after it, one per installed rule, or a refusal, each on the
   records the authorizations before it left.
 
@@ -134,7 +134,7 @@ def authorizationsJson (t : Trace) : List RuleCore.Cap.Record → List Authoriza
         ("choices", .arr (a.choices.map encodeIndex)), ("authenticated", encodeSigners a.auth),
         ("now", .num a.now.toNat), ("generation", .str (toString a.generation.toNat)),
         ("expected", expected)]
-    match t.doc.authorize t.account applyDocCheck t.issued records a with
+    match t.doc.checkAuth t.account applyDocCheck t.issued records a with
     | some records' =>
       entry (tagged "ok" (.arr (records'.map Caps.encodeRecord))) ::
         authorizationsJson t records' rest

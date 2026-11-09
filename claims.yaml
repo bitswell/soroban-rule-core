@@ -450,7 +450,7 @@ claims:
       signer removed with the threshold kept; a wildcard matching an unnamed
       function, one function removed from it and the wildcard restricted to a
       list; argIn and argStrPrefix on matching and failing arguments, a
-      symbol among them; authorize at a rule's last ledger, one ledger later,
+      symbol among them; check_auth at a rule's last ledger, one ledger later,
       in another generation and with a signer outside the chosen rule; allows
       ignoring time and generation; a last ledger moved later refused and
       moved earlier.
@@ -587,25 +587,25 @@ claims:
       - theorem: RuleCore.Cap.Params.narrower_trans
       - theorem: RuleCore.Cap.check_of_narrower_suffix
 
-  # Caps on rules and authorize (formal/RuleCore/Model/Authorize.lean,
+  # Caps on rules and check_auth (formal/RuleCore/Model/Authorize.lean,
   # theorems in RuleCore and RuleCore.Chain).
 
   - id: authorize.sound
     claim: >-
-      An authorization authorize accepts has one choice per context and one
+      An authorization check_auth accepts has one choice per context and one
       record per rule, every context is allowed by the rule chosen for it
       under the authorization's signers, and so the rule set allows the whole
       batch under them: the stateful check is sound with respect to
       allowsAll.
     status: proven
     evidence:
-      - theorem: RuleCore.RuleSet.authorize_eq_ok_iff
+      - theorem: RuleCore.RuleSet.checkAuth_eq_ok_iff
       - theorem: RuleCore.RuleSet.checkChoice_ok_iff
       - theorem: RuleCore.RuleSet.checkSigners_ok_iff
       - theorem: RuleCore.RuleSet.signerChosen_iff
-      - theorem: RuleCore.RuleSet.authorize_chosen
-      - theorem: RuleCore.RuleSet.authorize_allowsAll
-      - theorem: RuleCore.Chain.RuleSet.authorize_allowsAll
+      - theorem: RuleCore.RuleSet.checkAuth_chosen
+      - theorem: RuleCore.RuleSet.checkAuth_allowsAll
+      - theorem: RuleCore.Chain.RuleSet.checkAuth_allowsAll
       - theorem: RuleCore.Authorization.map_fst_chosen
       - theorem: RuleCore.forM_except_ok_iff
 
@@ -617,11 +617,11 @@ claims:
       whose root that rule accepts. Failed entries contribute no charges.
     status: proven
     evidence:
-      - theorem: RuleCore.RuleSet.authorize_chosen_root
-      - theorem: RuleCore.RuleSet.authorize_allowsBatch
+      - theorem: RuleCore.RuleSet.checkAuth_chosen_root
+      - theorem: RuleCore.RuleSet.checkAuth_allowsBatch
       - theorem: RuleCore.RuleSet.accepts_allowsBatch
       - theorem: RuleCore.RuleSet.mem_charged_root
-      - theorem: RuleCore.Chain.RuleSet.authorize_exactRoot
+      - theorem: RuleCore.Chain.RuleSet.checkAuth_exactRoot
       - theorem: RuleCore.RuleSet.spent_eq_recorded
       - theorem: RuleCore.RuleSet.step_of_error
 
@@ -655,8 +655,8 @@ claims:
       - theorem: RuleCore.Equiv.allows_batch_eq
       - theorem: RuleCore.Equiv.auth_root_copy_eq
       - theorem: RuleCore.Equiv.denoteAuthRoot_injective
-      - theorem: RuleCore.Equiv.authorize_eq
-      - theorem: RuleCore.Extracted.authorize_allows_batch
+      - theorem: RuleCore.Equiv.check_auth_eq
+      - theorem: RuleCore.Extracted.check_auth_allows_batch
       - theorem: RuleCore.Extracted.accepts_allows_batch
       - theorem: RuleCore.Extracted.charged_root
       - theorem: RuleCore.Extracted.runAuthorizations_eq
@@ -689,7 +689,7 @@ claims:
     status: proven
     evidence:
       - theorem: RuleCore.RuleSet.step_of_error
-      - theorem: RuleCore.RuleSet.authorize_length
+      - theorem: RuleCore.RuleSet.checkAuth_length
       - theorem: RuleCore.RuleSet.charge_length
       - theorem: RuleCore.RuleSet.foldlM_charge_length
 
@@ -768,8 +768,8 @@ claims:
       - theorem: RuleCore.Chain.RuleSet.attenuate_traceNarrower
       - theorem: RuleCore.Chain.RuleSet.attenuateAll_traceNarrower
       - theorem: RuleCore.RuleSet.Refines.traceNarrower
-      - theorem: RuleCore.RuleSet.Refines.authorize
-      - theorem: RuleCore.RuleSet.Refines.authorizeAll
+      - theorem: RuleCore.RuleSet.Refines.checkAuth
+      - theorem: RuleCore.RuleSet.Refines.checkAuthAll
       - theorem: RuleCore.RuleSet.Refines.charge
       - theorem: RuleCore.RuleSet.Refines.foldlM_charge
       - theorem: RuleCore.RuleSet.RecordsRel.empty
@@ -793,7 +793,7 @@ claims:
       - theorem: RuleCore.Chain.Attenuation.source_denote_dropRule
       - theorem: RuleCore.Chain.Attenuation.source_denote_of_ne
       - theorem: RuleCore.Chain.RuleSet.emptyRecords_denote
-      - theorem: RuleCore.Chain.RuleSet.authorizeAll_denote
+      - theorem: RuleCore.Chain.RuleSet.checkAuthAll_denote
 
   - id: authorize.caps-valid
     claim: >-
@@ -817,11 +817,11 @@ claims:
       ledger. allows and allowsAll read no last ledger.
     status: proven
     evidence:
-      - theorem: RuleCore.RuleSet.authorize_current
-      - theorem: RuleCore.RuleSet.authorize_validUntil
+      - theorem: RuleCore.RuleSet.checkAuth_current
+      - theorem: RuleCore.RuleSet.checkAuth_validUntil
       - theorem: RuleCore.Rule.expired_eq_false_iff
       - theorem: RuleCore.Authorization.map_snd_chosen
-      - theorem: RuleCore.Chain.RuleSet.authorize_validUntil
+      - theorem: RuleCore.Chain.RuleSet.checkAuth_validUntil
 
   - id: authorize.generation
     claim: >-
@@ -832,13 +832,13 @@ claims:
       contexts. Rules without a generation are unaffected.
     status: proven
     evidence:
-      - theorem: RuleCore.RuleSet.authorize_generation
-      - theorem: RuleCore.RuleSet.authorize_not_chosen_of_stale
-      - theorem: RuleCore.RuleSet.authorize_contexts_nil_of_stale
+      - theorem: RuleCore.RuleSet.checkAuth_generation
+      - theorem: RuleCore.RuleSet.checkAuth_not_chosen_of_stale
+      - theorem: RuleCore.RuleSet.checkAuth_contexts_nil_of_stale
       - theorem: RuleCore.Rule.stale_eq_false_iff
-      - theorem: RuleCore.Chain.RuleSet.authorize_generation
-      - theorem: RuleCore.Chain.RuleSet.authorize_not_chosen_of_stale
-      - theorem: RuleCore.Chain.RuleSet.authorize_contexts_nil_of_stale
+      - theorem: RuleCore.Chain.RuleSet.checkAuth_generation
+      - theorem: RuleCore.Chain.RuleSet.checkAuth_not_chosen_of_stale
+      - theorem: RuleCore.Chain.RuleSet.checkAuth_contexts_nil_of_stale
 
   - id: authorize.steps-keep-generation
     claim: >-
@@ -863,8 +863,8 @@ claims:
       such check, and only refuse more by its absence.
     status: proven
     evidence:
-      - theorem: RuleCore.RuleSet.authorize_signers
-      - theorem: RuleCore.Chain.RuleSet.authorize_signers
+      - theorem: RuleCore.RuleSet.checkAuth_signers
+      - theorem: RuleCore.Chain.RuleSet.checkAuth_signers
 
   # Budgets on the delegation tree (formal/RuleCore/Model/Budget.lean,
   # theorems in RuleCore.Budget).
@@ -1029,7 +1029,7 @@ claims:
 
   - id: document.compile-soundness-authorize
     claim: >-
-      Through authorize, for every valid document and every authorization:
+      Through check_auth, for every valid document and every authorization:
       the admin document's lowering accepts exactly when the document's own
       check accepts (one rule per context, each live at the ledger, in the
       issue's generation when it has one, and allowing its context; every
@@ -1040,11 +1040,11 @@ claims:
       controller's check.
     status: proven
     evidence:
-      - theorem: RuleCore.Document.Doc.lower_authorize
-      - theorem: RuleCore.Document.Doc.lower_authorize_of_recovery_none
-      - theorem: RuleCore.Document.Doc.authorize_lowerAll
-      - theorem: RuleCore.Document.Doc.authorize_of_recovery_none
-      - theorem: RuleCore.Document.Doc.authorize_eq_some_iff
+      - theorem: RuleCore.Document.Doc.lower_checkAuth
+      - theorem: RuleCore.Document.Doc.lower_checkAuth_of_recovery_none
+      - theorem: RuleCore.Document.Doc.checkAuth_lowerAll
+      - theorem: RuleCore.Document.Doc.checkAuth_of_recovery_none
+      - theorem: RuleCore.Document.Doc.checkAuth_eq_some_iff
       - theorem: RuleCore.Document.Doc.checkChoice_lower
       - theorem: RuleCore.Document.Doc.signerChosen_lower
       - theorem: RuleCore.Document.Doc.charge_lower
@@ -1066,14 +1066,14 @@ claims:
     status: proven
     evidence:
       - theorem: RuleCore.Document.recoveryRule_allows
-      - theorem: RuleCore.Document.Doc.authorize_mono
-      - theorem: RuleCore.Document.Doc.lower_authorize_of_check
+      - theorem: RuleCore.Document.Doc.checkAuth_mono
+      - theorem: RuleCore.Document.Doc.lower_checkAuth_of_check
 
   - id: scoped.compile-soundness
     claim: >-
       A scoped document's lowering, when it is not refused, is the document's
       rules lowered with the generation, and for a valid scoped document it
-      allows exactly what the document allows and, through authorize,
+      allows exactly what the document allows and, through check_auth,
       accepts exactly what the document issued under that generation accepts,
       with the same records.
     status: proven
@@ -1081,7 +1081,7 @@ claims:
       - theorem: RuleCore.Document.Doc.lowerScoped_eq_ok
       - theorem: RuleCore.Document.Doc.lowerRules_eq_append
       - theorem: RuleCore.Document.Doc.lowerScoped_allows
-      - theorem: RuleCore.Document.Doc.lowerScoped_authorize
+      - theorem: RuleCore.Document.Doc.lowerScoped_checkAuth
 
   - id: scoped.exclusion
     claim: >-
@@ -1111,16 +1111,16 @@ claims:
     evidence:
       - theorem: RuleCore.Document.Doc.lowerScoped_generation
       - theorem: RuleCore.Document.Doc.lower_generation
-      - theorem: RuleCore.Document.RuleSet.authorize_generation_none
+      - theorem: RuleCore.Document.RuleSet.checkAuth_generation_none
       - theorem: RuleCore.Document.Account.step_address
       - theorem: RuleCore.Document.Account.run_address
       - theorem: RuleCore.Document.Account.run_generation
       - theorem: RuleCore.Document.Account.issued_stale
-      - theorem: RuleCore.Document.Account.adminRules_authorize_generation
+      - theorem: RuleCore.Document.Account.adminRules_checkAuth_generation
 
   - id: chain.containment
     claim: >-
-      The containment chain: anything authorize accepts under a grant
+      The containment chain: anything check_auth accepts under a grant
       attenuated from the rules a valid scoped document was issued as is
       allowed by that scoped document, touches neither the account nor its
       recovery controller, ZK adapter or pool, and is made in the generation
@@ -1456,8 +1456,8 @@ claims:
 
   - id: equiv.authorize
     claim: >-
-      On every input, the translated authorize returns ok of the chain
-      model's authorize on the denotations, every refusal included, so it
+      On every input, the translated check_auth returns ok of the chain
+      model's checkAuth on the denotations, every refusal included, so it
       terminates and never panics; its first pass is the model's forM of
       checkChoice, expiry and generation included, its second the model's
       check that every authenticated signer is a signer of a chosen rule, and
@@ -1467,7 +1467,7 @@ claims:
     status: proven
     assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel, trusted.denotations]
     evidence:
-      - theorem: RuleCore.Equiv.authorize_eq
+      - theorem: RuleCore.Equiv.check_auth_eq
       - theorem: RuleCore.Equiv.check_choices_loop_eq
       - theorem: RuleCore.Equiv.expired_eq
       - theorem: RuleCore.Equiv.stale_eq
@@ -1486,7 +1486,7 @@ claims:
 
   - id: equiv.authorize-denotations-injective
     claim: >-
-      The denotations of a cap, of a refusal and of authorize's result are
+      The denotations of a cap, of a refusal and of check_auth's result are
       injective.
     status: proven
     evidence:
@@ -1806,8 +1806,8 @@ claims:
 
   - id: extracted.authorize
     claim: >-
-      An authorize that returns Ok means the translated allows_all accepts the
-      same contexts under the same signers. A run of the translated authorize,
+      A check_auth that returns Ok means the translated allows_all accepts the
+      same contexts under the same signers. A run of the translated check_auth,
       keeping the records after a refusal, returns ok of records denoting the
       model's run and accepts a run exactly when the model does; from empty
       records, every window of a capped rule's spends sums to at most its
@@ -1816,10 +1816,10 @@ claims:
     status: proven
     assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel, trusted.denotations]
     evidence:
-      - theorem: RuleCore.Extracted.authorize_allows_all
+      - theorem: RuleCore.Extracted.check_auth_allows_all
       - theorem: RuleCore.Extracted.runAuthorizations_eq
       - theorem: RuleCore.Extracted.runAuthorizations_of_err
-      - theorem: RuleCore.Extracted.authorizeAll_eq
+      - theorem: RuleCore.Extracted.checkAuthAll_eq
       - theorem: RuleCore.Extracted.accepts_iff
       - theorem: RuleCore.Extracted.runAuthorizations_window
       - theorem: RuleCore.Extracted.runAuthorizations_window_le_limit
@@ -1829,7 +1829,7 @@ claims:
   - id: extracted.trace-narrowing
     claim: >-
       Each translated attenuation step, and every chain of them, is narrowing
-      as trace inclusion on the translated authorize: every run the derived
+      as trace inclusion on the translated check_auth: every run the derived
       rule set accepts from its empty records, the root accepts from its own,
       with each choice renumbered by the map the steps induce, for every
       renumbered run whose choices are u32 values.
@@ -1846,7 +1846,7 @@ claims:
 
   - id: extracted.expiry-generation-signers
     claim: >-
-      An authorize that returns Ok chose no rule whose last ledger is before
+      A check_auth that returns Ok chose no rule whose last ledger is before
       now and no rule issued under a generation other than the current one,
       so a rule issued under g authorizes nothing once the generation is not
       g and a rule set issued under g accepts only an empty batch; and every
@@ -1856,11 +1856,11 @@ claims:
     status: proven
     assumes: [trusted.rustc, trusted.charon, trusted.aeneas, trusted.aeneas-result-loop, trusted.aeneas-library-items, trusted.lean-kernel, trusted.denotations]
     evidence:
-      - theorem: RuleCore.Extracted.authorize_valid_until
-      - theorem: RuleCore.Extracted.authorize_generation
-      - theorem: RuleCore.Extracted.authorize_not_chosen_of_stale
-      - theorem: RuleCore.Extracted.authorize_contexts_nil_of_stale
-      - theorem: RuleCore.Extracted.authorize_signers
+      - theorem: RuleCore.Extracted.check_auth_valid_until
+      - theorem: RuleCore.Extracted.check_auth_generation
+      - theorem: RuleCore.Extracted.check_auth_not_chosen_of_stale
+      - theorem: RuleCore.Extracted.check_auth_contexts_nil_of_stale
+      - theorem: RuleCore.Extracted.check_auth_signers
       - theorem: RuleCore.Extracted.StepAlong.generation
       - theorem: RuleCore.Extracted.DerivesAlong.generation
       - theorem: RuleCore.Extracted.DerivesAlong.generation_eq
@@ -1902,7 +1902,7 @@ claims:
       On the translated functions: for a valid document, the translated
       allows on the rules the translated lower returns gives the document's
       verdict, or the recovery rule's, and exactly the document's with no
-      recovery configured; the translated authorize on those rules accepts
+      recovery configured; the translated check_auth on those rules accepts
       exactly what the document accepts, with the same records; the same for
       a scoped document the translated lower_scoped accepts; no rule set the
       translated lower_scoped returns, nor any rule set translated steps
@@ -1914,9 +1914,9 @@ claims:
     evidence:
       - theorem: RuleCore.Extracted.lower_allows
       - theorem: RuleCore.Extracted.lower_allows_of_recovery_none
-      - theorem: RuleCore.Extracted.lower_authorize
+      - theorem: RuleCore.Extracted.lower_check_auth
       - theorem: RuleCore.Extracted.lower_scoped_allows
-      - theorem: RuleCore.Extracted.lower_scoped_authorize
+      - theorem: RuleCore.Extracted.lower_scoped_check_auth
       - theorem: RuleCore.Extracted.lower_scoped_model
       - theorem: RuleCore.Extracted.lower_scoped_allows_excluded
       - theorem: RuleCore.Extracted.derives_allows_excluded
@@ -1926,7 +1926,7 @@ claims:
   - id: extracted.chain
     claim: >-
       The containment chain on the translated functions: anything the
-      translated authorize accepts under a grant translated steps derive from
+      translated check_auth accepts under a grant translated steps derive from
       the rules the translated lower_scoped returns for a valid scoped
       document, under the excluded set the translated excluded takes from the
       admin document, is allowed by the scoped document, touches neither the
@@ -2054,7 +2054,7 @@ claims:
 
   - id: trusted.document-meaning
     claim: >-
-      The document's meaning (Doc.allows and Doc.authorize, with u32Xdr and
+      The document's meaning (Doc.allows and Doc.checkAuth, with u32Xdr and
       the recovery controller's check as a parameter) says what the rules
       Perch's smart account installs for a document do on OpenZeppelin's
       smart account; it is part of the specification, written from Perch's
@@ -2228,7 +2228,7 @@ claims:
 
   - id: tested.authorize
     claim: >-
-      authorize agrees with a plain Rust reading on 146,544 inputs (every rule
+      check_auth agrees with a plain Rust reading on 146,544 inputs (every rule
       set of up to two rules from five capped and uncapped rules and an
       expiring wildcard issued under a generation, 142 batches with their
       choices, three signer lists, two ledgers, two generations and two
@@ -2244,7 +2244,7 @@ claims:
       batch, and what each cap step builds and refuses.
     status: tested
     evidence:
-      - test: rule-eval/authorize::authorize_agrees_with_the_reference_reading
+      - test: rule-eval/authorize::check_auth_agrees_with_the_reference_reading
       - test: rule-eval/authorize::every_short_run_stays_within_every_window
       - test: rule-eval/authorize::every_step_is_trace_inclusion
       - test: rule-eval/authorize::choices_and_records_must_match_their_lists
@@ -2307,7 +2307,7 @@ claims:
       one condition per predicate in order, the u32 XDR, string-in without
       values over 256 bytes, transfer only with the amount condition and the
       cap for a capped rule, and the recovery rule last; through allows and
-      authorize, the lowered rules give the verdicts Perch's probes measured
+      check_auth, the lowered rules give the verdicts Perch's probes measured
       on OpenZeppelin's smart account (a capped rule listing approve, a capped
       rule without functions, an extra signer, not-after-ledger at its
       boundary, an over-long string-in value, a constraint-free rule,
@@ -2397,7 +2397,7 @@ claims:
 
   - id: conformance.authorize-agrees
     claim: >-
-      rule-eval's authorize reproduces every outcome and record of every
+      rule-eval's check_auth reproduces every outcome and record of every
       authorization trace; the traces cover every refusal, expired,
       stale-generation and unauthorized-signer ones included, accepted
       authorizations, one rule charged twice in a batch, eviction, capped and
@@ -2429,7 +2429,7 @@ claims:
   - id: conformance.documents-agree
     claim: >-
       rule-eval's lower, lower_scoped and excluded build the rules every
-      document trace holds, or refuse as it does, and authorize reaches the
+      document trace holds, or refuse as it does, and check_auth reaches the
       document's verdict on every authorization, with the same records; the
       traces are valid documents Perch's validation accepts, generated with
       their verdicts from the document's meaning, and cover admin and scoped
@@ -2931,7 +2931,7 @@ claims:
 
   - id: unproven.openzeppelin-authorization
     claim: >-
-      authorize checks what OpenZeppelin's do_check_auth checks of the rule
+      check_auth checks what OpenZeppelin's do_check_auth checks of the rule
       choice and the spending-limit policy, at the theahaco fork commit Perch
       pins: one rule per context aligned by index, every context validated
       before any policy is enforced, and each rule's spending record charged
@@ -2940,7 +2940,7 @@ claims:
     status: unproven
     evidence:
       - file: ARCHITECTURE.md
-        contains: "`authorize` keeps that order"
+        contains: "`check_auth` keeps that order"
 
   - id: unproven.openzeppelin-spending-limit-metering
     claim: >-
@@ -2957,7 +2957,7 @@ claims:
 
   - id: unproven.openzeppelin-expiry-and-signers
     claim: >-
-      authorize refuses an expired rule exactly where OpenZeppelin's
+      check_auth refuses an expired rule exactly where OpenZeppelin's
       get_validated_context_by_id refuses valid_until < ledger, and refuses an
       authenticated signer outside the chosen rules where do_check_auth
       refuses UnauthorizedSigner, at the theahaco fork commit Perch pins; and
@@ -2974,7 +2974,7 @@ claims:
   - id: unproven.generation-counter
     claim: >-
       Perch's account keeps a generation that advances only when a recovery
-      completes, passes it to authorize, and issues scoped documents with
+      completes, passes it to check_auth, and issues scoped documents with
       lower_scoped under the excluded set of its current admin document. The
       account model of that counter (RuleCore.Document.Account) and every
       theorem about it are proven; Perch at dff2a73 has no scoped documents,
@@ -2986,7 +2986,7 @@ claims:
 
   - id: unproven.perch-meaning
     claim: >-
-      The document's meaning, Doc.allows and Doc.authorize, is what the rules
+      The document's meaning, Doc.allows and Doc.checkAuth, is what the rules
       Perch's smart account installs for a document (Perch dff2a73) do on
       OpenZeppelin's smart account (theahaco/stellar-contracts-OZ 33726766),
       apart from the recovery controller's own check, which it takes as a

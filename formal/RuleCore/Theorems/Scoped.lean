@@ -9,9 +9,9 @@ Scoped lowering:
 * `Doc.lowerScoped_eq_ok`: what an accepted scoped lowering is: no recovery
   configured, no rule on the account or the excluded set, and the document's
   rules lowered with the generation.
-* `Doc.lowerScoped_allows`, `Doc.lowerScoped_authorize`: compile soundness for
+* `Doc.lowerScoped_allows`, `Doc.lowerScoped_checkAuth`: compile soundness for
   scoped documents. The scoped lowering allows exactly what the document
-  allows, and through `authorize` accepts exactly what the document accepts
+  allows, and through `checkAuth` accepts exactly what the document accepts
   issued under that generation, with the same records.
 
 Exclusion:
@@ -27,18 +27,18 @@ Generation:
 
 * `Doc.lowerScoped_generation`, `Doc.lower_generation`: every scoped rule
   carries the generation it was issued under; every admin rule carries none.
-* `RuleSet.authorize_generation_none`: a rule set whose rules carry no
+* `RuleSet.checkAuth_generation_none`: a rule set whose rules carry no
   generation authorizes the same in every generation.
 * `Account.run_address`, `Account.run_generation`: a run keeps the account's
   address, and its generation advances by exactly the recoveries it completes.
 * `Account.issued_stale`: after a run that completes a recovery, a grant
   attenuated from a scoped document issued before it authorizes nothing.
-* `Account.adminRules_authorize_generation`: the admin rules authorize the same
+* `Account.adminRules_checkAuth_generation`: the admin rules authorize the same
   whatever the generation.
 
 The chain:
 
-* `Account.chain`: anything `authorize` accepts under a grant attenuated from
+* `Account.chain`: anything `checkAuth` accepts under a grant attenuated from
   the rules a scoped document was issued as is allowed by that scoped
   document, touches neither the account nor its recovery controller, ZK
   adapter or pool, and is made in the generation the document was issued
@@ -86,17 +86,17 @@ theorem Doc.lowerScoped_allows {d : Doc} (hv : d.Valid) {acct : Bytes} {ex : Lis
   obtain ⟨-, -, rfl⟩ := Doc.lowerScoped_eq_ok h
   exact Doc.lowerRules_allows hv acct (some gen) c auth
 
-/-- Compile soundness for scoped documents through `authorize`: on every
+/-- Compile soundness for scoped documents through `checkAuth`: on every
 authorization, a scoped document's lowering accepts exactly when the
 document, issued under the generation, accepts, with the same records. -/
-theorem Doc.lowerScoped_authorize {d : Doc} (hv : d.Valid) {acct : Bytes} {ex : List Bytes}
+theorem Doc.lowerScoped_checkAuth {d : Doc} (hv : d.Valid) {acct : Bytes} {ex : List Bytes}
     {gen : UInt64} {rs : Chain.RuleSet} (h : d.lowerScoped acct ex gen = .ok rs)
     (ctl : Context → List Signer → Bool) (records : List RuleCore.Cap.Record)
     (a : Chain.Authorization) :
-    (rs.authorize records a).toOption = d.authorize acct ctl (some gen) records a := by
+    (rs.checkAuth records a).toOption = d.checkAuth acct ctl (some gen) records a := by
   obtain ⟨hr, -, rfl⟩ := Doc.lowerScoped_eq_ok h
-  rw [Doc.lowerRules_eq_append hr, Doc.authorize_lowerAll hv,
-    Doc.authorize_of_recovery_none hr]
+  rw [Doc.lowerRules_eq_append hr, Doc.checkAuth_lowerAll hv,
+    Doc.checkAuth_of_recovery_none hr]
 
 /-! ## Exclusion -/
 
@@ -177,10 +177,10 @@ theorem Doc.lower_generation (d : Doc) (acct : Bytes) : ∀ r ∈ d.lower acct, 
 
 /-- A rule set whose rules carry no generation authorizes the same in every
 generation. -/
-theorem RuleSet.authorize_generation_none {rs : Chain.RuleSet}
+theorem RuleSet.checkAuth_generation_none {rs : Chain.RuleSet}
     (h : ∀ r ∈ rs, r.generation = none) (records : List RuleCore.Cap.Record)
     (a : Chain.Authorization) (g : UInt64) :
-    rs.authorize records { a with generation := g } = rs.authorize records a := by
+    rs.checkAuth records { a with generation := g } = rs.checkAuth records a := by
   have hc : rs.denote.checkChoice a.auth a.now.toNat g.toNat =
       rs.denote.checkChoice a.auth a.now.toNat a.generation.toNat := by
     funext root x
@@ -197,7 +197,7 @@ theorem RuleSet.authorize_generation_none {rs : Chain.RuleSet}
           cases hx
           simp [Chain.Rule.denote, h r₀ (List.mem_of_getElem? hx')]
       simp [RuleCore.Rule.stale, hg]
-  simp only [Chain.RuleSet.authorize, Chain.Authorization.denote, RuleCore.RuleSet.authorize, hc,
+  simp only [Chain.RuleSet.checkAuth, Chain.Authorization.denote, RuleCore.RuleSet.checkAuth, hc,
     RuleCore.Authorization.chosen]
   rfl
 
@@ -252,10 +252,10 @@ theorem Account.issued_stale {s : Account} {sd : Doc} {root grant : Chain.RuleSe
     {steps : List Chain.Attenuation} (hissue : s.issue sd = .ok root)
     (hgrant : root.attenuateAll steps = .ok grant) {es : List Event} (hc : 0 < s.completions es)
     {records records' : List RuleCore.Cap.Record} {a : Chain.Authorization}
-    (hgen : a.generation = (s.run es).generation) (ha : grant.authorize records a = .ok records') :
+    (hgen : a.generation = (s.run es).generation) (ha : grant.checkAuth records a = .ok records') :
     a.contexts = [] := by
   have hall := Chain.RuleSet.attenuateAll_generation_eq hgrant (Doc.lowerScoped_generation hissue)
-  refine Chain.RuleSet.authorize_contexts_nil_of_stale ha hall ?_
+  refine Chain.RuleSet.checkAuth_contexts_nil_of_stale ha hall ?_
   intro he
   have := Account.run_generation s es
   rw [← hgen, ← he] at this
@@ -263,14 +263,14 @@ theorem Account.issued_stale {s : Account} {sd : Doc} {root grant : Chain.RuleSe
 
 /-- The admin rules authorize the same in every generation: a recovery leaves
 them as they were. -/
-theorem Account.adminRules_authorize_generation (s : Account) (records : List RuleCore.Cap.Record)
+theorem Account.adminRules_checkAuth_generation (s : Account) (records : List RuleCore.Cap.Record)
     (a : Chain.Authorization) (g : UInt64) :
-    s.adminRules.authorize records { a with generation := g } = s.adminRules.authorize records a :=
-  RuleSet.authorize_generation_none (Doc.lower_generation s.admin s.address) records a g
+    s.adminRules.checkAuth records { a with generation := g } = s.adminRules.checkAuth records a :=
+  RuleSet.checkAuth_generation_none (Doc.lower_generation s.admin s.address) records a g
 
 /-! ## The chain -/
 
-/-- The containment chain: anything `authorize` accepts under a grant
+/-- The containment chain: anything `checkAuth` accepts under a grant
 attenuated from the rules a valid scoped document was issued as is allowed by
 that scoped document, touches neither the account nor a contract of the
 excluded set its admin document gives (its recovery controller, ZK adapter and
@@ -278,13 +278,13 @@ pool), and is made in the generation the document was issued under. -/
 theorem Account.chain {s : Account} {sd : Doc} (hv : sd.Valid) {root grant : Chain.RuleSet}
     {steps : List Chain.Attenuation} (hissue : s.issue sd = .ok root)
     (hgrant : root.attenuateAll steps = .ok grant) {records records' : List RuleCore.Cap.Record}
-    {a : Chain.Authorization} (ha : grant.authorize records a = .ok records') :
+    {a : Chain.Authorization} (ha : grant.checkAuth records a = .ok records') :
     (∀ c ∈ a.contexts, sd.allows s.address c a.auth = true) ∧
       (∀ c ∈ a.contexts, ∀ contract function args, c = .call contract function args →
         contract ∉ s.admin.excluded s.address) ∧
       (a.contexts ≠ [] → a.generation = s.generation) := by
   have hall := (Chain.RuleSet.allowsAll_iff grant a.contexts a.auth).mp
-    (Chain.RuleSet.authorize_allowsAll ha)
+    (Chain.RuleSet.checkAuth_allowsAll ha)
   have hroot : ∀ c ∈ a.contexts, root.allows c a.auth = true := fun c hc =>
     Chain.RuleSet.attenuateAll_narrower hgrant c a.auth (hall c hc)
   refine ⟨fun c hc => ?_, fun c hc contract function args he => ?_, fun hne => ?_⟩
@@ -295,7 +295,7 @@ theorem Account.chain {s : Account} {sd : Doc} (hv : sd.Valid) {root grant : Cha
     exact (Doc.lowerScoped_allows_excluded hissue this).2
   · by_cases hg : a.generation = s.generation
     · exact hg
-    · exact absurd (Chain.RuleSet.authorize_contexts_nil_of_stale ha
+    · exact absurd (Chain.RuleSet.checkAuth_contexts_nil_of_stale ha
         (Chain.RuleSet.attenuateAll_generation_eq hgrant (Doc.lowerScoped_generation hissue))
         (Ne.symm hg)) hne
 
@@ -310,10 +310,10 @@ theorem Account.chain_trace {s : Account} {sd : Doc} (hv : sd.Valid) {root grant
     grant.TraceNarrower root (Chain.Attenuation.chainSource steps) ∧
       ∀ (ctl : Context → List Signer → Bool) (records : List RuleCore.Cap.Record)
         (a : Chain.Authorization),
-        (root.authorize records a).toOption =
-          sd.authorize s.address ctl (some s.generation) records a :=
+        (root.checkAuth records a).toOption =
+          sd.checkAuth s.address ctl (some s.generation) records a :=
   ⟨Chain.RuleSet.attenuateAll_traceNarrower hgrant,
-    fun ctl records a => Doc.lowerScoped_authorize hv hissue ctl records a⟩
+    fun ctl records a => Doc.lowerScoped_checkAuth hv hissue ctl records a⟩
 
 /-- After the account completes a recovery, nothing below the admin document
 authorizes: a grant attenuated from a scoped document issued before accepts
@@ -322,11 +322,25 @@ theorem Account.chain_after_recovery {s : Account} {sd : Doc} {root grant : Chai
     {steps : List Chain.Attenuation} (hissue : s.issue sd = .ok root)
     (hgrant : root.attenuateAll steps = .ok grant) {es : List Event} (hc : 0 < s.completions es)
     {records records' : List RuleCore.Cap.Record} {a : Chain.Authorization}
-    (hgen : a.generation = (s.run es).generation) (ha : grant.authorize records a = .ok records') :
+    (hgen : a.generation = (s.run es).generation) (ha : grant.checkAuth records a = .ok records') :
     a.contexts = [] ∧
-      ∀ g, (s.run es).adminRules.authorize records { a with generation := g } =
-        (s.run es).adminRules.authorize records a :=
+      ∀ g, (s.run es).adminRules.checkAuth records { a with generation := g } =
+        (s.run es).adminRules.checkAuth records a :=
   ⟨Account.issued_stale hissue hgrant hc hgen ha,
-    fun g => Account.adminRules_authorize_generation (s.run es) records a g⟩
+    fun g => Account.adminRules_checkAuth_generation (s.run es) records a g⟩
+
+/-! ## Former names
+
+The names these theorems had before the evaluator's entry point was renamed
+`check_auth`, kept so that citations of them still resolve. -/
+
+@[deprecated Doc.lowerScoped_checkAuth (since := "2026-11-08")]
+theorem Doc.lowerScoped_authorize : type_of% @Doc.lowerScoped_checkAuth := @Doc.lowerScoped_checkAuth
+
+@[deprecated RuleSet.checkAuth_generation_none (since := "2026-11-08")]
+theorem RuleSet.authorize_generation_none : type_of% @RuleSet.checkAuth_generation_none := @RuleSet.checkAuth_generation_none
+
+@[deprecated Account.adminRules_checkAuth_generation (since := "2026-11-08")]
+theorem Account.adminRules_authorize_generation : type_of% @Account.adminRules_checkAuth_generation := @Account.adminRules_checkAuth_generation
 
 end RuleCore.Document

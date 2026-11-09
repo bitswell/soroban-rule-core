@@ -50,7 +50,7 @@
 //!
 //! [`allows`] and [`allows_all`] screen local contexts without root constraints,
 //! caps, time or generation. [`allows_batch`] checks local conditions and
-//! exact root constraints against the first context of this one entry. [`authorize`] is the stateful check: an authorization names
+//! exact root constraints against the first context of this one entry. [`check_auth`] is the stateful check: an authorization names
 //! one rule per context, as OpenZeppelin's smart account does, each chosen
 //! rule must be unexpired at the current ledger, belong to the current
 //! generation when it carries one, and allow its context, every
@@ -74,7 +74,7 @@
 //! [`check_spend`] is the spending-cap check: given what a capped rule has
 //! spent in its window ([`SpendRecord`]), the cap, the current ledger and the
 //! amount of a new spend, it returns the record after the spend or a
-//! [`CapError`]. [`authorize`] calls it for every charge.
+//! [`CapError`]. [`check_auth`] calls it for every charge.
 //!
 //! [`spend`], [`delegate`] and [`refill`] keep budgets on the delegation
 //! tree, a slice of [`Node`]s: a spend charges the spender and every ancestor
@@ -122,7 +122,7 @@
 //!   or a division that leaves less than 256.
 //!
 //! The only panic left is allocation failure in `Vec::push`, which the
-//! attenuation steps, [`check_spend`], [`authorize`], the budget operations
+//! attenuation steps, [`check_spend`], [`check_auth`], the budget operations
 //! and the lowering call to build their result; [`allows`] and
 //! [`allows_all`] do not allocate.
 #![no_std]
@@ -148,7 +148,7 @@ pub use attenuate::{
     AttenuationError, add_cap, add_cond, drop_rule, lengthen_cap_period, lower_cap_limit,
     lower_valid_until, raise_threshold, remove_functions, remove_signers, restrict_functions,
 };
-pub use authorize::{Refusal, authorize};
+pub use authorize::{Refusal, check_auth};
 pub use budget::{BudgetError, MAX_NODES, Node, delegate, refill, spend, tree_valid};
 pub use bytes::{bytes_eq, bytes_in, bytes_starts_with};
 pub use cap::{

@@ -109,16 +109,16 @@ Attenuation:
 
 Authorization:
 
-* `RuleSet.authorize_allowsAll`: a rule set that accepts an authorization
+* `RuleSet.checkAuth_allowsAll`: a rule set that accepts an authorization
   allows its batch under its signers.
-* `RuleSet.authorize_validUntil`: an accepted authorization chooses no rule
+* `RuleSet.checkAuth_validUntil`: an accepted authorization chooses no rule
   whose last ledger is before its ledger.
-* `RuleSet.authorize_generation`, `RuleSet.authorize_not_chosen_of_stale`,
-  `RuleSet.authorize_contexts_nil_of_stale`: it chooses no rule issued under a
+* `RuleSet.checkAuth_generation`, `RuleSet.checkAuth_not_chosen_of_stale`,
+  `RuleSet.checkAuth_contexts_nil_of_stale`: it chooses no rule issued under a
   generation other than the current one, so once the current generation is not
   `g` a rule issued under `g` authorizes nothing, and a rule set issued under
   `g` accepts only an empty batch.
-* `RuleSet.authorize_signers`: every authenticated signer is a signer of a
+* `RuleSet.checkAuth_signers`: every authenticated signer is a signer of a
   chosen rule.
 * `RuleSet.attenuate_generation`, `RuleSet.attenuateAll_generation`,
   `RuleSet.attenuateAll_generation_eq`: no step changes a rule's generation, so
@@ -129,7 +129,7 @@ Authorization:
   (`Attenuation.source_denote_dropRule`, `Attenuation.source_denote_of_ne`).
 * `RuleSet.attenuate_capsValid`, `RuleSet.attenuateAll_capsValid`: the steps
   keep every cap valid.
-* `RuleSet.emptyRecords_denote`, `RuleSet.authorizeAll_denote`: the chain's
+* `RuleSet.emptyRecords_denote`, `RuleSet.checkAuthAll_denote`: the chain's
   empty records and runs are the generic ones of the denotation.
 -/
 
@@ -879,26 +879,26 @@ theorem RuleSet.raiseThreshold_eq_thresholdLowered_iff (rs : RuleSet) (i k : UIn
 theorem RuleSet.emptyRecords_denote (rs : RuleSet) : rs.denote.emptyRecords = rs.emptyRecords := by
   simp [RuleCore.RuleSet.emptyRecords, RuleSet.emptyRecords, RuleSet.rules_denote]
 
-theorem RuleSet.authorizeAll_denote (rs : RuleSet) (records : List RuleCore.Cap.Record)
+theorem RuleSet.checkAuthAll_denote (rs : RuleSet) (records : List RuleCore.Cap.Record)
     (as : List Authorization) :
-    rs.authorizeAll records as = rs.denote.authorizeAll records (as.map Authorization.denote) := by
-  simp only [RuleSet.authorizeAll, RuleCore.RuleSet.authorizeAll]
+    rs.checkAuthAll records as = rs.denote.checkAuthAll records (as.map Authorization.denote) := by
+  simp only [RuleSet.checkAuthAll, RuleCore.RuleSet.checkAuthAll]
   induction as generalizing records with
   | nil => rfl
   | cons a as ih =>
     simp only [List.foldlM_cons, List.map_cons]
-    have hd : rs.denote.authorize records a.denote = rs.authorize records a := rfl
+    have hd : rs.denote.checkAuth records a.denote = rs.checkAuth records a := rfl
     rw [hd]
-    cases rs.authorize records a with
+    cases rs.checkAuth records a with
     | error e => rfl
     | ok r => exact ih r
 
 /-- Soundness of the stateful check: a rule set that accepts an authorization
 allows its whole batch under its signers. -/
-theorem RuleSet.authorize_allowsAll {rs : RuleSet} {records records' : List RuleCore.Cap.Record}
-    {a : Authorization} (h : rs.authorize records a = .ok records') :
+theorem RuleSet.checkAuth_allowsAll {rs : RuleSet} {records records' : List RuleCore.Cap.Record}
+    {a : Authorization} (h : rs.checkAuth records a = .ok records') :
     rs.allowsAll a.contexts a.auth = true :=
-  RuleCore.RuleSet.authorize_allowsAll h
+  RuleCore.RuleSet.checkAuth_allowsAll h
 
 theorem RuleSet.denote_get (rs : RuleSet) (j : Nat) :
     rs.denote.rules[j]? = rs[j]?.map Rule.denote := by
@@ -906,11 +906,11 @@ theorem RuleSet.denote_get (rs : RuleSet) (j : Nat) :
 
 /-- Expiry: an accepted authorization chooses no rule whose last ledger is
 before the authorization's ledger. -/
-theorem RuleSet.authorize_validUntil {rs : RuleSet} {records records' : List RuleCore.Cap.Record}
-    {a : Authorization} (h : rs.authorize records a = .ok records') {j : UInt32}
+theorem RuleSet.checkAuth_validUntil {rs : RuleSet} {records records' : List RuleCore.Cap.Record}
+    {a : Authorization} (h : rs.checkAuth records a = .ok records') {j : UInt32}
     (hj : j ∈ a.choices) {r : Rule} (hr : rs[j.toNat]? = some r) {last : UInt32}
     (hl : r.validUntil = some last) : a.now ≤ last := by
-  have := RuleCore.RuleSet.authorize_validUntil (a := a.denote) h (j := j.toNat)
+  have := RuleCore.RuleSet.checkAuth_validUntil (a := a.denote) h (j := j.toNat)
     (by simpa [Authorization.denote] using List.mem_map_of_mem (f := (·.toNat)) hj)
     (r := r.denote) (by simp [hr]) (last := last.toNat)
     (by simp [Rule.denote, hl])
@@ -918,11 +918,11 @@ theorem RuleSet.authorize_validUntil {rs : RuleSet} {records records' : List Rul
 
 /-- Generation: an accepted authorization chooses no rule issued under a
 generation other than the current one. -/
-theorem RuleSet.authorize_generation {rs : RuleSet} {records records' : List RuleCore.Cap.Record}
-    {a : Authorization} (h : rs.authorize records a = .ok records') {j : UInt32}
+theorem RuleSet.checkAuth_generation {rs : RuleSet} {records records' : List RuleCore.Cap.Record}
+    {a : Authorization} (h : rs.checkAuth records a = .ok records') {j : UInt32}
     (hj : j ∈ a.choices) {r : Rule} (hr : rs[j.toNat]? = some r) {g : UInt64}
     (hg : r.generation = some g) : g = a.generation := by
-  have := RuleCore.RuleSet.authorize_generation (a := a.denote) h (j := j.toNat)
+  have := RuleCore.RuleSet.checkAuth_generation (a := a.denote) h (j := j.toNat)
     (by simpa [Authorization.denote] using List.mem_map_of_mem (f := (·.toNat)) hj)
     (r := r.denote) (by simp [hr]) (g := g.toNat)
     (by simp [Rule.denote, hg])
@@ -930,20 +930,20 @@ theorem RuleSet.authorize_generation {rs : RuleSet} {records records' : List Rul
 
 /-- Once the current generation is not `g`, a rule issued under `g` authorizes
 nothing: no accepted authorization chooses it. -/
-theorem RuleSet.authorize_not_chosen_of_stale {rs : RuleSet}
+theorem RuleSet.checkAuth_not_chosen_of_stale {rs : RuleSet}
     {records records' : List RuleCore.Cap.Record} {a : Authorization}
-    (h : rs.authorize records a = .ok records') {j : UInt32} {r : Rule}
+    (h : rs.checkAuth records a = .ok records') {j : UInt32} {r : Rule}
     (hr : rs[j.toNat]? = some r) {g : UInt64} (hg : r.generation = some g)
     (hne : g ≠ a.generation) : j ∉ a.choices :=
-  fun hj => hne (RuleSet.authorize_generation h hj hr hg)
+  fun hj => hne (RuleSet.checkAuth_generation h hj hr hg)
 
 /-- A rule set every rule of which was issued under `g` accepts, once the
 current generation is not `g`, only an authorization with no contexts. -/
-theorem RuleSet.authorize_contexts_nil_of_stale {rs : RuleSet}
+theorem RuleSet.checkAuth_contexts_nil_of_stale {rs : RuleSet}
     {records records' : List RuleCore.Cap.Record} {a : Authorization}
-    (h : rs.authorize records a = .ok records') {g : UInt64}
+    (h : rs.checkAuth records a = .ok records') {g : UInt64}
     (hall : ∀ r ∈ rs, r.generation = some g) (hne : g ≠ a.generation) : a.contexts = [] := by
-  have := RuleCore.RuleSet.authorize_contexts_nil_of_stale (a := a.denote) h (g := g.toNat)
+  have := RuleCore.RuleSet.checkAuth_contexts_nil_of_stale (a := a.denote) h (g := g.toNat)
     (by
       intro r hr
       rw [RuleSet.rules_denote, List.mem_map] at hr
@@ -956,11 +956,11 @@ theorem RuleSet.authorize_contexts_nil_of_stale {rs : RuleSet}
 
 /-- Signers: every signer an accepted authorization authenticated is a signer
 of some rule it chose. -/
-theorem RuleSet.authorize_signers {rs : RuleSet} {records records' : List RuleCore.Cap.Record}
-    {a : Authorization} (h : rs.authorize records a = .ok records') :
+theorem RuleSet.checkAuth_signers {rs : RuleSet} {records records' : List RuleCore.Cap.Record}
+    {a : Authorization} (h : rs.checkAuth records a = .ok records') :
     ∀ s ∈ a.auth, ∃ j ∈ a.choices, ∃ r, rs[j.toNat]? = some r ∧ s ∈ r.signers := by
   intro s hs
-  obtain ⟨j, hj, r, hr, hsr⟩ := RuleCore.RuleSet.authorize_signers (a := a.denote) h s hs
+  obtain ⟨j, hj, r, hr, hsr⟩ := RuleCore.RuleSet.checkAuth_signers (a := a.denote) h s hs
   simp only [Authorization.denote, List.mem_map] at hj
   obtain ⟨k, hk, rfl⟩ := hj
   rw [RuleSet.denote_get] at hr
@@ -1063,5 +1063,31 @@ theorem RuleSet.attenuateAll_capsValid {root rs : RuleSet} {steps : List Attenua
   have hd := RuleSet.denote_attenuateAll root steps
   rw [h] at hd
   exact RuleCore.RuleSet.attenuateAll_capsValid hv hd.symm
+
+/-! ## Former names
+
+The names these theorems had before the evaluator's entry point was renamed
+`check_auth`, kept so that citations of them still resolve. -/
+
+@[deprecated RuleSet.checkAuthAll_denote (since := "2026-11-08")]
+theorem RuleSet.authorizeAll_denote : type_of% @RuleSet.checkAuthAll_denote := @RuleSet.checkAuthAll_denote
+
+@[deprecated RuleSet.checkAuth_allowsAll (since := "2026-11-08")]
+theorem RuleSet.authorize_allowsAll : type_of% @RuleSet.checkAuth_allowsAll := @RuleSet.checkAuth_allowsAll
+
+@[deprecated RuleSet.checkAuth_validUntil (since := "2026-11-08")]
+theorem RuleSet.authorize_validUntil : type_of% @RuleSet.checkAuth_validUntil := @RuleSet.checkAuth_validUntil
+
+@[deprecated RuleSet.checkAuth_generation (since := "2026-11-08")]
+theorem RuleSet.authorize_generation : type_of% @RuleSet.checkAuth_generation := @RuleSet.checkAuth_generation
+
+@[deprecated RuleSet.checkAuth_not_chosen_of_stale (since := "2026-11-08")]
+theorem RuleSet.authorize_not_chosen_of_stale : type_of% @RuleSet.checkAuth_not_chosen_of_stale := @RuleSet.checkAuth_not_chosen_of_stale
+
+@[deprecated RuleSet.checkAuth_contexts_nil_of_stale (since := "2026-11-08")]
+theorem RuleSet.authorize_contexts_nil_of_stale : type_of% @RuleSet.checkAuth_contexts_nil_of_stale := @RuleSet.checkAuth_contexts_nil_of_stale
+
+@[deprecated RuleSet.checkAuth_signers (since := "2026-11-08")]
+theorem RuleSet.authorize_signers : type_of% @RuleSet.checkAuth_signers := @RuleSet.checkAuth_signers
 
 end RuleCore.Chain

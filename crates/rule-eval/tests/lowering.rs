@@ -1,5 +1,5 @@
 //! The lowering of documents: what `lower`, `lower_scoped` and `excluded`
-//! build, and, through `allows` and `authorize`, the verdicts Perch's installed
+//! build, and, through `allows` and `check_auth`, the verdicts Perch's installed
 //! rules give on the same calls (the probes of Perch's own harness, run on
 //! OpenZeppelin's smart account in `soroban-env-host`).
 
@@ -9,7 +9,7 @@ use common::*;
 use rule_eval::{
     AMOUNT_ARG, ArgConstraint, Cond, Context, Doc, DocCap, DocRule, Functions, MAX_STRING_LEN,
     Pred, Principals, Recovery, Refusal, Rule, Scope, ScopeError, Signer, SignerDecl, Val,
-    ZkFactor, allows, authorize, empty_record, excluded, lower, lower_scoped, recovery_rule,
+    ZkFactor, allows, check_auth, empty_record, excluded, lower, lower_scoped, recovery_rule,
     u32_xdr,
 };
 
@@ -98,12 +98,12 @@ fn transfer(amount: i128) -> Context {
 /// at ledger `now`, from empty records.
 fn accepted(rules: &[Rule], ctx: Context, signers: &[Signer], now: u32) -> bool {
     let records: Vec<_> = rules.iter().map(|_| empty_record()).collect();
-    authorize(rules, &records, &[ctx], &[0], signers, now, 0).is_ok()
+    check_auth(rules, &records, &[ctx], &[0], signers, now, 0).is_ok()
 }
 
 fn refusal(rules: &[Rule], ctx: Context, signers: &[Signer], now: u32) -> Option<Refusal> {
     let records: Vec<_> = rules.iter().map(|_| empty_record()).collect();
-    authorize(rules, &records, &[ctx], &[0], signers, now, 0).err()
+    check_auth(rules, &records, &[ctx], &[0], signers, now, 0).err()
 }
 
 // ---------------------------------------------------------------------------
@@ -326,10 +326,10 @@ fn a_capped_transfer_needs_an_i128_amount() {
 fn a_capped_rule_charges_up_to_its_limit() {
     let rules = lower(&doc(vec![capped_rule(doc_rule(None))]), &b(ACCOUNT));
     let records = vec![empty_record()];
-    let after = authorize(&rules, &records, &[transfer(10)], &[0], &[ci()], 500, 0)
+    let after = check_auth(&rules, &records, &[transfer(10)], &[0], &[ci()], 500, 0)
         .ok()
         .unwrap();
-    assert!(authorize(&rules, &after, &[transfer(1)], &[0], &[ci()], 501, 0).is_err());
+    assert!(check_auth(&rules, &after, &[transfer(1)], &[0], &[ci()], 501, 0).is_err());
 }
 
 #[test]
@@ -486,9 +486,9 @@ fn a_scoped_document_is_stamped_with_the_generation() {
     assert_eq!(rules.len(), 1);
     assert_eq!(rules[0].generation, Some(7));
     let records = vec![empty_record()];
-    let ok = authorize(&rules, &records, &[transfer(1)], &[0], &[ci()], 500, 7);
+    let ok = check_auth(&rules, &records, &[transfer(1)], &[0], &[ci()], 500, 7);
     assert!(ok.is_ok());
-    let stale = authorize(&rules, &records, &[transfer(1)], &[0], &[ci()], 500, 8);
+    let stale = check_auth(&rules, &records, &[transfer(1)], &[0], &[ci()], 500, 8);
     assert!(matches!(stale, Err(Refusal::StaleGeneration)));
 }
 
@@ -560,9 +560,9 @@ fn admin_rules_carry_no_generation_and_authorize_in_every_generation() {
     let records: Vec<_> = rules.iter().map(|_| empty_record()).collect();
     for generation in [0, 1, u64::MAX] {
         let admin_call = [call(ACCOUNT, "f", vec![])];
-        assert!(authorize(&rules, &records, &admin_call, &[0], &[ci()], 1, generation).is_ok());
+        assert!(check_auth(&rules, &records, &admin_call, &[0], &[ci()], 1, generation).is_ok());
         let apply = [call(ACCOUNT, "apply_doc", vec![])];
-        assert!(authorize(&rules, &records, &apply, &[1], &[], 1, generation).is_ok());
+        assert!(check_auth(&rules, &records, &apply, &[1], &[], 1, generation).is_ok());
     }
 }
 
